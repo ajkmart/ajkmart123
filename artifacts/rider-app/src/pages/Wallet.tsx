@@ -444,6 +444,7 @@ export default function Wallet() {
         api.getWalletPage({ cursor: pageParam ?? null, limit: PAGE_SIZE }),
       initialPageParam: null as string | null,
       getNextPageParam: (lastPage) => lastPage?.nextCursor ?? null,
+      staleTime: 30_000,
       refetchInterval: 30000,
       enabled: config.features.wallet,
     });

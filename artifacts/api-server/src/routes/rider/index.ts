@@ -5136,7 +5136,26 @@ router.get("/wallet/deposits", async (req, res) => {
       )
       .orderBy(desc(walletTransactionsTable.createdAt))
       .limit(20);
-    sendSuccess(res, { deposits: deposits.map((d) => ({ ...d, amount: safeNum(d.amount) })) });
+    sendSuccess(res, {
+      deposits: deposits.map((d) => {
+        const ref = d.reference ?? "pending";
+        const status =
+          ref.startsWith("approved:") ||
+          ref.startsWith("paid:") ||
+          ref === "verified" ||
+          ref === "approved"
+            ? "verified"
+            : ref.startsWith("rejected:")
+              ? "rejected"
+              : "pending";
+        return {
+          ...d,
+          amount: safeNum(d.amount),
+          status,
+          method: d.paymentMethod ?? null,
+        };
+      }),
+    });
   } catch (err) {
     logger.error(
       {
