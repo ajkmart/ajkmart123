@@ -68,6 +68,7 @@ import { db } from "@workspace/db";
 import { walletTransactionsTable } from "@workspace/db/schema";
 import { and, eq } from "drizzle-orm";
 import { createServer } from "../../../app.js";
+import { sendUserNotification } from "../../../routes/admin-shared.js";
 import { signAccessToken } from "../../../utils/admin-jwt.js";
 import {
   cleanupRiderPenalties,
@@ -111,6 +112,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
+  vi.clearAllMocks();
   await cleanupRiderPenalties(riderId);
   await cleanupWalletTransactions(riderId);
   await setWalletBalance(riderId, 0);
@@ -178,6 +180,16 @@ describe("POST /api/admin/riders/:id/penalties", () => {
     expect(tx).toBeDefined();
     expect(tx!.type).toBe("debit");
     expect(parseFloat(String(tx!.amount))).toBe(200);
+
+    const notifyMock = vi.mocked(sendUserNotification);
+    expect(notifyMock).toHaveBeenCalledOnce();
+    expect(notifyMock).toHaveBeenCalledWith(
+      riderId,
+      "Penalty Applied ⚠️",
+      expect.stringContaining("200"),
+      expect.any(String),
+      expect.any(String)
+    );
   });
 
   it("does not go below zero when penalty exceeds balance", async () => {
@@ -279,6 +291,15 @@ describe("DELETE /api/admin/riders/:id/penalties/:pid", () => {
     expect(creditTx).toBeDefined();
     expect(creditTx!.type).toBe("credit");
     expect(parseFloat(String(creditTx!.amount))).toBe(200);
+
+    const notifyMock = vi.mocked(sendUserNotification);
+    expect(notifyMock).toHaveBeenLastCalledWith(
+      riderId,
+      "Penalty Reversed ✅",
+      expect.stringContaining("200"),
+      expect.any(String),
+      expect.any(String)
+    );
   });
 
   it("removes a zero-amount penalty without any wallet change", async () => {
