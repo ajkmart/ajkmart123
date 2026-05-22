@@ -1,0 +1,39 @@
+─── D. FINANCE PAGES ───
+23. /admin/transactions → table loads with correct amount values (no NaN)
+24. Export CSV → file downloads with correct columns
+25. /admin/deposit-requests → approve → ConfirmDialog → API → status updates
+26. /admin/withdrawals → reject with note → toast → row updates
+27. /admin/wallet-transfers → table loads correctly
+─── E. SETTINGS PAGES ───
+28. /admin/settings → all 8 tabs load
+29. Change app name → Save → toast "Settings saved"
+30. Change payment limits → Save → API call made → toast
+31. API key field → shows masked value → type new key → saves new key (not masked)
+32. NavigationGuard → unsaved changes → navigate away → "You have unsaved changes" dialog
+─── F. REAL-TIME FEATURES ───
+33. Disconnect network → red banner appears in AdminLayout
+34. Reconnect network → banner disappears
+35. New SOS → badge number on SOS nav item increments
+36. Visit /admin/sos-alerts → badge resets to 0
+37. Order status change → row updates on /admin/orders without page refresh
+─── G. ERROR & LOADING STATES ───
+38. /admin/error-monitor with no errors → EmptyState shown (not infinite spinner)
+39. API server down → all pages show ErrorRetry component (not blank)
+40. Click "Retry" on ErrorRetry → re-fetches data
+41. /admin/health-dashboard → all check cards show status (not blank)
+42. Network error on save → toast shows specific error message
+─── H. BULK ACTIONS ───
+43. Users page: select 5 users → ActionBar appears → "Ban Selected"
+44. ConfirmDialog → "Ban 5 Users?" → confirm → API call → toast
+45. Orders page: select 3 orders → "Export CSV" → file downloads
+46. Cancel bulk action → deselects all, ActionBar disappears
+─── I. PRODUCTION BUILD ───
+47. cd artifacts/admin && pnpm build → exits 0, no errors
+48. Build output: multiple chunks (no single 5MB bundle)
+49. Initial bundle < 300KB gzipped
+50. Leaflet icons load correctly in production build (not broken images)
+─── J. TYPESCRIPT CHECKS ───
+51. cd artifacts/admin && pnpm tsc --noEmit → 0 errors
+52. cd artifacts/api-server && pnpm tsc --noEmit → 0 errors
+53. grep -r "from \"@/lib/api\"" artifacts/admin/src/ → 0 results (legacy bridge gone)
+54. grep -r "catch (e: any)" artifacts/admin/src/ → 0 results

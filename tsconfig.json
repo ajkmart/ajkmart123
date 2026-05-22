@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compileOnSave": false,
+  "files": [],
+  "references": [
+    { "path": "./lib/service-constants" },
+    { "path": "./lib/phone-utils" },
+    { "path": "./lib/i18n" },
+    { "path": "./lib/db" },
+    { "path": "./lib/api-zod" },
+    { "path": "./lib/api-client-react" },
+    { "path": "./lib/auth-utils" },
+    { "path": "./lib/admin-timing-shared" },
+    { "path": "./lib/ui" },
+    { "path": "./lib/integrations-gemini-ai" }
+  ]
+}

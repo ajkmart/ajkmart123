@@ -1,0 +1,34 @@
+═══ PROMPT 2 — Backend API Complete Route Map ═══
+Task: Document all rider API endpoints with auth, rate limits, and Zod schemas.
+File: artifacts/api-server/src/routes/rider/index.ts (5,595 lines)
+Auth middleware: requireRole("rider") — validates JWT, sets req.riderId
+Rate Limiters:
+| Limiter           | Window | Max | Applied To                        |
+|-------------------|--------|-----|-----------------------------------|
+| rideAcceptLimiter | 60 s   | 10  | POST /riders/rides/:id/accept     |
+| rideBidLimiter    | 60 s   | 10  | POST /riders/rides/:id/counter    |
+| rideStatusLimiter | 60 s   | 20  | PATCH /riders/rides/:id/status    |
+| otpLimiter        | 60 s   | 5   | POST /riders/rides/:id/verify-otp |
+Server-Side Idempotency:
+- Header: X-Idempotency-Key (UUID from offline queue replay)
+- TTL: 5 minutes per key
+- Scope: All mutating rider endpoints
+- Prevents double-accepts when network retries
+Endpoint Table:
+| Method | Endpoint | Zod Schema | Auth | Notes |
+|--------|----------|------------|------|-------|
+| GET | /riders/me | — | riderAuth | Returns profile + KYC status |
+| PATCH | /riders/online | { isOnline: bool } | riderAuth | Returns serviceZoneWarning |
+| PATCH | /riders/profile | profileSchema | riderAuth | vehicleRegistration alias |
+| GET | /riders/requests | — | riderAuth | Envelope with serverTime |
+| GET | /riders/active | — | riderAuth | Current order or ride |
+| POST | /riders/orders/:id/accept | — | riderAuth + rateLimit | Offline-safe |
+| POST | /riders/orders/:id/reject | { reason } | riderAuth | |
+| PATCH | /riders/orders/:id/status | { status, proofPhoto? } | riderAuth | |
+| POST | /riders/rides/:id/accept | — | riderAuth + rateLimit | OTP generated here |
+| PATCH | /riders/rides/:id/status | { status, lat?, lng? } | riderAuth + rateLimit | |
+| POST | /riders/rides/:id/verify-otp | { otp } | riderAuth + otpLimiter | |
+| POST | /riders/rides/:id/counter | { counterFare, note? } | riderAuth + rateLimit | |
+| POST | /riders/rides/:id/reject-offer | — | riderAuth | |
+| POST | /riders/rides/:id/ignore | — | riderAuth | 90-second dismissed TTL |
+| POST | /riders/rides/:id/event-log | { event, lat?, lng? } | riderAuth | GPS-tagged audit |

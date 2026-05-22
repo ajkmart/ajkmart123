@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "HAJhNJcgmiew8D4BjRESK"
+uri = "file://.local/FULL_AUDIT_REPORT.md"
+type = "text"
+title = "AJKMart Complete Audit Report"

@@ -1,0 +1,25 @@
+{
+  "status": "ok",
+  "db": "ok",
+  "redis": "disabled",
+  "dbPoolSize": 3,
+  "dbIdleCount": 3,
+  "dbWaitingCount": 0,
+  "uptime": 3248.885586844,
+  "timestamp": "2026-05-21T11:24:17.862Z",
+  "serverEpoch": 1779359409,
+  "environment": "development",
+  "version": "1.0.0",
+  "appVersion": "1.0.0",
+  "p95Ms": 452,
+  "dbQueryMs": 61,
+  "memoryPct": 92,
+  "diskPct": 55,
+  "vpnDetection": { "status": "ok" },
+  "checks": {
+    "database": { "status": "ok", "latencyMs": 61 },
+    "redis": { "status": "skipped", "reason": "REDIS_URL not set" },
+    "storage": { "status": "ok", "freeGb": 30.3 },
+    "smtp": { "status": "skipped", "reason": "SMTP_HOST not set" }
+  }
+}

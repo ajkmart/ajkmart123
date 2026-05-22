@@ -1,0 +1,79 @@
+{
+  "success": true,
+  "data": {
+    "vendors": [
+      {
+        "id": "demo_vend_6",
+        "name": "Mirpur General Store",
+        "phone": "+923001234026",
+        "totalOrders": 3,
+        "totalRevenue": 2850
+      },
+      {
+        "id": "demo_vend_5",
+        "name": "Desi Dhaba Chattar",
+        "phone": "+923001234025",
+        "totalOrders": 3,
+        "totalRevenue": 2700
+      },
+      {
+        "id": "demo_vend_2",
+        "name": "AJK Mart Store",
+        "phone": "+923001234022",
+        "totalOrders": 3,
+        "totalRevenue": 1950
+      },
+      {
+        "id": "demo_vend_1",
+        "name": "Biryani House AJK",
+        "phone": "+923001234021",
+        "totalOrders": 3,
+        "totalRevenue": 1800
+      },
+      {
+        "id": "demo_vend_4",
+        "name": "Rawalakot Pharmacy",
+        "phone": "+923001234024",
+        "totalOrders": 2,
+        "totalRevenue": 1600
+      }
+    ],
+    "riders": [
+      {
+        "id": "demo_rider_6",
+        "name": "Faisal Javed",
+        "phone": "+923001234016",
+        "completedTrips": 2,
+        "totalEarned": 650
+      },
+      {
+        "id": "demo_rider_7",
+        "name": "Kamran Yousaf",
+        "phone": "+923001234017",
+        "completedTrips": 2,
+        "totalEarned": 700
+      },
+      {
+        "id": "demo_rider_4",
+        "name": "Naveed Akhtar",
+        "phone": "+923001234014",
+        "completedTrips": 1,
+        "totalEarned": 175
+      },
+      {
+        "id": "demo_rider_2",
+        "name": "Tariq Mehmood",
+        "phone": "+923001234012",
+        "completedTrips": 1,
+        "totalEarned": 125
+      },
+      {
+        "id": "demo_rider_5",
+        "name": "Waqas Butt",
+        "phone": "+923001234015",
+        "completedTrips": 1,
+        "totalEarned": 200
+      }
+    ]
+  }
+}

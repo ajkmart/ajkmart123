@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.eslintignore
+.vite/
+*.min.js
+*.min.css
+artifacts/ajkmart/
+lib/db/migrations/
+*.sql
+*.md
+.replit_integration_files/
+.local/
+pnpm-lock.yaml
+.cache/
+artifacts/mockup-sandbox/src/.generated/

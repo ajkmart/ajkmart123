@@ -1,0 +1,17 @@
+{
+  "name": "AJKMart Admin Panel",
+  "short_name": "Admin",
+  "description": "AJKMart Platform Administration — Manage users, orders, riders and settings",
+  "start_url": "/admin/",
+  "scope": "/admin/",
+  "display": "standalone",
+  "orientation": "landscape-primary",
+  "background_color": "#1e293b",
+  "theme_color": "#1e293b",
+  "icons": [
+    { "src": "/admin/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "categories": ["business"],
+  "lang": "en-PK",
+  "dir": "ltr"
+}

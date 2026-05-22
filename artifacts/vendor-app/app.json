@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "AJKMart Vendor",
+    "slug": "ajkmart-vendor",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./public/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#ffffff"
+    },
+    "android": {
+      "package": "com.ajkmart.vendor",
+      "versionCode": 1,
+      "buildType": "apk",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "VIBRATE",
+        "INTERNET"
+      ]
+    },
+    "extra": {
+      "apiBaseUrl": "https://your-production-api.ajkmart.com"
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24,
+            "targetSdkVersion": 34,
+            "compileSdkVersion": 34
+          }
+        }
+      ]
+    ]
+  }
+}

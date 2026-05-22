@@ -1,0 +1,80 @@
+Run pnpm test --reporter=verbose
+
+> @workspace/rider-app@0.0.0 test /home/runner/work/google/google/artifacts/rider-app
+> vitest run --reporter=verbose
+
+
+ RUN  v4.1.6 /home/runner/work/google/google/artifacts/rider-app
+
+ ✓ src/tests/security.test.ts > IDOR — ride ownership enforcement > blocks a rider from accessing another rider's ride 3ms
+ ✓ src/tests/security.test.ts > IDOR — ride ownership enforcement > allows the legitimate owner to access their own ride 0ms
+ ✓ src/tests/security.test.ts > IDOR — ride ownership enforcement > denies access when resourceOwnerId is null (unassigned ride) 0ms
+ ✓ src/tests/security.test.ts > IDOR — ride ownership enforcement > denies access when resourceOwnerId is undefined 0ms
+ ✓ src/tests/security.test.ts > GPS spoofing — impossible speed rejected > rejects a ping that implies speed above 200 km/h (GPS spoof) 1ms
+ ✓ src/tests/security.test.ts > GPS spoofing — impossible speed rejected > accepts a reasonable speed ping (motorcycle courier ~60 km/h) 0ms
+ ✓ src/tests/security.test.ts > GPS spoofing — impossible speed rejected > rejects a ping with a future timestamp 0ms
+ ✓ src/tests/security.test.ts > GPS spoofing — impossible speed rejected > rejects a ping with suspiciously perfect GPS accuracy (< 2 m — likely spoofed) 0ms
+ ✓ src/tests/security.test.ts > GPS spoofing — impossible speed rejected > accepts a first ping with no previous location 0ms
+ ✓ src/tests/security.test.ts > Wallet — balance enforcement > rejects a withdrawal that would result in a negative balance 0ms
+ ✓ src/tests/security.test.ts > Wallet — balance enforcement > rejects a withdrawal of exactly the full balance (leaving zero) — allowed 0ms
+ ✓ src/tests/security.test.ts > Wallet — balance enforcement > allows a withdrawal that leaves a positive balance 0ms
+ ✓ src/tests/security.test.ts > Wallet — balance enforcement > rejects a zero-amount withdrawal 0ms
+ ✓ src/tests/security.test.ts > Wallet — balance enforcement > rejects a negative withdrawal amount 0ms
+ ✓ src/tests/security.test.ts > Promo stacking — only one active promo allowed > rejects stacking two promo codes at once 0ms
+ ✓ src/tests/security.test.ts > Promo stacking — only one active promo allowed > allows a single promo code to be applied 0ms
+ ✓ src/tests/security.test.ts > Promo stacking — only one active promo allowed > allows an empty promo list (no promo applied) 0ms
+ ✓ src/tests/security.test.ts > Promo stacking — only one active promo allowed > rejects three stacked promos 0ms
+ ✓ src/tests/security.test.ts > XSS in chat — script tags rendered safe > stores the XSS payload as plain text (z.string() does not execute it) 0ms
+ ✓ src/tests/security.test.ts > XSS in chat — script tags rendered safe > stripHtml removes the <script> tag, leaving safe content 1ms
+ ✓ src/tests/security.test.ts > XSS in chat — script tags rendered safe > stripHtml removes nested/multiple HTML tags 0ms
+ ✓ src/tests/security.test.ts > XSS in chat — script tags rendered safe > React-escaping invariant: angle brackets in stored text become entities when rendered 0ms
+ ✓ src/tests/offline.test.ts > Offline queue — enqueue while offline > queues an accept_ride action when the network is unavailable 56ms
+ ✓ src/tests/offline.test.ts > Offline queue — enqueue while offline > enqueueAction returns the new action id without throwing 2ms
+ ✓ src/tests/offline.test.ts > Offline queue — enqueue while offline > enqueueAction for different action types without error 8ms
+ ✓ src/tests/offline.test.ts > Offline queue — sync drains on reconnect > calls the registered executor for each queued action when syncQueue runs 119ms
+ ✓ src/tests/offline.test.ts > Offline queue — sync drains on reconnect > syncQueue does not throw when the queue is empty 2ms
+ ✓ src/tests/offline.test.ts > Offline queue — sync drains on reconnect > syncQueue does not throw when no executor is registered 0ms
+ ✓ src/tests/offline.test.ts > Offline queue — ordering preserved on failure > stops processing when the first action fails, leaving later actions in queue 113ms
+ ✓ src/tests/offline.test.ts > Offline queue — mid-transaction failure queues the action > enqueues the action and returns an id even when the server call would fail 2ms
+ ✓ src/tests/offline.test.ts > Offline queue — pending count > getQueuePendingCount returns a non-negative integer 1ms
+ ✓ src/tests/offline.test.ts > Offline queue — pending count > getQueuePendingCount does not throw even when IDB is unavailable 1ms
+ ✓ src/tests/offline.test.ts > Offline queue — FIFO ordering invariant > QueuedAction objects have required fields when constructed manually 0ms
+ ✓ src/tests/offline.test.ts > Offline queue — FIFO ordering invariant > later-created actions have a higher createdAt timestamp 6ms
+ ✓ src/tests/HomeRequestList.test.tsx > HomeRequestList > renders without crashing with empty lists 17ms
+ ✓ src/tests/HomeRequestList.test.tsx > HomeRequestList > shows loading spinner text when requestsLoading is true 16ms
+ ✓ src/tests/HomeRequestList.test.tsx > HomeRequestList > renders order cards for each order in the list 6ms
+ ✓ src/tests/HomeRequestList.test.tsx > HomeRequestList > renders a ride card for each ride in the list 4ms
+ ✓ src/tests/GoalSection.test.tsx > GoalSection > renders without crashing 133ms
+ ✓ src/tests/GoalSection.test.tsx > GoalSection > shows goal progress percentage (40% of 3000) 8ms
+ ✓ src/tests/GoalSection.test.tsx > GoalSection > shows 100% when earnings exceed goal 4ms
+ ✓ src/tests/GoalSection.test.tsx > GoalSection > uses adminGoal as fallback when personalGoal is null 4ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/auth-logout.test.ts [ src/tests/auth-logout.test.ts ]
+Error: Failed to resolve import "@/lib/logger" from "src/lib/logoutSequence.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/runner/work/google/google/artifacts/rider-app/src/lib/logoutSequence.ts:9:29
+  1  |  "use strict";
+  2  |  import { createLogger } from "@/lib/logger";
+     |                                ^
+  3  |  const log = createLogger("[logoutSequence]");
+  4  |  export function executeLogoutSequence(apiClient, clearAppState) {
+ ❯ TransformPluginContext._formatLog ../../node_modules/.pnpm/vite@7.3.1_@types+node@25.3.5_jiti@2.6.1_lightningcss@1.31.1_terser@5.46.1_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:28999:43
+ ❯ TransformPluginContext.error ../../node_modules/.pnpm/vite@7.3.1_@types+node@25.3.5_jiti@2.6.1_lightningcss@1.31.1_terser@5.46.1_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:28996:14
+ ❯ normalizeUrl ../../node_modules/.pnpm/vite@7.3.1_@types+node@25.3.5_jiti@2.6.1_lightningcss@1.31.1_terser@5.46.1_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:27119:18
+ ❯ ../../node_modules/.pnpm/vite@7.3.1_@types+node@25.3.5_jiti@2.6.1_lightningcss@1.31.1_terser@5.46.1_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:27177:32
+ ❯ TransformPluginContext.transform ../../node_modules/.pnpm/vite@7.3.1_@types+node@25.3.5_jiti@2.6.1_lightningcss@1.31.1_terser@5.46.1_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:27145:4
+ ❯ EnvironmentPluginContainer.transform ../../node_modules/.pnpm/vite@7.3.1_@types+node@25.3.5_jiti@2.6.1_lightningcss@1.31.1_terser@5.46.1_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:28797:14
+ ❯ loadAndTransform ../../node_modules/.pnpm/vite@7.3.1_@types+node@25.3.5_jiti@2.6.1_lightningcss@1.31.1_terser@5.46.1_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:22670:26
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 4 passed (5)
+      Tests  42 passed (42)
+   Start at  10:55:32
+   Duration  2.81s (transform 488ms, setup 0ms, import 720ms, tests 527ms, environment 4.76s)
+
+ ELIFECYCLE  Test failed. See above for more details.
+Error: Process completed with exit code 1.

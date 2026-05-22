@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/"
+title = "AJKMart Super App"
+version = "1.0.0"
+id = "artifacts/ajkmart"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/" ]
+localPort = 20716
+
+[services.development]
+run = "pnpm --filter @workspace/ajkmart run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/ajkmart", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/ajkmart", "run", "serve" ]
+
+[services.env]
+PORT = "20716"
+BASE_PATH = "/"

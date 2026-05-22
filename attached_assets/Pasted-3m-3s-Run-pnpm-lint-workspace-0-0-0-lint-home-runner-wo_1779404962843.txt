@@ -1,0 +1,33 @@
+3m 3s
+Run pnpm lint
+
+> workspace@0.0.0 lint /home/runner/work/google/google
+> NODE_OPTIONS=--max-old-space-size=4096 eslint .
+
+(node:2458) ESLintIgnoreWarning: The ".eslintignore" file is no longer supported. Switch to using the "ignores" property in "eslint.config.js": https://eslint.org/docs/latest/use/configure/migration-guide#ignoring-files
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+<--- Last few GCs --->
+
+[2458:0xc6fa070]   155697 ms: Mark-Compact 4024.9 (4137.5) -> 4014.2 (4138.3) MB, 2702.67 / 0.00 ms  (average mu = 0.339, current mu = 0.023) allocation failure; scavenge might not succeed
+[2458:0xc6fa070]   157733 ms: Mark-Compact 4031.6 (4139.5) -> 4020.0 (4144.0) MB, 1973.32 / 0.01 ms  (average mu = 0.221, current mu = 0.031) allocation failure; scavenge might not succeed
+
+
+<--- JS stacktrace --->
+
+FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+ 1: 0xb78db3 node::OOMErrorHandler(char const*, v8::OOMDetails const&) [node]
+ 2: 0xee8300 v8::Utils::ReportOOMFailure(v8::internal::Isolate*, char const*, v8::OOMDetails const&) [node]
+ 3: 0xee85e7 v8::internal::V8::FatalProcessOutOfMemory(v8::internal::Isolate*, char const*, v8::OOMDetails const&) [node]
+ 4: 0x10fb205  [node]
+ 5: 0x1113088 v8::internal::Heap::CollectGarbage(v8::internal::AllocationSpace, v8::internal::GarbageCollectionReason, v8::GCCallbackFlags) [node]
+ 6: 0x10e91f1 v8::internal::HeapAllocator::AllocateRawWithLightRetrySlowPath(int, v8::internal::AllocationType, v8::internal::AllocationOrigin, v8::internal::AllocationAlignment) [node]
+ 7: 0x10ea385 v8::internal::HeapAllocator::AllocateRawWithRetryOrFailSlowPath(int, v8::internal::AllocationType, v8::internal::AllocationOrigin, v8::internal::AllocationAlignment) [node]
+ 8: 0x10c78d6 v8::internal::Factory::NewFillerObject(int, v8::internal::AllocationAlignment, v8::internal::AllocationType, v8::internal::AllocationOrigin) [node]
+ 9: 0x15247d6 v8::internal::Runtime_AllocateInYoungGeneration(int, unsigned long*, v8::internal::Isolate*) [node]
+10: 0x7f07b1e9a476 
+Aborted (core dumped)
+ ELIFECYCLE  Command failed with exit code 134.
+Error: Process completed with exit code 134.

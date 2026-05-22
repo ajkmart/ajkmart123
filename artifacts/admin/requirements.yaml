@@ -1,0 +1,15 @@
+packages:
+  "recharts": "For dashboard revenue charts and analytics"
+  "date-fns": "For formatting timestamps beautifully"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility to merge tailwind classes safely"
+  "lucide-react": "Beautiful, consistent icons"
+
+images:
+  - path: "artifacts/admin/public/images/login-bg.png"
+    description: "Abstract geometric background with deep blue and white gradients, clean and professional enterprise tech feel"
+    aspect_ratio: "16:9"
+
+notes:
+  - "Using AJKMart brand colors (Primary: #1A56DB)"
+  - "Admin auth uses x-admin-secret header for all API calls"

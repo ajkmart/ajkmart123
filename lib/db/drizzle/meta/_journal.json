@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1743577200000,
+      "tag": "0001_add_deal_expires_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1779169085073,
+      "tag": "0001_sync_schema_0025_align",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779169629603,
+      "tag": "0002_baseline_sync_schema",
+      "breakpoints": true
+    }
+  ]
+}

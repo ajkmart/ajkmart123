@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "email_otp_used" BOOLEAN NOT NULL DEFAULT false;

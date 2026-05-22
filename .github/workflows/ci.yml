@@ -1,0 +1,485 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+# Cancel in-progress runs on the same branch when a new commit is pushed
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# ─── Shared install step via a reusable composite-style job ─────────────────
+# Every job restores the same pnpm cache key, so dependencies are never
+# re-downloaded after the first run on a given lockfile hash.
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 1 — Install dependencies (gate for all downstream jobs)
+  # ─────────────────────────────────────────────────────────────────────────
+  install:
+    name: Install Dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      cache-key: ${{ steps.pnpm-cache.outputs.store }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10"
+
+      - name: Get pnpm store path
+        id: pnpm-cache
+        run: echo "store=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.store }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-
+
+      - name: Install (HUSKY=0 to skip git hooks in CI)
+        run: HUSKY=0 pnpm install --no-frozen-lockfile
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 2 — TypeScript type-check (all workspaces)
+  # ─────────────────────────────────────────────────────────────────────────
+  typecheck:
+    name: Type-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: install
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10"
+
+      - name: Restore pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ needs.install.outputs.cache-key }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-
+
+      - name: Install
+        run: HUSKY=0 pnpm install --no-frozen-lockfile
+
+      - name: Type-check (all workspaces)
+        run: |
+          set -o pipefail
+          pnpm typecheck:ci 2>&1 | tee /tmp/typecheck.log
+        env:
+          NODE_ENV: development
+
+      - name: Type-check error summary
+        if: failure()
+        run: |
+          log=/tmp/typecheck.log
+
+          echo "## TypeScript Error Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Package | Status | Errors |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---------|--------|-------:|" >> "$GITHUB_STEP_SUMMARY"
+
+          total=0
+          for pkg in db i18n auth-utils auth-react api-client api admin rider vendor; do
+            if [ -f "$log" ]; then
+              count=$(grep -c "^\[$pkg\].*error TS" "$log" 2>/dev/null || true)
+              [ -z "$count" ] && count=0
+            else
+              count=0
+            fi
+            if [ "$count" -gt 0 ]; then
+              echo "| \`$pkg\` | ❌ Fail | $count |" >> "$GITHUB_STEP_SUMMARY"
+              total=$((total + count))
+            else
+              echo "| \`$pkg\` | ✅ Pass | 0 |" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "> **Total type errors: $total**" >> "$GITHUB_STEP_SUMMARY"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 3 — ESLint (all workspaces)
+  # ─────────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: install
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10"
+
+      - name: Restore pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ needs.install.outputs.cache-key }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-
+
+      - name: Install
+        run: HUSKY=0 pnpm install --no-frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint:ci
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 4 — Prettier format check
+  # ─────────────────────────────────────────────────────────────────────────
+  format:
+    name: Format Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: install
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10"
+
+      - name: Restore pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ needs.install.outputs.cache-key }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-
+
+      - name: Install
+        run: HUSKY=0 pnpm install --no-frozen-lockfile
+
+      - name: Prettier format check
+        run: pnpm format:check
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 5 — Backend unit tests (Vitest — no DB required)
+  # ─────────────────────────────────────────────────────────────────────────
+  unit-tests:
+    name: Unit Tests (API Server)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: install
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10"
+
+      - name: Restore pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ needs.install.outputs.cache-key }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-
+
+      - name: Install
+        run: HUSKY=0 pnpm install --no-frozen-lockfile
+
+      - name: Run unit tests with coverage
+        working-directory: artifacts/api-server
+        run: pnpm test --reporter=verbose --coverage
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test-secret-minimum-32-characters-here-ok
+          ENCRYPTION_MASTER_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL || 'postgresql://dummy:dummy@localhost/dummy' }}
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-test-coverage
+          path: artifacts/api-server/coverage/
+          retention-days: 7
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 6 — React component tests (Admin + Vendor + Rider)
+  # ─────────────────────────────────────────────────────────────────────────
+  component-tests:
+    name: Component Tests (Admin / Vendor / Rider)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: install
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10"
+
+      - name: Restore pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ needs.install.outputs.cache-key }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-
+
+      - name: Install
+        run: HUSKY=0 pnpm install --no-frozen-lockfile
+
+      - name: Admin component tests
+        working-directory: artifacts/admin
+        run: pnpm test --reporter=verbose
+
+      - name: Vendor component tests
+        working-directory: artifacts/vendor-app
+        run: pnpm test --reporter=verbose
+
+      - name: Rider component tests
+        working-directory: artifacts/rider-app
+        run: pnpm test --reporter=verbose
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 7 — Integration tests (requires TEST_DATABASE_URL secret)
+  # Skipped automatically if the secret is not set.
+  # ─────────────────────────────────────────────────────────────────────────
+  integration-tests:
+    name: Integration Tests (Auth / Wallet / Rides)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: install
+    if: ${{ vars.SKIP_INTEGRATION_TESTS != 'true' }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10"
+
+      - name: Restore pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ needs.install.outputs.cache-key }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-
+
+      - name: Install
+        run: HUSKY=0 pnpm install --no-frozen-lockfile
+
+      - name: Run integration tests
+        working-directory: artifacts/api-server
+        run: pnpm test:integration --reporter=verbose
+        env:
+          NODE_ENV: test
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+          JWT_SECRET: test-secret-minimum-32-characters-here-ok
+          ADMIN_JWT_SECRET: test-admin-jwt-secret-min-32-characters
+          RIDER_JWT_SECRET: test-rider-jwt-secret-min-32-characters
+          VENDOR_JWT_SECRET: test-vendor-jwt-secret-min-32-chars-ok
+          ENCRYPTION_MASTER_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+          ALLOW_DEV_OTP: "true"
+        continue-on-error: ${{ secrets.TEST_DATABASE_URL == '' }}
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 8 — E2E tests (Playwright — Admin, Vendor, Rider)
+  # Runs only after unit + component tests pass.
+  # ─────────────────────────────────────────────────────────────────────────
+  e2e:
+    name: E2E Tests (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [unit-tests, component-tests]
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET || 'ajkmart_dev_jwt_secret_key_minimum_32_chars_long_secure' }}
+      ADMIN_JWT_SECRET: ${{ secrets.ADMIN_JWT_SECRET || 'QOHAcA0Y3m6yyQ1jW8FnQu995T5e8XupSnhKch6SF8RIKFn5KNZatDnFzqUDX2OL' }}
+      ADMIN_ACCESS_TOKEN_SECRET: ${{ secrets.ADMIN_ACCESS_TOKEN_SECRET || '4fc304dd9d3e635183c931a02a263f95d27ff28ed452533d0f9a45d5394823414d4e17450fb2242ed0f333bf5c84baa40009285cbafe576552fe9ac602092c84' }}
+      ADMIN_REFRESH_TOKEN_SECRET: ${{ secrets.ADMIN_REFRESH_TOKEN_SECRET || '066b0e25ce54152ad21cf2ffa33fbc58faa9f3cf5d068a1f363221bb08f079b6e378aabb5785f20e9ddc7e9d5313ea624d52fe3236c64c49c8de0fb87566ec51' }}
+      ADMIN_CSRF_SECRET: ${{ secrets.ADMIN_CSRF_SECRET || '39c9024aa76c428a7c0441ef932ad670309ef636b8d21043d3180ea1c598a4e2d02c02c1ac2fd4b066f85e92d200bc9cd636d22a53854caa1207818502c5ae41' }}
+      ADMIN_REFRESH_SECRET: ${{ secrets.ADMIN_REFRESH_SECRET || '55def1493a431b368ef9af35b823738bc6278051eefc0a0598584de2cf8592126ff08dae261ef3fdea2bc699099cd7fb51eae99ee0b85d9ffb4b64b211486e0a' }}
+      ADMIN_SECRET: ${{ secrets.ADMIN_SECRET || 'AJK-hig2QXaC_VG7OPZqgMT-VsVHtN8' }}
+      RIDER_JWT_SECRET: ${{ secrets.RIDER_JWT_SECRET || '9f8eb198fcfb41409cedc584511c0cf64909a3ae5d4e400a4e3b3fae3648bf72d83e4635a72dad317a261bc1c4c4a8d32dfaea0af3c22b2ee86c4e7e0a3c123c' }}
+      VENDOR_JWT_SECRET: ${{ secrets.VENDOR_JWT_SECRET || '2b9526deb5e7686478f147989f7079bdc7d258024c5606bb3347cb4b03b8e392e39c44afec8dab9a0967a62457b027e4a9e7c04213f2695bf4037d75dcfdfa07' }}
+      ENCRYPTION_MASTER_KEY: ${{ secrets.ENCRYPTION_MASTER_KEY || '7679a42a8c4a1a2bc106d5b24bc1c1235d34794fcdac1fa95be4d82159275dd3' }}
+      ERROR_REPORT_HMAC_SECRET: ${{ secrets.ERROR_REPORT_HMAC_SECRET || '01f8e2dd33f8ffc7473fff9201fe8c72ea2cba12b156e03b72b1d3511f66e2a180cc9d3d7ff0678212ee6baf7c6dc7fdb6b377804ab2328984b333fc9a212958' }}
+      VAPID_PUBLIC_KEY: BEmlZZIGCb7ZhembOoH02qzZlnhkFrYkib27NwFgtXBFDcvtHhhWC2hfZEHU4JpDbfHIRgbrCiM_f9gEEc_JHLg
+      VAPID_PRIVATE_KEY: b3egnGyDJYSVsOB4z-PGhf5YbGeuVKcHtNpJPQ-r-eM
+      VAPID_CONTACT_EMAIL: mailto:admin@ajkmart.app
+      JWT_ISSUER: ajkmart
+      NODE_ENV: development
+      ADMIN_SEED_PASSWORD: ${{ secrets.ADMIN_SEED_PASSWORD || 'SuperAdmin@2024!' }}
+      ADMIN_PASSWORD: Admin@123
+      E2E_BYPASS_SECRET: e2e-playwright-bypass-2024
+      VITE_API_PROXY_TARGET: http://127.0.0.1:5000
+      ALLOW_DEV_OTP: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10"
+
+      - name: Restore pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ needs.install.outputs.cache-key }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-
+
+      - name: Install
+        run: HUSKY=0 pnpm install --no-frozen-lockfile
+
+      # Install Playwright's own Chromium build + ffmpeg for video recording.
+      # `--with-deps` installs OS-level dependencies (libnss3, libatk, etc.) on Ubuntu.
+      - name: Install Playwright browsers + OS deps
+        run: pnpm exec playwright install --with-deps chromium ffmpeg
+
+      # The API server must be running before Playwright webServer starts the
+      # 3 frontend dev servers (which proxy /api → localhost:5000).
+      - name: Start API server (background)
+        run: |
+          PORT=5000 NODE_ENV=development npx tsx artifacts/api-server/src/index.ts &
+          echo "API_PID=$!" >> $GITHUB_ENV
+
+      - name: Wait for API server health check
+        run: |
+          echo "Waiting for API server on port 5000..."
+          timeout 90 bash -c 'until curl -sf http://localhost:5000/api/health > /dev/null 2>&1; do sleep 3; done'
+          echo "API server ready ✓"
+
+      # Playwright's webServer config (playwright.config.ts) auto-starts the 3
+      # frontend dev servers (ports 3000/3001/3002) and waits for them before
+      # running tests — no need to start them manually here.
+      - name: Run Admin E2E tests
+        run: pnpm playwright test --project=admin --reporter=dot
+        env:
+          CI: "true"
+
+      - name: Run Vendor E2E tests
+        run: pnpm playwright test --project=vendor --reporter=dot
+        env:
+          CI: "true"
+
+      - name: Run Rider E2E tests
+        run: pnpm playwright test --project=rider --reporter=dot
+        env:
+          CI: "true"
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: e2e/reports/
+          retention-days: 14
+
+      - name: Upload E2E failure artifacts (screenshots + traces)
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-failure-artifacts
+          path: e2e/artifacts/
+          retention-days: 7
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 9 — Security audit (dependency vulnerabilities)
+  # ─────────────────────────────────────────────────────────────────────────
+  audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: install
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10"
+
+      - name: Restore pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ needs.install.outputs.cache-key }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-
+
+      - name: Install
+        run: HUSKY=0 pnpm install --no-frozen-lockfile
+
+      - name: Dependency audit
+        run: pnpm audit:check
+        continue-on-error: true
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 10 — Final gate: all required jobs must pass before merge
+  # ─────────────────────────────────────────────────────────────────────────
+  ci-success:
+    name: CI Passed ✅
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - typecheck
+      - lint
+      - format
+      - unit-tests
+      - component-tests
+      - e2e
+
+    steps:
+      - name: Check all required jobs passed
+        run: |
+          results='${{ toJSON(needs) }}'
+          echo "Job results: $results"
+
+          failed=false
+          for job in typecheck lint format unit-tests component-tests e2e; do
+            result=$(echo "$results" | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          job = '$job'
+          print(d.get(job, {}).get('result', 'missing'))
+          ")
+            echo "$job → $result"
+            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
+              failed=true
+            fi
+          done
+
+          if [ "$failed" = "true" ]; then
+            echo "❌ One or more required CI jobs failed."
+            exit 1
+          fi
+
+          echo "✅ All CI checks passed — safe to merge."

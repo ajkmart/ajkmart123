@@ -1,0 +1,50 @@
+═══ PROMPT 2 — Admin Auth System: Session Expiry & Refresh Hardening ═══
+Task: Admin ka JWT refresh system aur session expiry fully robust banao.
+      Token expire hone par blank white screen na aaye — proper logout flow ho.
+Files:
+- artifacts/admin/src/lib/adminAuthContext.tsx
+- artifacts/admin/src/lib/adminFetcher.tsx
+PART A — Proactive Token Refresh:
+adminAuthContext.tsx mein check karo ki refresh timer set hai ya nahi.
+Agar nahi hai to add karo:
+useEffect(() => {
+  if (!state.accessToken) return;
+  // Decode JWT expiry
+  const payload = JSON.parse(atob(state.accessToken.split(".")[1]));
+  const expiresIn = (payload.exp * 1000) - Date.now();
+  // Refresh 60 seconds before expiry
+  const refreshTimer = setTimeout(() => {
+    refreshAccessToken();
+  }, Math.max(expiresIn - 60_000, 0));
+  return () => clearTimeout(refreshTimer);
+}, [state.accessToken]);
+PART B — Refresh Failure Handling:
+When refreshAccessToken() fails (network error or 401):
+- Clear all auth state
+- Show toast: "Session expired. Please log in again."
+- Redirect to /admin/login
+- Do NOT show blank white screen
+PART C — adminFetcher 401 Handling:
+In adminFetcher.tsx, when any API request returns 401:
+- Attempt ONE token refresh automatically
+- If refresh succeeds → retry original request with new token
+- If refresh fails → call logout() from adminAuthContext → redirect to /admin/login
+- Never queue multiple refresh requests (use a flag: isRefreshing + queue)
+PART D — Session Check on Tab Focus:
+Add visibility change listener:
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    checkSession(); // GET /api/admin/v2/check-session
+  }
+});
+If checkSession() returns 401 → force logout.
+PART E — "Session About to Expire" Warning:
+5 minutes before token expires, show a dismissable banner:
+"Your session expires in 5 minutes. Click to extend."
+Click → calls refreshAccessToken().
+Acceptance:
+- Token auto-refreshes 60s before expiry (no manual action needed)
+- 401 from any API → 1 retry with fresh token → if still 401 → logout
+- Tab focus after long idle → session check runs
+- No blank white screen on session expiry
+- pnpm tsc --noEmit → 0 errors

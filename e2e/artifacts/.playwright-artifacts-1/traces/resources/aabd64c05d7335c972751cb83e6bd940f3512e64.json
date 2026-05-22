@@ -1,0 +1,91 @@
+{
+  "success": true,
+  "data": {
+    "trend": [
+      {
+        "date": "2026-05-15",
+        "revenue": 0,
+        "mart": 0,
+        "rides": 0,
+        "pharmacy": 0,
+        "parcel": 0,
+        "van": 0,
+        "orderCount": 0,
+        "rideCount": 0,
+        "sosCount": 0
+      },
+      {
+        "date": "2026-05-16",
+        "revenue": 0,
+        "mart": 0,
+        "rides": 0,
+        "pharmacy": 0,
+        "parcel": 0,
+        "van": 0,
+        "orderCount": 0,
+        "rideCount": 0,
+        "sosCount": 0
+      },
+      {
+        "date": "2026-05-17",
+        "revenue": 0,
+        "mart": 0,
+        "rides": 0,
+        "pharmacy": 0,
+        "parcel": 0,
+        "van": 0,
+        "orderCount": 0,
+        "rideCount": 0,
+        "sosCount": 1
+      },
+      {
+        "date": "2026-05-18",
+        "revenue": 0,
+        "mart": 0,
+        "rides": 0,
+        "pharmacy": 0,
+        "parcel": 0,
+        "van": 0,
+        "orderCount": 0,
+        "rideCount": 0,
+        "sosCount": 0
+      },
+      {
+        "date": "2026-05-19",
+        "revenue": 0,
+        "mart": 0,
+        "rides": 0,
+        "pharmacy": 0,
+        "parcel": 0,
+        "van": 0,
+        "orderCount": 0,
+        "rideCount": 0,
+        "sosCount": 0
+      },
+      {
+        "date": "2026-05-20",
+        "revenue": 0,
+        "mart": 0,
+        "rides": 0,
+        "pharmacy": 0,
+        "parcel": 0,
+        "van": 0,
+        "orderCount": 0,
+        "rideCount": 0,
+        "sosCount": 0
+      },
+      {
+        "date": "2026-05-21",
+        "revenue": 0,
+        "mart": 0,
+        "rides": 0,
+        "pharmacy": 0,
+        "parcel": 0,
+        "van": 0,
+        "orderCount": 0,
+        "rideCount": 0,
+        "sosCount": 0
+      }
+    ]
+  }
+}

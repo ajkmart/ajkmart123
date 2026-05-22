@@ -1,0 +1,40 @@
+PART B — Transactions Page Export:
+In transactions.tsx:
+- "Export CSV" button in page header (only visible with finance.transactions.view permission)
+- For small exports (≤ 500 rows): use client-side exportToCsv() with current filtered data
+- For large exports (> 500 rows): call GET /api/admin/transactions?export=csv
+  - This returns a CSV file directly (Content-Type: text/csv)
+  - Use: window.location.href = `/api/admin/transactions?export=csv&${currentFilters}`
+Columns to export: id, date, userId, userName, type, amount, status, reference
+PART C — Users Page Export:
+Columns: ajkId, name, phone, email, role, status, createdAt, walletBalance, city
+In users.tsx:
+- Export only filtered/searched results (respects current search/filter)
+- Maximum 1000 rows per export (show warning if more)
+PART D — Orders Page Export:
+Columns: orderId, date, customerId, customerName, vendorName, items, total, status, deliveredAt
+PART E — Audit Logs Export:
+Columns: timestamp, adminId, adminName, action, targetType, targetId, ipAddress, details
+PART F — Backend: Export Endpoints
+In artifacts/api-server/src/routes/admin/finance.ts, add:
+GET /api/admin/transactions?export=csv
+- Only allowed with finance.transactions.view permission
+- Streams CSV response with appropriate headers:
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", `attachment; filename="transactions_${Date.now()}.csv"`);
+- Limit: 10,000 rows max
+PART G — Export Button Component:
+Create artifacts/admin/src/components/ExportButton.tsx:
+Props: { filename: string; data?: CsvRow[]; apiUrl?: string; permission?: string }
+- If data provided: client-side export
+- If apiUrl provided: redirect to download URL
+- Shows loading spinner while generating
+- Shows toast: "Downloading transactions_2024-01-15.csv"
+Acceptance:
+- Transactions page: Export CSV → file downloads with correct columns
+- Users page: Export respects active search filter
+- Audit logs: Export with date range filter
+- Backend export endpoint streams correctly (no memory spike)
+- Export button disabled if user lacks required permission
+- pnpm tsc --noEmit → 0 errors
+

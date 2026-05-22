@@ -1,0 +1,61 @@
+═══ PROMPT 13 — Admin Panel: Production Build Optimize Karo ═══
+Task: Admin panel ka production build optimize karo. Bundle split karo.
+      First load time 3 seconds se kam karo.
+Files:
+- artifacts/admin/vite.config.ts
+- artifacts/admin/package.json
+- artifacts/admin/src/App.tsx (verify all lazy imports)
+PART A — Verify All Page Imports Are Lazy:
+In App.tsx, EVERY page import must use React.lazy:
+  const Dashboard = lazy(() => import("@/pages/dashboard"));
+  const Users = lazy(() => import("@/pages/users"));
+  // ... every single page
+BAD (will include in main bundle):
+  import Dashboard from "@/pages/dashboard";  // ← WRONG
+Wrap entire router in Suspense:
+  <Suspense fallback={<div className="flex items-center justify-center h-screen">
+    <Loader2 className="animate-spin" />
+  </div>}>
+    <Switch>...</Switch>
+  </Suspense>
+PART B — Vite Bundle Splitting:
+In artifacts/admin/vite.config.ts, add manual chunks:
+build: {
+  chunkSizeWarningLimit: 1000,
+  rollupOptions: {
+    output: {
+      manualChunks: {
+        // Vendor chunks (rarely change)
+        "vendor-react": ["react", "react-dom"],
+        "vendor-query": ["@tanstack/react-query"],
+        "vendor-router": ["wouter"],
+        "vendor-radix": [
+          "@radix-ui/react-dialog",
+          "@radix-ui/react-dropdown-menu",
+          "@radix-ui/react-select",
+          "@radix-ui/react-tabs",
+          "@radix-ui/react-toast",
+        ],
+        "vendor-charts": ["recharts"],
+        "vendor-map": ["leaflet", "react-leaflet"],
+        "vendor-icons": ["lucide-react"],
+        // Feature chunks (change with feature work)
+        "pages-operations": [
+          "./src/pages/orders/index.tsx",
+          "./src/pages/rides.tsx",
+          "./src/pages/pharmacy.tsx",
+        ],
+        "pages-finance": [
+          "./src/pages/transactions.tsx",
+          "./src/pages/Withdrawals.tsx",
+          "./src/pages/DepositRequests.tsx",
+        ],
+        "pages-analytics": [
+          "./src/pages/analytics.tsx",
+          "./src/pages/revenue-analytics.tsx",
+          "./src/pages/search-analytics.tsx",
+        ],
+      },
+    },
+  },
+}

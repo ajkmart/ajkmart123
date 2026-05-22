@@ -1,0 +1,39 @@
+PART B — General Settings:
+- Fields: appName, contactEmail, contactPhone, defaultLanguage, timezone, currency
+- Validate: email format, phone format
+- On save: PUT /api/settings with { general: { appName, contactEmail, ... } }
+PART C — Payment Settings:
+- Fields: walletMinDeposit, walletMaxDeposit, walletMaxBalance,
+         platformFeePercent, payoutMinAmount, payoutSchedule
+- Validate: all must be positive numbers, platformFeePercent <= 100
+- walletMaxDeposit must be > walletMinDeposit
+PART D — Integration Settings:
+- Maps tab already has provider selector (verify saves to platform_settings)
+- SMS: twilio/africas-talking/custom selector + API key field
+- When API key field is masked (●●●●), do NOT re-send masked value on save
+- Only send key if user has typed a new value (track: hasNewValue boolean)
+PART E — Security Settings:
+- Fields: sessionTtlMinutes, refreshTtlDays, maxFailedLogins, lockoutDurationMinutes
+- Validate: sessionTtlMinutes between 5 and 1440
+- Warning banner if sessionTtlMinutes < 15 (security risk)
+PART F — Compliance Settings:
+- Fields: dataRetentionDays, amlThresholdAmount, gdprEnabled, consentRequired
+- amlThresholdAmount: must be positive integer (PKR amount)
+- gdprEnabled toggle: when enabled, show GDPR features in app
+PART G — Branding Settings:
+- Fields: logoUrl, faviconUrl, primaryColor, secondaryColor
+- Logo/favicon: show current image preview + upload new via /api/admin/uploads/admin
+- Color fields: use HTML color picker input type="color"
+- primaryColor: validate is valid hex (#RRGGBB)
+PART H — Backend: PUT /api/settings
+In artifacts/api-server/src/routes/admin/system.ts:
+- Verify PUT /api/settings accepts partial updates (merge with existing)
+- If field is missing in body → keep existing value (don't null it out)
+- Validate using Zod schema per section
+- Log change to audit_logs with: { adminId, changedFields, before, after }
+Acceptance:
+- Each tab saves independently (changing General doesn't affect Payment)
+- API keys are never re-sent as masked values
+- NavigationGuard warns on unsaved changes
+- All 8 tabs load and save without errors
+- pnpm tsc --noEmit → 0 errors

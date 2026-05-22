@@ -1,0 +1,20 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "HAJhNJcgmiew8D4BjRESK"
+uri = "file://.local/FULL_AUDIT_REPORT.md"
+type = "text"
+title = "AJKMart Complete Audit Report"
+
+[[outputs]]
+id = "HhygQ-_6c6OjyKkUdmb3A"
+uri = "file://setup.command.md"
+type = "text"
+title = "AJKMart Setup Commands"
+
+[[outputs]]
+id = "jrXzJ0SjWOLHgU-PNdXnT"
+uri = "file://guide.md"
+type = "text"
+title = "AJKMart Technical Guide"

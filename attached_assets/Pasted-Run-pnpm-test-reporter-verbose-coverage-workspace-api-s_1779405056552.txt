@@ -1,0 +1,675 @@
+Run pnpm test --reporter=verbose --coverage
+
+> @workspace/api-server@0.0.0 test /home/runner/work/google/google/artifacts/api-server
+> vitest run --reporter=verbose --coverage
+
+
+ RUN  v4.1.6 /home/runner/work/google/google/artifacts/api-server
+      Coverage enabled with v8
+
+[23:04:13.449] INFO (2442): [redis] REDIS_URL is not set — JWT token blacklisting and distributed rate limiting are DISABLED. Logged-out access tokens will remain valid until they expire naturally, and brute-force protection is per-instance only. Set REDIS_URL in the Replit Secrets panel to enable these features.
+[23:04:13.450] INFO (2442): [rate-limit] limiter configured
+    prefix: "global"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.471] INFO (2442): [rate-limit] limiter configured
+    prefix: "auth"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.475] INFO (2442): [rate-limit] limiter configured
+    prefix: "admin-auth"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:13.475] INFO (2442): [rate-limit] limiter configured
+    prefix: "payment"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.476] INFO (2442): [rate-limit] limiter configured
+    prefix: "public"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.476] INFO (2442): [rate-limit] limiter configured
+    prefix: "login"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:13.477] INFO (2442): [rate-limit] limiter configured
+    prefix: "otp"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:13.477] INFO (2442): [rate-limit] limiter configured
+    prefix: "email-otp"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:13.482] INFO (2442): [rate-limit] limiter configured
+    prefix: "magic-link"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:13.482] INFO (2442): [rate-limit] limiter configured
+    prefix: "registration"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.483] INFO (2442): [rate-limit] limiter configured
+    prefix: "refresh-token"
+    store: "in-memory (fixed-window)"
+    tier: "lenient"
+[23:04:13.483] INFO (2442): [rate-limit] limiter configured
+    prefix: "password-reset"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:13.484] INFO (2442): [rate-limit] limiter configured
+    prefix: "redeem"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.484] INFO (2442): [rate-limit] limiter configured
+    prefix: "export-data"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.484] INFO (2442): [rate-limit] limiter configured
+    prefix: "register-upload"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.488] INFO (2442): [rate-limit] limiter configured
+    prefix: "user-api"
+    store: "in-memory (fixed-window)"
+    tier: "lenient"
+[23:04:13.488] INFO (2442): [rate-limit] limiter configured
+    prefix: "upload"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.489] INFO (2442): [rate-limit] limiter configured
+    prefix: "admin-action"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:13.468] INFO (2441): [redis] REDIS_URL is not set — JWT token blacklisting and distributed rate limiting are DISABLED. Logged-out access tokens will remain valid until they expire naturally, and brute-force protection is per-instance only. Set REDIS_URL in the Replit Secrets panel to enable these features.
+[23:04:13.502] INFO (2443): [redis] REDIS_URL is not set — JWT token blacklisting and distributed rate limiting are DISABLED. Logged-out access tokens will remain valid until they expire naturally, and brute-force protection is per-instance only. Set REDIS_URL in the Replit Secrets panel to enable these features.
+[23:04:13.469] INFO (2441): [rate-limit] limiter configured
+    prefix: "global"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.483] INFO (2441): [rate-limit] limiter configured
+    prefix: "auth"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.484] INFO (2441): [rate-limit] limiter configured
+    prefix: "admin-auth"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:13.484] INFO (2441): [rate-limit] limiter configured
+    prefix: "payment"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.485] INFO (2441): [rate-limit] limiter configured
+    prefix: "public"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.485] INFO (2441): [rate-limit] limiter configured
+    prefix: "login"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:13.485] INFO (2441): [rate-limit] limiter configured
+    prefix: "otp"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:13.489] INFO (2441): [rate-limit] limiter configured
+    prefix: "email-otp"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:13.489] INFO (2441): [rate-limit] limiter configured
+    prefix: "magic-link"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:13.490] INFO (2441): [rate-limit] limiter configured
+    prefix: "registration"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.491] INFO (2441): [rate-limit] limiter configured
+    prefix: "refresh-token"
+    store: "in-memory (fixed-window)"
+    tier: "lenient"
+[23:04:13.508] INFO (2441): [rate-limit] limiter configured
+    prefix: "password-reset"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:13.508] INFO (2441): [rate-limit] limiter configured
+    prefix: "redeem"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.509] INFO (2441): [rate-limit] limiter configured
+    prefix: "export-data"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.509] INFO (2441): [rate-limit] limiter configured
+    prefix: "register-upload"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.509] INFO (2441): [rate-limit] limiter configured
+    prefix: "user-api"
+    store: "in-memory (fixed-window)"
+    tier: "lenient"
+[23:04:13.512] INFO (2441): [rate-limit] limiter configured
+    prefix: "upload"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.513] INFO (2441): [rate-limit] limiter configured
+    prefix: "admin-action"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:13.503] INFO (2443): [rate-limit] limiter configured
+    prefix: "global"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.519] INFO (2443): [rate-limit] limiter configured
+    prefix: "auth"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.520] INFO (2443): [rate-limit] limiter configured
+    prefix: "admin-auth"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:13.520] INFO (2443): [rate-limit] limiter configured
+    prefix: "payment"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.521] INFO (2443): [rate-limit] limiter configured
+    prefix: "public"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.522] INFO (2443): [rate-limit] limiter configured
+    prefix: "login"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:13.522] INFO (2443): [rate-limit] limiter configured
+    prefix: "otp"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:13.523] INFO (2443): [rate-limit] limiter configured
+    prefix: "email-otp"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:13.523] INFO (2443): [rate-limit] limiter configured
+    prefix: "magic-link"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:13.524] INFO (2443): [rate-limit] limiter configured
+    prefix: "registration"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.524] INFO (2443): [rate-limit] limiter configured
+    prefix: "refresh-token"
+    store: "in-memory (fixed-window)"
+    tier: "lenient"
+[23:04:13.524] INFO (2443): [rate-limit] limiter configured
+    prefix: "password-reset"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:13.525] INFO (2443): [rate-limit] limiter configured
+    prefix: "redeem"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.525] INFO (2443): [rate-limit] limiter configured
+    prefix: "export-data"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.526] INFO (2443): [rate-limit] limiter configured
+    prefix: "register-upload"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.526] INFO (2443): [rate-limit] limiter configured
+    prefix: "user-api"
+    store: "in-memory (fixed-window)"
+    tier: "lenient"
+[23:04:13.527] INFO (2443): [rate-limit] limiter configured
+    prefix: "upload"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:13.527] INFO (2443): [rate-limit] limiter configured
+    prefix: "admin-action"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:14.856] WARN (2442): [security] loadBlockedIPs DB query failed
+    err: "Failed query: select \"key\" from \"rate_limits\" where \"rate_limits\".\"key\" like $1\nparams: blocked_ip:%"
+[23:04:14.857] WARN (2442): [security] Settings cache refresh failed — using stale/empty cache
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"\nparams: : ",
+      "stack":
+          Error: Failed query: select "key", "value", "label", "category", "updated_at" from "platform_settings"
+          params: 
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+          caused by: AggregateError: 
+              at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:124:18
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+      "query": "select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"",
+      "params": []
+    }
+[23:04:15.133] WARN (2442): TOKEN_HASH_SECRET not set — using JWT_SECRET as fallback. Set a dedicated secret in production.
+[23:04:15.295] INFO (2442): [TOR] Refreshed exit node list: 1277 nodes
+[23:04:14.867] WARN (2441): [security] loadBlockedIPs DB query failed
+    err: "Failed query: select \"key\" from \"rate_limits\" where \"rate_limits\".\"key\" like $1\nparams: blocked_ip:%"
+[23:04:14.867] WARN (2441): [security] Settings cache refresh failed — using stale/empty cache
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"\nparams: : ",
+      "stack":
+          Error: Failed query: select "key", "value", "label", "category", "updated_at" from "platform_settings"
+          params: 
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+          caused by: AggregateError: 
+              at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:124:18
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+      "query": "select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"",
+      "params": []
+    }
+[23:04:15.134] WARN (2441): TOKEN_HASH_SECRET not set — using JWT_SECRET as fallback. Set a dedicated secret in production.
+[23:04:15.276] INFO (2441): [TOR] Refreshed exit node list: 1277 nodes
+[23:04:14.876] WARN (2443): [security] loadBlockedIPs DB query failed
+    err: "Failed query: select \"key\" from \"rate_limits\" where \"rate_limits\".\"key\" like $1\nparams: blocked_ip:%"
+[23:04:14.877] WARN (2443): [security] Settings cache refresh failed — using stale/empty cache
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"\nparams: : ",
+      "stack":
+          Error: Failed query: select "key", "value", "label", "category", "updated_at" from "platform_settings"
+          params: 
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+          caused by: AggregateError: 
+              at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:124:18
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+      "query": "select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"",
+      "params": []
+    }
+[23:04:15.133] WARN (2443): TOKEN_HASH_SECRET not set — using JWT_SECRET as fallback. Set a dedicated secret in production.
+[23:04:15.293] INFO (2443): [TOR] Refreshed exit node list: 1277 nodes
+[23:04:16.214] INFO (2442): [storage] STORAGE_BUCKET_URL not set — using local disk storage (./uploads/).
+[23:04:16.214] INFO (2442): [storage] STORAGE_PRIVATE_BUCKET_URL not set — private uploads go to local disk (development only).
+[23:04:16.184] INFO (2441): [storage] STORAGE_BUCKET_URL not set — using local disk storage (./uploads/).
+[23:04:16.184] INFO (2441): [storage] STORAGE_PRIVATE_BUCKET_URL not set — private uploads go to local disk (development only).
+[23:04:16.220] INFO (2443): [storage] STORAGE_BUCKET_URL not set — using local disk storage (./uploads/).
+[23:04:16.220] INFO (2443): [storage] STORAGE_PRIVATE_BUCKET_URL not set — private uploads go to local disk (development only).
+stderr | src/tests/wallet.test.ts
+[wallet teardown] best-effort DB cleanup failed: DrizzleQueryError: Failed query: delete from "users" where "users"."id" = $1
+params: test-wallet-customer-e2e-001
+    at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at /home/runner/work/google/google/artifacts/api-server/src/tests/wallet.test.ts:66:5 {
+  query: 'delete from "users" where "users"."id" = $1',
+  params: [ 'test-wallet-customer-e2e-001' ],
+  cause: AggregateError: 
+      at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:113:20
+      at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+      at /home/runner/work/google/google/artifacts/api-server/src/tests/wallet.test.ts:66:5 {
+    code: 'ECONNREFUSED',
+    [errors]: [ [Error], [Error] ]
+  }
+}
+
+stderr | src/tests/rides.test.ts
+[rides teardown] best-effort DB cleanup failed: DrizzleQueryError: Failed query: delete from "users" where ("users"."id" = $1 or "users"."id" = $2)
+params: test-rides-customer-e2e-002,test-rides-rider-e2e-002
+    at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at /home/runner/work/google/google/artifacts/api-server/src/tests/rides.test.ts:84:5 {
+  query: 'delete from "users" where ("users"."id" = $1 or "users"."id" = $2)',
+  params: [ 'test-rides-customer-e2e-002', 'test-rides-rider-e2e-002' ],
+  cause: AggregateError: 
+      at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:113:20
+      at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+      at /home/runner/work/google/google/artifacts/api-server/src/tests/rides.test.ts:84:5 {
+    code: 'ECONNREFUSED',
+    [errors]: [ [Error], [Error] ]
+  }
+}
+
+stderr | src/tests/admin-approval.test.ts
+[teardown] best-effort DB cleanup failed: DrizzleQueryError: Failed query: delete from "users" where "users"."id" = $1
+params: test-rider-approval-workflow-e2e-001
+    at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at /home/runner/work/google/google/artifacts/api-server/src/tests/admin-approval.test.ts:96:5 {
+  query: 'delete from "users" where "users"."id" = $1',
+  params: [ 'test-rider-approval-workflow-e2e-001' ],
+  cause: AggregateError: 
+      at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:113:20
+      at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+      at /home/runner/work/google/google/artifacts/api-server/src/tests/admin-approval.test.ts:96:5 {
+    code: 'ECONNREFUSED',
+    [errors]: [ [Error], [Error] ]
+  }
+}
+
+ ↓ src/tests/wallet.test.ts > Wallet auth guards — unauthenticated requests return 401 > GET /api/wallet returns 401 without token
+ ↓ src/tests/wallet.test.ts > Wallet auth guards — unauthenticated requests return 401 > POST /api/wallet/deposit returns 401 without token
+ ↓ src/tests/wallet.test.ts > Wallet auth guards — unauthenticated requests return 401 > POST /api/wallet/send returns 401 without token
+ ↓ src/tests/wallet.test.ts > Wallet auth guards — unauthenticated requests return 401 > POST /api/wallet/withdraw returns 401 without token
+ ↓ src/tests/wallet.test.ts > Wallet balance fetch > GET /api/wallet returns 200 with balance and transactions for authenticated customer
+ ↓ src/tests/wallet.test.ts > Wallet deposit input validation > POST /api/wallet/deposit with missing body returns 400/422
+ ↓ src/tests/wallet.test.ts > Wallet deposit input validation > POST /api/wallet/deposit with negative amount returns 400/422
+ ↓ src/tests/wallet.test.ts > Wallet deposit input validation > POST /api/wallet/deposit with non-numeric amount returns 400/422
+ ↓ src/tests/wallet.test.ts > Wallet deposit input validation > POST /api/wallet/deposit with missing idempotencyKey returns 400/422
+ ↓ src/tests/wallet.test.ts > Wallet P2P send input validation > POST /api/wallet/send with missing receiver and ajkId returns 400/422
+ ↓ src/tests/wallet.test.ts > Wallet P2P send input validation > POST /api/wallet/send with missing amount returns 400/422
+ ↓ src/tests/wallet.test.ts > Wallet P2P send input validation > POST /api/wallet/send with negative amount returns 400/422
+ ↓ src/tests/wallet.test.ts > Wallet P2P send input validation > POST /api/wallet/send missing X-Idempotency-Key header returns 400/422
+ ↓ src/tests/wallet.test.ts > Wallet P2P send input validation > POST /api/wallet/send to own phone (self-send) returns 400/422
+ ↓ src/tests/wallet.test.ts > Wallet withdraw input validation > POST /api/wallet/withdraw with missing body returns 400/422
+ ↓ src/tests/wallet.test.ts > Wallet withdraw input validation > POST /api/wallet/withdraw with missing accountNumber returns 400/422
+ ↓ src/tests/wallet.test.ts > Wallet withdraw input validation > POST /api/wallet/withdraw with amount exceeding realistic limit returns 400/422/403
+ ↓ src/tests/wallet.test.ts > Wallet admin top-up > POST /api/wallet/topup with valid admin token and valid amount returns 200
+ ↓ src/tests/wallet.test.ts > Wallet admin top-up > POST /api/wallet/topup with customer token returns 401
+ ↓ src/tests/wallet.test.ts > Wallet admin top-up > POST /api/wallet/topup without token returns 401
+ ↓ src/tests/wallet.test.ts > Wallet rate limit smoke test > 35 rapid POST /api/wallet/deposit requests from same IP returns at least one 429
+ ↓ src/tests/admin-approval.test.ts > Admin approval workflow — pending rider gets unblocked > 1. seeded rider has approvalStatus: pending in the DB before approval
+ ↓ src/tests/admin-approval.test.ts > Admin approval workflow — pending rider gets unblocked > 2. pending rider cannot receive a login JWT — verify-otp returns no token
+ ↓ src/tests/admin-approval.test.ts > Admin approval workflow — pending rider gets unblocked > 3. admin approve endpoint returns HTTP 200 for the pending rider
+ ↓ src/tests/admin-approval.test.ts > Admin approval workflow — pending rider gets unblocked > 4. DB reflects approvalStatus: approved, kycStatus: verified, isActive: true, isBanned: false
+ ↓ src/tests/admin-approval.test.ts > Admin approval workflow — pending rider gets unblocked > 5. approved rider's JWT is accepted by rider-protected routes (no 401/403)
+ ↓ src/tests/admin-approval.test.ts > Admin approval workflow — pending rider gets unblocked > 6. calling approve a second time on an already-approved rider is idempotent (never 500)
+ ↓ src/tests/rides.test.ts > Rides public endpoints > GET /api/rides/services returns 200 with a services array
+ ↓ src/tests/rides.test.ts > Rides public endpoints > GET /api/rides/payment-methods returns 200 with a methods array
+ ↓ src/tests/rides.test.ts > Rides fare estimate > POST /api/rides/estimate with valid lat/lng returns 200 with fare
+ ↓ src/tests/rides.test.ts > Rides fare estimate > POST /api/rides/estimate with missing pickupLat returns 400/422
+ ↓ src/tests/rides.test.ts > Rides fare estimate > POST /api/rides/estimate with missing all coords returns 400/422
+ ↓ src/tests/rides.test.ts > Rides fare estimate > POST /api/rides/estimate with non-numeric coords returns 400/422
+ ↓ src/tests/rides.test.ts > Rides auth guards — unauthenticated requests return 401 > POST /api/rides without token returns 401
+ ↓ src/tests/rides.test.ts > Rides auth guards — unauthenticated requests return 401 > GET /api/rides without token returns 401
+ ↓ src/tests/rides.test.ts > Rides booking input validation > POST /api/rides with authenticated customer but missing pickupLat returns 400/422
+ ↓ src/tests/rides.test.ts > Rides booking input validation > POST /api/rides with authenticated customer but missing dropLat returns 400/422
+ ↓ src/tests/rides.test.ts > Rides booking input validation > POST /api/rides with authenticated customer but missing serviceType/type returns 400/422
+ ↓ src/tests/rides.test.ts > Rides booking input validation > POST /api/rides with empty body returns 400/422
+ ↓ src/tests/rides.test.ts > Rides cancel > PATCH /api/rides/:id/cancel without token returns 401
+ ↓ src/tests/rides.test.ts > Rides cancel > PATCH /api/rides/:id/cancel with valid token on non-existent ride returns 404
+ ↓ src/tests/rides.test.ts > Rider-side ride endpoints auth guards > POST /api/riders/rides/:id/accept without rider token returns 401
+ ↓ src/tests/rides.test.ts > Rider-side ride endpoints auth guards > POST /api/riders/rides/:id/verify-otp without rider token returns 401
+ ↓ src/tests/rides.test.ts > Rider OTP validation > POST /api/riders/rides/:id/verify-otp with rider token but non-existent ride returns 404
+ ↓ src/tests/rides.test.ts > Rider OTP validation > POST /api/riders/rides/:id/verify-otp with non-numeric OTP returns 400/422
+ ↓ src/tests/rides.test.ts > Rider OTP validation > POST /api/riders/rides/:id/verify-otp with overlong OTP (>10 chars) returns 400/422
+ ↓ src/tests/rides.test.ts > Rider OTP validation > POST /api/riders/rides/:id/verify-otp with missing OTP returns 400/422
+ ✓ src/tests/unit/id.test.ts > generateId > returns a non-empty string 6ms
+ ✓ src/tests/unit/id.test.ts > generateId > is unique across 10,000 calls (no collision) 146ms
+ ✓ src/tests/unit/id.test.ts > generateId > is exactly 22 characters (padded base-62) 14ms
+ ✓ src/tests/unit/id.test.ts > generateId > contains only base-62 characters [0-9A-Za-z] 6ms
+ ✓ src/tests/unit/id.test.ts > generateId > is URL-safe (no special characters) 4ms
+ ✓ src/tests/unit/id.test.ts > generateId > is consistent length (all IDs same length) 2ms
+[23:04:18.056] INFO (2480): [redis] REDIS_URL is not set — JWT token blacklisting and distributed rate limiting are DISABLED. Logged-out access tokens will remain valid until they expire naturally, and brute-force protection is per-instance only. Set REDIS_URL in the Replit Secrets panel to enable these features.
+[23:04:18.056] INFO (2480): [rate-limit] limiter configured
+    prefix: "global"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:18.071] INFO (2480): [rate-limit] limiter configured
+    prefix: "auth"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:18.072] INFO (2480): [rate-limit] limiter configured
+    prefix: "admin-auth"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:18.072] INFO (2480): [rate-limit] limiter configured
+    prefix: "payment"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:18.072] INFO (2480): [rate-limit] limiter configured
+    prefix: "public"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:18.077] INFO (2480): [rate-limit] limiter configured
+    prefix: "login"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:18.078] INFO (2480): [rate-limit] limiter configured
+    prefix: "otp"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:18.078] INFO (2480): [rate-limit] limiter configured
+    prefix: "email-otp"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:18.079] INFO (2480): [rate-limit] limiter configured
+    prefix: "magic-link"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:18.082] INFO (2480): [rate-limit] limiter configured
+    prefix: "registration"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:18.083] INFO (2480): [rate-limit] limiter configured
+    prefix: "refresh-token"
+    store: "in-memory (fixed-window)"
+    tier: "lenient"
+[23:04:18.083] INFO (2480): [rate-limit] limiter configured
+    prefix: "password-reset"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:18.083] INFO (2480): [rate-limit] limiter configured
+    prefix: "redeem"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:18.084] INFO (2480): [rate-limit] limiter configured
+    prefix: "export-data"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:18.084] INFO (2480): [rate-limit] limiter configured
+    prefix: "register-upload"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:18.084] INFO (2480): [rate-limit] limiter configured
+    prefix: "user-api"
+    store: "in-memory (fixed-window)"
+    tier: "lenient"
+[23:04:18.088] INFO (2480): [rate-limit] limiter configured
+    prefix: "upload"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:18.088] INFO (2480): [rate-limit] limiter configured
+    prefix: "admin-action"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:18.085] INFO (2487): [redis] REDIS_URL is not set — JWT token blacklisting and distributed rate limiting are DISABLED. Logged-out access tokens will remain valid until they expire naturally, and brute-force protection is per-instance only. Set REDIS_URL in the Replit Secrets panel to enable these features.
+[23:04:18.086] INFO (2487): [rate-limit] limiter configured
+    prefix: "global"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:18.102] INFO (2487): [rate-limit] limiter configured
+    prefix: "auth"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:18.103] INFO (2487): [rate-limit] limiter configured
+    prefix: "admin-auth"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:18.103] INFO (2487): [rate-limit] limiter configured
+    prefix: "payment"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:18.103] INFO (2487): [rate-limit] limiter configured
+    prefix: "public"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:18.104] INFO (2487): [rate-limit] limiter configured
+    prefix: "login"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:18.104] INFO (2487): [rate-limit] limiter configured
+    prefix: "otp"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:18.108] INFO (2487): [rate-limit] limiter configured
+    prefix: "email-otp"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:18.108] INFO (2487): [rate-limit] limiter configured
+    prefix: "magic-link"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:18.109] INFO (2487): [rate-limit] limiter configured
+    prefix: "registration"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:18.109] INFO (2487): [rate-limit] limiter configured
+    prefix: "refresh-token"
+    store: "in-memory (fixed-window)"
+    tier: "lenient"
+[23:04:18.109] INFO (2487): [rate-limit] limiter configured
+    prefix: "password-reset"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:18.110] INFO (2487): [rate-limit] limiter configured
+    prefix: "redeem"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:18.110] INFO (2487): [rate-limit] limiter configured
+    prefix: "export-data"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:18.114] INFO (2487): [rate-limit] limiter configured
+    prefix: "register-upload"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:18.114] INFO (2487): [rate-limit] limiter configured
+    prefix: "user-api"
+    store: "in-memory (fixed-window)"
+    tier: "lenient"
+[23:04:18.115] INFO (2487): [rate-limit] limiter configured
+    prefix: "upload"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[23:04:18.115] INFO (2487): [rate-limit] limiter configured
+    prefix: "admin-action"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[23:04:18.966] WARN (2480): [security] loadBlockedIPs DB query failed
+    err: "Failed query: select \"key\" from \"rate_limits\" where \"rate_limits\".\"key\" like $1\nparams: blocked_ip:%"
+[23:04:18.966] WARN (2480): [security] Settings cache refresh failed — using stale/empty cache
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"\nparams: : ",
+      "stack":
+          Error: Failed query: select "key", "value", "label", "category", "updated_at" from "platform_settings"
+          params: 
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+          caused by: AggregateError: 
+              at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:124:18
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+      "query": "select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"",
+      "params": []
+    }
+[23:04:19.034] WARN (2480): TOKEN_HASH_SECRET not set — using JWT_SECRET as fallback. Set a dedicated secret in production.
+[23:04:19.023] WARN (2487): [security] Settings cache refresh failed — using stale/empty cache
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"\nparams: : ",
+      "stack":
+          Error: Failed query: select "key", "value", "label", "category", "updated_at" from "platform_settings"
+          params: 
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+          caused by: AggregateError: 
+              at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:124:18
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+      "query": "select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"",
+      "params": []
+    }
+[23:04:19.027] WARN (2487): [security] loadBlockedIPs DB query failed
+    err: "Failed query: select \"key\" from \"rate_limits\" where \"rate_limits\".\"key\" like $1\nparams: blocked_ip:%"
+[23:04:19.099] WARN (2487): TOKEN_HASH_SECRET not set — using JWT_SECRET as fallback. Set a dedicated secret in production.
+[23:04:19.327] INFO (2480): [storage] STORAGE_BUCKET_URL not set — using local disk storage (./uploads/).
+[23:04:19.327] INFO (2480): [storage] STORAGE_PRIVATE_BUCKET_URL not set — private uploads go to local disk (development only).
+[23:04:19.346] INFO (2480): [TOR] Refreshed exit node list: 1277 nodes
+[23:04:19.391] INFO (2487): [storage] STORAGE_BUCKET_URL not set — using local disk storage (./uploads/).
+[23:04:19.391] INFO (2487): [storage] STORAGE_PRIVATE_BUCKET_URL not set — private uploads go to local disk (development only).
+[23:04:19.432] INFO (2487): [TOR] Refreshed exit node list: 1277 nodes
+ ↓ src/tests/api.test.ts > Public endpoints > GET /api/health returns 200 with {status: ok}
+ ↓ src/tests/api.test.ts > Public endpoints > GET /api/categories returns 200 with a categories array
+ ↓ src/tests/api.test.ts > Public endpoints > GET /api/products/trending-searches returns 200 with a searches array
+ ↓ src/tests/api.test.ts > Public endpoints > GET /api/banners returns 200 with a banners array
+ ↓ src/tests/api.test.ts > Public endpoints > GET /api/platform-config returns 200 with config data
+ ↓ src/tests/api.test.ts > Public endpoints > GET /api/vendors returns 200 with a vendors array
+ ↓ src/tests/api.test.ts > Public endpoints > GET /api/recommendations/trending returns 200
+ ↓ src/tests/api.test.ts > Customer-protected endpoints reject unauthenticated requests > GET /api/orders returns 401 without token
+ ↓ src/tests/api.test.ts > Customer-protected endpoints reject unauthenticated requests > GET /api/wallet returns 401 without token
+ ↓ src/tests/api.test.ts > Customer-protected endpoints reject unauthenticated requests > GET /api/notifications returns 401 without token
+ ↓ src/tests/api.test.ts > Customer-protected endpoints reject unauthenticated requests > GET /api/addresses returns 401 without token
+ ↓ src/tests/api.test.ts > Admin-protected endpoints with valid admin JWT > GET /api/admin/system/stats returns 200 with valid admin token
+ ↓ src/tests/api.test.ts > Admin-protected endpoints with valid admin JWT > GET /api/admin/system/stats returns 401 without token
+ ↓ src/tests/api.test.ts > Admin-protected endpoints with valid admin JWT > GET /api/admin/system/stats returns 401 with an invalid token
+ ↓ src/tests/api.test.ts > Admin-protected endpoints with valid admin JWT > GET /api/legal returns 200 with valid admin token
+ ↓ src/tests/api.test.ts > Input validation rejects malformed requests > POST /api/auth/check-identifier with empty body returns 400
+ ↓ src/tests/api.test.ts > Input validation rejects malformed requests > POST /api/auth/send-otp without phone returns 400
+ ↓ src/tests/api.test.ts > Input validation rejects malformed requests > POST /api/auth/verify-otp with missing fields returns 400
+ ↓ src/tests/security.test.ts > CORS security – production mode > rejects a request from an unknown origin when NODE_ENV=production
+ ↓ src/tests/security.test.ts > CORS security – production mode > allows a request from the configured FRONTEND_URL in production
+ ↓ src/tests/security.test.ts > CORS security – production mode > allows requests with no Origin header (mobile/server-to-server)
+ ↓ src/tests/security.test.ts > OSRM rate-limit passthrough > forwards a 429 with the upstream Retry-After header
+ ↓ src/tests/security.test.ts > OSRM rate-limit passthrough > defaults Retry-After to 60 when the upstream omits the header
+ ↓ src/tests/security.test.ts > OSRM rate-limit passthrough > does not interfere with non-429 responses
+ ↓ src/tests/security.test.ts > OTP logging guard > suppresses [AUTH:OTP] console.log output when NODE_ENV=production
+ ↓ src/tests/security.test.ts > OTP logging guard > emits [AUTH:OTP] console.log output when NODE_ENV=development
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/admin-approval.test.ts [ src/tests/admin-approval.test.ts ]
+ FAIL  src/tests/api.test.ts [ src/tests/api.test.ts ]
+ FAIL  src/tests/rides.test.ts [ src/tests/rides.test.ts ]
+ FAIL  src/tests/security.test.ts [ src/tests/security.test.ts ]
+ FAIL  src/tests/wallet.test.ts [ src/tests/wallet.test.ts ]
+TypeError: argument handler must be a function
+ ❯ Route.<computed> [as get] ../../node_modules/.pnpm/router@2.2.0/node_modules/router/lib/route.js:228:15
+ ❯ Function.Router.<computed> [as get] ../../node_modules/.pnpm/router@2.2.0/node_modules/router/index.js:448:19
+ ❯ src/routes/sos.ts:151:8
+    149|
+    150| /* ── GET /sos/alerts — Admin: list SOS alerts with optional ?status= …
+    151| router.get("/alerts", adminAuth, async (req, res) => {
+       |        ^
+
+    152|   try {
+    153|     const admin = getAdminFromReq(req);
+ ❯ src/routes/admin.ts:51:1
+ Test Files  5 failed | 1 passed (6)
+
+      Tests  6 passed | 73 skipped (79)
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+   Start at  23:04:11
+
+   Duration  8.80s (transform 5.92s, setup 0ms, import 1.07s, tests 18.79s, environment 1ms)
+
+ ELIFECYCLE  Test failed. See above for more details.
+Error: Process completed with exit code 1.

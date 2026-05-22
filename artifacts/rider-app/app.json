@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "AJKMart Rider",
+    "slug": "ajkmart-rider",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./public/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#ffffff"
+    },
+    "android": {
+      "package": "com.ajkmart.rider",
+      "versionCode": 1,
+      "buildType": "apk",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "CAMERA",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED",
+        "INTERNET"
+      ]
+    },
+    "extra": {
+      "apiBaseUrl": "https://your-production-api.ajkmart.com"
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24,
+            "targetSdkVersion": 34,
+            "compileSdkVersion": 34
+          }
+        }
+      ]
+    ]
+  }
+}

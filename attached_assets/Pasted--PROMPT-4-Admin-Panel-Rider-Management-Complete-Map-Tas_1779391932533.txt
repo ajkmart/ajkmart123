@@ -1,0 +1,52 @@
+═══ PROMPT 4 — Admin Panel — Rider Management Complete Map ═══
+Task: Document all admin pages that control rider data, with permissions and API calls.
+File: artifacts/api-server/src/routes/admin/rides.ts
+      artifacts/api-server/src/routes/admin/fleet/ (rides.ts, zones.ts)
+      artifacts/api-server/src/routes/admin/finance.ts
+      artifacts/api-server/src/routes/admin/system.ts
+Admin Rider Pages:
+1. /admin/riders — Rider list + detail
+   Permission: fleet.rides.view
+   API: GET /api/admin/riders
+        GET /api/admin/riders/:id
+        PATCH /api/admin/riders/:id/ban
+        PATCH /api/admin/riders/:id/unban
+        POST /api/admin/riders/:id/penalty
+        DELETE /api/admin/riders/:id/penalty/:penaltyId
+   What admin can do:
+     - View all riders with online status, vehicle type, earnings
+     - Ban / unban rider (sets is_banned=true, revokes sessions)
+     - Add manual penalty (type, amount, reason)
+     - Remove penalty
+     - View KYC documents (ID front/back, selfie, driving license)
+2. /admin/kyc — KYC verification queue
+   Permission: finance.kyc.view
+   API: GET /api/admin/kyc (riders with pending_kyc status)
+        PATCH /api/admin/kyc/:userId/approve
+        PATCH /api/admin/kyc/:userId/reject
+   What admin can do:
+     - Approve KYC → rider status becomes approved, can go online
+     - Reject KYC with reason → rider sees rejection message on login
+3. /admin/rides — Ride management
+   Permission: fleet.rides.view
+   API: GET /api/admin/rides  (latest 200 rides)
+        PATCH /api/admin/rides/:id/status
+        GET /api/admin/rides/:id  (full detail with parcel, OTP, timeline)
+   What admin can do:
+     - Override ride status (cancel, complete)
+     - Assign/reassign rider manually
+     - View full event timeline (requested/accepted/arrived/started/completed)
+     - View OTP status (Verified/Pending with code)
+     - View parcel info (receiver name/phone, package type)
+4. /admin/live-riders-map — Fleet map
+   Permission: fleet.rides.view
+   API: Socket.io admin-fleet room
+        GET /api/maps/config  (tile provider + token)
+        GET /api/admin/riders/locations
+   What admin can do:
+     - See all online riders in real-time (updates every 5 s)
+     - Click rider to see: name, vehicle, status, active trip ID
+     - History playback: scrub through GPS route for any rider (date picker)
+     - Riders with active trip show pulsing red rings
+     - Labels toggle: show/hide username pills above markers
+     - Offline riders (>5 min stale) auto-removed from map

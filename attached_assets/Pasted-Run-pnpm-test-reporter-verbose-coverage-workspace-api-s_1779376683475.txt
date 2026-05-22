@@ -1,0 +1,1815 @@
+Run pnpm test --reporter=verbose --coverage
+
+> @workspace/api-server@0.0.0 test /home/runner/work/google/google/artifacts/api-server
+> vitest run --reporter=verbose --coverage
+
+
+ RUN  v4.1.6 /home/runner/work/google/google/artifacts/api-server
+      Coverage enabled with v8
+
+[10:55:28.543] INFO (2488): [redis] REDIS_URL is not set — JWT token blacklisting and distributed rate limiting are DISABLED. Logged-out access tokens will remain valid until they expire naturally, and brute-force protection is per-instance only. Set REDIS_URL in the Replit Secrets panel to enable these features.
+[10:55:28.518] INFO (2487): [redis] REDIS_URL is not set — JWT token blacklisting and distributed rate limiting are DISABLED. Logged-out access tokens will remain valid until they expire naturally, and brute-force protection is per-instance only. Set REDIS_URL in the Replit Secrets panel to enable these features.
+[10:55:28.518] INFO (2489): [redis] REDIS_URL is not set — JWT token blacklisting and distributed rate limiting are DISABLED. Logged-out access tokens will remain valid until they expire naturally, and brute-force protection is per-instance only. Set REDIS_URL in the Replit Secrets panel to enable these features.
+[10:55:28.544] INFO (2488): [rate-limit] limiter configured
+    prefix: "global"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.562] INFO (2488): [rate-limit] limiter configured
+    prefix: "auth"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.563] INFO (2488): [rate-limit] limiter configured
+    prefix: "admin-auth"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:28.563] INFO (2488): [rate-limit] limiter configured
+    prefix: "payment"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.563] INFO (2488): [rate-limit] limiter configured
+    prefix: "public"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.564] INFO (2488): [rate-limit] limiter configured
+    prefix: "login"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:28.564] INFO (2488): [rate-limit] limiter configured
+    prefix: "otp"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:28.565] INFO (2488): [rate-limit] limiter configured
+    prefix: "email-otp"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:28.565] INFO (2488): [rate-limit] limiter configured
+    prefix: "magic-link"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:28.565] INFO (2488): [rate-limit] limiter configured
+    prefix: "registration"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.565] INFO (2488): [rate-limit] limiter configured
+    prefix: "refresh-token"
+    store: "in-memory (fixed-window)"
+    tier: "lenient"
+[10:55:28.566] INFO (2488): [rate-limit] limiter configured
+    prefix: "password-reset"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:28.566] INFO (2488): [rate-limit] limiter configured
+    prefix: "redeem"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.566] INFO (2488): [rate-limit] limiter configured
+    prefix: "export-data"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.569] INFO (2488): [rate-limit] limiter configured
+    prefix: "register-upload"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.569] INFO (2488): [rate-limit] limiter configured
+    prefix: "user-api"
+    store: "in-memory (fixed-window)"
+    tier: "lenient"
+[10:55:28.570] INFO (2488): [rate-limit] limiter configured
+    prefix: "upload"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.570] INFO (2488): [rate-limit] limiter configured
+    prefix: "admin-action"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:28.519] INFO (2487): [rate-limit] limiter configured
+    prefix: "global"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.537] INFO (2487): [rate-limit] limiter configured
+    prefix: "auth"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.538] INFO (2487): [rate-limit] limiter configured
+    prefix: "admin-auth"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:28.538] INFO (2487): [rate-limit] limiter configured
+    prefix: "payment"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.538] INFO (2487): [rate-limit] limiter configured
+    prefix: "public"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.545] INFO (2487): [rate-limit] limiter configured
+    prefix: "login"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:28.545] INFO (2487): [rate-limit] limiter configured
+    prefix: "otp"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:28.546] INFO (2487): [rate-limit] limiter configured
+    prefix: "email-otp"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:28.546] INFO (2487): [rate-limit] limiter configured
+    prefix: "magic-link"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:28.547] INFO (2487): [rate-limit] limiter configured
+    prefix: "registration"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.547] INFO (2487): [rate-limit] limiter configured
+    prefix: "refresh-token"
+    store: "in-memory (fixed-window)"
+    tier: "lenient"
+[10:55:28.573] INFO (2487): [rate-limit] limiter configured
+    prefix: "password-reset"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:28.574] INFO (2487): [rate-limit] limiter configured
+    prefix: "redeem"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.575] INFO (2487): [rate-limit] limiter configured
+    prefix: "export-data"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.576] INFO (2487): [rate-limit] limiter configured
+    prefix: "register-upload"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.577] INFO (2487): [rate-limit] limiter configured
+    prefix: "user-api"
+    store: "in-memory (fixed-window)"
+    tier: "lenient"
+[10:55:28.578] INFO (2487): [rate-limit] limiter configured
+    prefix: "upload"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.578] INFO (2487): [rate-limit] limiter configured
+    prefix: "admin-action"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:28.519] INFO (2489): [rate-limit] limiter configured
+    prefix: "global"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.535] INFO (2489): [rate-limit] limiter configured
+    prefix: "auth"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.536] INFO (2489): [rate-limit] limiter configured
+    prefix: "admin-auth"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:28.536] INFO (2489): [rate-limit] limiter configured
+    prefix: "payment"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.536] INFO (2489): [rate-limit] limiter configured
+    prefix: "public"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.537] INFO (2489): [rate-limit] limiter configured
+    prefix: "login"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:28.537] INFO (2489): [rate-limit] limiter configured
+    prefix: "otp"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:28.541] INFO (2489): [rate-limit] limiter configured
+    prefix: "email-otp"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:28.541] INFO (2489): [rate-limit] limiter configured
+    prefix: "magic-link"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:28.541] INFO (2489): [rate-limit] limiter configured
+    prefix: "registration"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.542] INFO (2489): [rate-limit] limiter configured
+    prefix: "refresh-token"
+    store: "in-memory (fixed-window)"
+    tier: "lenient"
+[10:55:28.542] INFO (2489): [rate-limit] limiter configured
+    prefix: "password-reset"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:28.543] INFO (2489): [rate-limit] limiter configured
+    prefix: "redeem"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.543] INFO (2489): [rate-limit] limiter configured
+    prefix: "export-data"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.543] INFO (2489): [rate-limit] limiter configured
+    prefix: "register-upload"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.547] INFO (2489): [rate-limit] limiter configured
+    prefix: "user-api"
+    store: "in-memory (fixed-window)"
+    tier: "lenient"
+[10:55:28.547] INFO (2489): [rate-limit] limiter configured
+    prefix: "upload"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:28.548] INFO (2489): [rate-limit] limiter configured
+    prefix: "admin-action"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:29.883] WARN (2488): [security] loadBlockedIPs DB query failed
+    err: "Failed query: select \"key\" from \"rate_limits\" where \"rate_limits\".\"key\" like $1\nparams: blocked_ip:%"
+[10:55:29.883] WARN (2488): [security] Settings cache refresh failed — using stale/empty cache
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"\nparams: : ",
+      "stack":
+          Error: Failed query: select "key", "value", "label", "category", "updated_at" from "platform_settings"
+          params: 
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+          caused by: AggregateError: 
+              at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:124:18
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+      "query": "select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"",
+      "params": []
+    }
+[10:55:30.135] WARN (2488): TOKEN_HASH_SECRET not set — using JWT_SECRET as fallback. Set a dedicated secret in production.
+[10:55:30.323] INFO (2488): [TOR] Refreshed exit node list: 1274 nodes
+[10:55:29.868] WARN (2489): [security] loadBlockedIPs DB query failed
+    err: "Failed query: select \"key\" from \"rate_limits\" where \"rate_limits\".\"key\" like $1\nparams: blocked_ip:%"
+[10:55:29.869] WARN (2489): [security] Settings cache refresh failed — using stale/empty cache
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"\nparams: : ",
+      "stack":
+          Error: Failed query: select "key", "value", "label", "category", "updated_at" from "platform_settings"
+          params: 
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+          caused by: AggregateError: 
+              at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:124:18
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+      "query": "select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"",
+      "params": []
+    }
+[10:55:30.135] WARN (2489): TOKEN_HASH_SECRET not set — using JWT_SECRET as fallback. Set a dedicated secret in production.
+[10:55:30.373] INFO (2489): [TOR] Refreshed exit node list: 1274 nodes
+[10:55:29.869] WARN (2487): [security] loadBlockedIPs DB query failed
+    err: "Failed query: select \"key\" from \"rate_limits\" where \"rate_limits\".\"key\" like $1\nparams: blocked_ip:%"
+[10:55:29.870] WARN (2487): [security] Settings cache refresh failed — using stale/empty cache
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"\nparams: : ",
+      "stack":
+          Error: Failed query: select "key", "value", "label", "category", "updated_at" from "platform_settings"
+          params: 
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+          caused by: AggregateError: 
+              at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:124:18
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+      "query": "select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"",
+      "params": []
+    }
+[10:55:30.135] WARN (2487): TOKEN_HASH_SECRET not set — using JWT_SECRET as fallback. Set a dedicated secret in production.
+[10:55:30.344] INFO (2487): [TOR] Refreshed exit node list: 1274 nodes
+[10:55:31.053] INFO (2488): [storage] STORAGE_BUCKET_URL not set — using local disk storage (./uploads/).
+[10:55:31.053] INFO (2488): [storage] STORAGE_PRIVATE_BUCKET_URL not set — private uploads go to local disk (development only).
+[10:55:31.027] INFO (2489): [storage] STORAGE_BUCKET_URL not set — using local disk storage (./uploads/).
+[10:55:31.027] INFO (2489): [storage] STORAGE_PRIVATE_BUCKET_URL not set — private uploads go to local disk (development only).
+[10:55:31.049] INFO (2487): [storage] STORAGE_BUCKET_URL not set — using local disk storage (./uploads/).
+[10:55:31.049] INFO (2487): [storage] STORAGE_PRIVATE_BUCKET_URL not set — private uploads go to local disk (development only).
+[10:55:31.519] WARN (2488): [categories] ensureSeedCategories failed — startup seeding skipped
+    err: "Failed query: select \"id\" from \"categories\" limit $1\nparams: 1"
+[10:55:31.519] WARN (2488): [categories] ensureSeedCategories at startup failed
+    err: "Failed query: select \"id\" from \"categories\" limit $1\nparams: 1"
+[10:55:31.518] WARN (2489): [categories] ensureSeedCategories failed — startup seeding skipped
+    err: "Failed query: select \"id\" from \"categories\" limit $1\nparams: 1"
+[10:55:31.518] WARN (2489): [categories] ensureSeedCategories at startup failed
+    err: "Failed query: select \"id\" from \"categories\" limit $1\nparams: 1"
+[10:55:31.519] WARN (2487): [categories] ensureSeedCategories failed — startup seeding skipped
+    err: "Failed query: select \"id\" from \"categories\" limit $1\nparams: 1"
+[10:55:31.519] WARN (2487): [categories] ensureSeedCategories at startup failed
+    err: "Failed query: select \"id\" from \"categories\" limit $1\nparams: 1"
+[10:55:32.670] INFO (2488): [docs] Loaded OpenAPI spec from /home/runner/work/google/google/lib/api-spec/openapi.yaml
+[10:55:32.667] INFO (2489): [docs] Loaded OpenAPI spec from /home/runner/work/google/google/lib/api-spec/openapi.yaml
+stdout | src/tests/rides.test.ts
+[gemini-ai] Gemini integration not active (missing: AI_INTEGRATIONS_GEMINI_BASE_URL, AI_INTEGRATIONS_GEMINI_API_KEY). AI features will be unavailable until configured in the Replit Integrations panel.
+
+stdout | src/tests/wallet.test.ts
+[gemini-ai] Gemini integration not active (missing: AI_INTEGRATIONS_GEMINI_BASE_URL, AI_INTEGRATIONS_GEMINI_API_KEY). AI features will be unavailable until configured in the Replit Integrations panel.
+
+stdout | src/tests/admin-approval.test.ts
+[gemini-ai] Gemini integration not active (missing: AI_INTEGRATIONS_GEMINI_BASE_URL, AI_INTEGRATIONS_GEMINI_API_KEY). AI features will be unavailable until configured in the Replit Integrations panel.
+
+stderr | src/tests/wallet.test.ts
+[wallet teardown] best-effort DB cleanup failed: DrizzleQueryError: Failed query: delete from "users" where "users"."id" = $1
+params: test-wallet-customer-e2e-001
+    at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at /home/runner/work/google/google/artifacts/api-server/src/tests/wallet.test.ts:66:5 {
+  query: 'delete from "users" where "users"."id" = $1',
+  params: [ 'test-wallet-customer-e2e-001' ],
+  cause: AggregateError: 
+      at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:113:20
+      at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+      at /home/runner/work/google/google/artifacts/api-server/src/tests/wallet.test.ts:66:5 {
+    code: 'ECONNREFUSED',
+    [errors]: [ [Error], [Error] ]
+  }
+}
+
+stderr | src/tests/rides.test.ts
+[rides teardown] best-effort DB cleanup failed: DrizzleQueryError: Failed query: delete from "users" where ("users"."id" = $1 or "users"."id" = $2)
+params: test-rides-customer-e2e-002,test-rides-rider-e2e-002
+    at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at /home/runner/work/google/google/artifacts/api-server/src/tests/rides.test.ts:84:5 {
+  query: 'delete from "users" where ("users"."id" = $1 or "users"."id" = $2)',
+  params: [ 'test-rides-customer-e2e-002', 'test-rides-rider-e2e-002' ],
+  cause: AggregateError: 
+      at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:113:20
+      at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+      at /home/runner/work/google/google/artifacts/api-server/src/tests/rides.test.ts:84:5 {
+    code: 'ECONNREFUSED',
+    [errors]: [ [Error], [Error] ]
+  }
+}
+
+stderr | src/tests/admin-approval.test.ts
+[teardown] best-effort DB cleanup failed: DrizzleQueryError: Failed query: delete from "users" where "users"."id" = $1
+params: test-rider-approval-workflow-e2e-001
+    at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at /home/runner/work/google/google/artifacts/api-server/src/tests/admin-approval.test.ts:96:5 {
+  query: 'delete from "users" where "users"."id" = $1',
+  params: [ 'test-rider-approval-workflow-e2e-001' ],
+  cause: AggregateError: 
+      at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:113:20
+      at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+      at /home/runner/work/google/google/artifacts/api-server/src/tests/admin-approval.test.ts:96:5 {
+    code: 'ECONNREFUSED',
+    [errors]: [ [Error], [Error] ]
+  }
+}
+
+ ↓ src/tests/wallet.test.ts > Wallet auth guards — unauthenticated requests return 401 > GET /api/wallet returns 401 without token
+ ↓ src/tests/wallet.test.ts > Wallet auth guards — unauthenticated requests return 401 > POST /api/wallet/deposit returns 401 without token
+ ↓ src/tests/wallet.test.ts > Wallet auth guards — unauthenticated requests return 401 > POST /api/wallet/send returns 401 without token
+ ↓ src/tests/wallet.test.ts > Wallet auth guards — unauthenticated requests return 401 > POST /api/wallet/withdraw returns 401 without token
+ ↓ src/tests/wallet.test.ts > Wallet balance fetch > GET /api/wallet returns 200 with balance and transactions for authenticated customer
+ ↓ src/tests/wallet.test.ts > Wallet deposit input validation > POST /api/wallet/deposit with missing body returns 400/422
+ ↓ src/tests/wallet.test.ts > Wallet deposit input validation > POST /api/wallet/deposit with negative amount returns 400/422
+ ↓ src/tests/wallet.test.ts > Wallet deposit input validation > POST /api/wallet/deposit with non-numeric amount returns 400/422
+ ↓ src/tests/wallet.test.ts > Wallet deposit input validation > POST /api/wallet/deposit with missing idempotencyKey returns 400/422
+ ↓ src/tests/wallet.test.ts > Wallet P2P send input validation > POST /api/wallet/send with missing receiver and ajkId returns 400/422
+ ↓ src/tests/wallet.test.ts > Wallet P2P send input validation > POST /api/wallet/send with missing amount returns 400/422
+ ↓ src/tests/wallet.test.ts > Wallet P2P send input validation > POST /api/wallet/send with negative amount returns 400/422
+ ↓ src/tests/wallet.test.ts > Wallet P2P send input validation > POST /api/wallet/send missing X-Idempotency-Key header returns 400/422
+ ↓ src/tests/wallet.test.ts > Wallet P2P send input validation > POST /api/wallet/send to own phone (self-send) returns 400/422
+ ↓ src/tests/wallet.test.ts > Wallet withdraw input validation > POST /api/wallet/withdraw with missing body returns 400/422
+ ↓ src/tests/wallet.test.ts > Wallet withdraw input validation > POST /api/wallet/withdraw with missing accountNumber returns 400/422
+ ↓ src/tests/wallet.test.ts > Wallet withdraw input validation > POST /api/wallet/withdraw with amount exceeding realistic limit returns 400/422/403
+ ↓ src/tests/wallet.test.ts > Wallet admin top-up > POST /api/wallet/topup with valid admin token and valid amount returns 200
+ ↓ src/tests/wallet.test.ts > Wallet admin top-up > POST /api/wallet/topup with customer token returns 401
+ ↓ src/tests/wallet.test.ts > Wallet admin top-up > POST /api/wallet/topup without token returns 401
+ ↓ src/tests/wallet.test.ts > Wallet rate limit smoke test > 35 rapid POST /api/wallet/deposit requests from same IP returns at least one 429
+ ↓ src/tests/admin-approval.test.ts > Admin approval workflow — pending rider gets unblocked > 1. seeded rider has approvalStatus: pending in the DB before approval
+ ↓ src/tests/admin-approval.test.ts > Admin approval workflow — pending rider gets unblocked > 2. pending rider cannot receive a login JWT — verify-otp returns no token
+ ↓ src/tests/admin-approval.test.ts > Admin approval workflow — pending rider gets unblocked > 3. admin approve endpoint returns HTTP 200 for the pending rider
+ ↓ src/tests/admin-approval.test.ts > Admin approval workflow — pending rider gets unblocked > 4. DB reflects approvalStatus: approved, kycStatus: verified, isActive: true, isBanned: false
+ ↓ src/tests/admin-approval.test.ts > Admin approval workflow — pending rider gets unblocked > 5. approved rider's JWT is accepted by rider-protected routes (no 401/403)
+ ↓ src/tests/admin-approval.test.ts > Admin approval workflow — pending rider gets unblocked > 6. calling approve a second time on an already-approved rider is idempotent (never 500)
+ ↓ src/tests/rides.test.ts > Rides public endpoints > GET /api/rides/services returns 200 with a services array
+ ↓ src/tests/rides.test.ts > Rides public endpoints > GET /api/rides/payment-methods returns 200 with a methods array
+ ↓ src/tests/rides.test.ts > Rides fare estimate > POST /api/rides/estimate with valid lat/lng returns 200 with fare
+ ↓ src/tests/rides.test.ts > Rides fare estimate > POST /api/rides/estimate with missing pickupLat returns 400/422
+ ↓ src/tests/rides.test.ts > Rides fare estimate > POST /api/rides/estimate with missing all coords returns 400/422
+ ↓ src/tests/rides.test.ts > Rides fare estimate > POST /api/rides/estimate with non-numeric coords returns 400/422
+ ↓ src/tests/rides.test.ts > Rides auth guards — unauthenticated requests return 401 > POST /api/rides without token returns 401
+ ↓ src/tests/rides.test.ts > Rides auth guards — unauthenticated requests return 401 > GET /api/rides without token returns 401
+ ↓ src/tests/rides.test.ts > Rides booking input validation > POST /api/rides with authenticated customer but missing pickupLat returns 400/422
+ ↓ src/tests/rides.test.ts > Rides booking input validation > POST /api/rides with authenticated customer but missing dropLat returns 400/422
+ ↓ src/tests/rides.test.ts > Rides booking input validation > POST /api/rides with authenticated customer but missing serviceType/type returns 400/422
+ ↓ src/tests/rides.test.ts > Rides booking input validation > POST /api/rides with empty body returns 400/422
+ ↓ src/tests/rides.test.ts > Rides cancel > PATCH /api/rides/:id/cancel without token returns 401
+ ↓ src/tests/rides.test.ts > Rides cancel > PATCH /api/rides/:id/cancel with valid token on non-existent ride returns 404
+ ↓ src/tests/rides.test.ts > Rider-side ride endpoints auth guards > POST /api/riders/rides/:id/accept without rider token returns 401
+ ↓ src/tests/rides.test.ts > Rider-side ride endpoints auth guards > POST /api/riders/rides/:id/verify-otp without rider token returns 401
+ ↓ src/tests/rides.test.ts > Rider OTP validation > POST /api/riders/rides/:id/verify-otp with rider token but non-existent ride returns 404
+ ↓ src/tests/rides.test.ts > Rider OTP validation > POST /api/riders/rides/:id/verify-otp with non-numeric OTP returns 400/422
+ ↓ src/tests/rides.test.ts > Rider OTP validation > POST /api/riders/rides/:id/verify-otp with overlong OTP (>10 chars) returns 400/422
+ ↓ src/tests/rides.test.ts > Rider OTP validation > POST /api/riders/rides/:id/verify-otp with missing OTP returns 400/422
+ ✓ src/tests/unit/id.test.ts > generateId > returns a non-empty string 3ms
+ ✓ src/tests/unit/id.test.ts > generateId > is unique across 10,000 calls (no collision) 135ms
+ ✓ src/tests/unit/id.test.ts > generateId > is exactly 22 characters (padded base-62) 16ms
+ ✓ src/tests/unit/id.test.ts > generateId > contains only base-62 characters [0-9A-Za-z] 5ms
+ ✓ src/tests/unit/id.test.ts > generateId > is URL-safe (no special characters) 5ms
+ ✓ src/tests/unit/id.test.ts > generateId > is consistent length (all IDs same length) 1ms
+[10:55:34.690] INFO (2540): [redis] REDIS_URL is not set — JWT token blacklisting and distributed rate limiting are DISABLED. Logged-out access tokens will remain valid until they expire naturally, and brute-force protection is per-instance only. Set REDIS_URL in the Replit Secrets panel to enable these features.
+[10:55:34.691] INFO (2540): [rate-limit] limiter configured
+    prefix: "global"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:34.701] INFO (2540): [rate-limit] limiter configured
+    prefix: "auth"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:34.702] INFO (2540): [rate-limit] limiter configured
+    prefix: "admin-auth"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:34.702] INFO (2540): [rate-limit] limiter configured
+    prefix: "payment"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:34.702] INFO (2540): [rate-limit] limiter configured
+    prefix: "public"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:34.703] INFO (2540): [rate-limit] limiter configured
+    prefix: "login"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:34.703] INFO (2540): [rate-limit] limiter configured
+    prefix: "otp"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:34.704] INFO (2540): [rate-limit] limiter configured
+    prefix: "email-otp"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:34.704] INFO (2540): [rate-limit] limiter configured
+    prefix: "magic-link"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:34.705] INFO (2540): [rate-limit] limiter configured
+    prefix: "registration"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:34.705] INFO (2540): [rate-limit] limiter configured
+    prefix: "refresh-token"
+    store: "in-memory (fixed-window)"
+    tier: "lenient"
+[10:55:34.716] INFO (2540): [rate-limit] limiter configured
+    prefix: "password-reset"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:34.716] INFO (2540): [rate-limit] limiter configured
+    prefix: "redeem"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:34.717] INFO (2540): [rate-limit] limiter configured
+    prefix: "export-data"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:34.717] INFO (2540): [rate-limit] limiter configured
+    prefix: "register-upload"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:34.717] INFO (2540): [rate-limit] limiter configured
+    prefix: "user-api"
+    store: "in-memory (fixed-window)"
+    tier: "lenient"
+[10:55:34.724] INFO (2540): [rate-limit] limiter configured
+    prefix: "upload"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:34.724] INFO (2540): [rate-limit] limiter configured
+    prefix: "admin-action"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:34.669] INFO (2529): [redis] REDIS_URL is not set — JWT token blacklisting and distributed rate limiting are DISABLED. Logged-out access tokens will remain valid until they expire naturally, and brute-force protection is per-instance only. Set REDIS_URL in the Replit Secrets panel to enable these features.
+[10:55:34.670] INFO (2529): [rate-limit] limiter configured
+    prefix: "global"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:34.684] INFO (2529): [rate-limit] limiter configured
+    prefix: "auth"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:34.684] INFO (2529): [rate-limit] limiter configured
+    prefix: "admin-auth"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:34.685] INFO (2529): [rate-limit] limiter configured
+    prefix: "payment"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:34.685] INFO (2529): [rate-limit] limiter configured
+    prefix: "public"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:34.685] INFO (2529): [rate-limit] limiter configured
+    prefix: "login"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:34.687] INFO (2529): [rate-limit] limiter configured
+    prefix: "otp"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:34.687] INFO (2529): [rate-limit] limiter configured
+    prefix: "email-otp"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:34.688] INFO (2529): [rate-limit] limiter configured
+    prefix: "magic-link"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:34.688] INFO (2529): [rate-limit] limiter configured
+    prefix: "registration"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:34.688] INFO (2529): [rate-limit] limiter configured
+    prefix: "refresh-token"
+    store: "in-memory (fixed-window)"
+    tier: "lenient"
+[10:55:34.689] INFO (2529): [rate-limit] limiter configured
+    prefix: "password-reset"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:34.689] INFO (2529): [rate-limit] limiter configured
+    prefix: "redeem"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:34.689] INFO (2529): [rate-limit] limiter configured
+    prefix: "export-data"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:34.689] INFO (2529): [rate-limit] limiter configured
+    prefix: "register-upload"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:34.690] INFO (2529): [rate-limit] limiter configured
+    prefix: "user-api"
+    store: "in-memory (fixed-window)"
+    tier: "lenient"
+[10:55:34.690] INFO (2529): [rate-limit] limiter configured
+    prefix: "upload"
+    store: "in-memory (fixed-window)"
+    tier: "standard"
+[10:55:34.691] INFO (2529): [rate-limit] limiter configured
+    prefix: "admin-action"
+    store: "in-memory (fixed-window)"
+    tier: "strict"
+[10:55:35.739] WARN (2540): [security] loadBlockedIPs DB query failed
+    err: "Failed query: select \"key\" from \"rate_limits\" where \"rate_limits\".\"key\" like $1\nparams: blocked_ip:%"
+[10:55:35.739] WARN (2540): [security] Settings cache refresh failed — using stale/empty cache
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"\nparams: : ",
+      "stack":
+          Error: Failed query: select "key", "value", "label", "category", "updated_at" from "platform_settings"
+          params: 
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+          caused by: AggregateError: 
+              at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:124:18
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+      "query": "select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"",
+      "params": []
+    }
+[10:55:35.671] WARN (2529): [security] loadBlockedIPs DB query failed
+    err: "Failed query: select \"key\" from \"rate_limits\" where \"rate_limits\".\"key\" like $1\nparams: blocked_ip:%"
+[10:55:35.671] WARN (2529): [security] Settings cache refresh failed — using stale/empty cache
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"\nparams: : ",
+      "stack":
+          Error: Failed query: select "key", "value", "label", "category", "updated_at" from "platform_settings"
+          params: 
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+          caused by: AggregateError: 
+              at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:124:18
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+      "query": "select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"",
+      "params": []
+    }
+[10:55:35.743] WARN (2529): TOKEN_HASH_SECRET not set — using JWT_SECRET as fallback. Set a dedicated secret in production.
+[10:55:35.814] WARN (2540): TOKEN_HASH_SECRET not set — using JWT_SECRET as fallback. Set a dedicated secret in production.
+[10:55:36.037] INFO (2529): [storage] STORAGE_BUCKET_URL not set — using local disk storage (./uploads/).
+[10:55:36.037] INFO (2529): [storage] STORAGE_PRIVATE_BUCKET_URL not set — private uploads go to local disk (development only).
+[10:55:36.107] INFO (2529): [TOR] Refreshed exit node list: 1274 nodes
+[10:55:36.169] WARN (2529): [categories] ensureSeedCategories failed — startup seeding skipped
+    err: "Failed query: select \"id\" from \"categories\" limit $1\nparams: 1"
+[10:55:36.169] WARN (2529): [categories] ensureSeedCategories at startup failed
+    err: "Failed query: select \"id\" from \"categories\" limit $1\nparams: 1"
+[10:55:36.086] INFO (2540): [storage] STORAGE_BUCKET_URL not set — using local disk storage (./uploads/).
+[10:55:36.086] INFO (2540): [storage] STORAGE_PRIVATE_BUCKET_URL not set — private uploads go to local disk (development only).
+[10:55:36.216] WARN (2540): [categories] ensureSeedCategories failed — startup seeding skipped
+    err: "Failed query: select \"id\" from \"categories\" limit $1\nparams: 1"
+[10:55:36.216] WARN (2540): [categories] ensureSeedCategories at startup failed
+    err: "Failed query: select \"id\" from \"categories\" limit $1\nparams: 1"
+[10:55:36.270] INFO (2540): [TOR] Refreshed exit node list: 1274 nodes
+[10:55:36.819] INFO (2540): [docs] Loaded OpenAPI spec from /home/runner/work/google/google/lib/api-spec/openapi.yaml
+stdout | src/tests/api.test.ts
+[gemini-ai] Gemini integration not active (missing: AI_INTEGRATIONS_GEMINI_BASE_URL, AI_INTEGRATIONS_GEMINI_API_KEY). AI features will be unavailable until configured in the Replit Integrations panel.
+
+stdout | src/tests/security.test.ts
+[gemini-ai] Gemini integration not active (missing: AI_INTEGRATIONS_GEMINI_BASE_URL, AI_INTEGRATIONS_GEMINI_API_KEY). AI features will be unavailable until configured in the Replit Integrations panel.
+
+(node:2529) MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 close listeners added to [Server]. MaxListeners is 10. Use emitter.setMaxListeners() to increase limit
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:2540) MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 close listeners added to [Server]. MaxListeners is 10. Use emitter.setMaxListeners() to increase limit
+(Use `node --trace-warnings ...` to show where the warning was created)
+ × src/tests/api.test.ts > Public endpoints > GET /api/health returns 200 with {status: ok} 43ms
+   → expected 503 to be 200 // Object.is equality
+ × src/tests/api.test.ts > Public endpoints > GET /api/categories returns 200 with a categories array 13ms
+   → expected 500 to be 200 // Object.is equality
+ × src/tests/api.test.ts > Public endpoints > GET /api/products/trending-searches returns 200 with a searches array 10ms
+   → expected 500 to be 200 // Object.is equality
+ × src/tests/api.test.ts > Public endpoints > GET /api/banners returns 200 with a banners array 5ms
+   → expected 500 to be 200 // Object.is equality
+ ✓ src/tests/api.test.ts > Public endpoints > GET /api/platform-config returns 200 with config data 19ms
+ × src/tests/api.test.ts > Public endpoints > GET /api/vendors returns 200 with a vendors array 5ms
+   → expected 500 to be 200 // Object.is equality
+[10:55:37.011] INFO (2540): [dev] Sibling app proxies enabled at /admin /vendor /rider /customer /__mockup
+[10:55:37.013] INFO (2540): [SECURITY:CORS] ALLOWED_ORIGINS not set — using localhost-only whitelist for development. Set ALLOWED_ORIGINS before deploying to production.
+    allowedOrigins: [
+      "http://localhost:5000",
+      "http://localhost:5173",
+      "http://localhost:3001",
+      "http://localhost:3002",
+      "http://localhost:3003",
+      "http://127.0.0.1:5000"
+    ]
+[10:55:37.013] INFO (2540): [SECURITY:CORS] Active allowed origins
+    allowedOrigins: [
+      "http://localhost:5000",
+      "http://localhost:5173",
+      "http://localhost:3001",
+      "http://localhost:3002",
+      "http://localhost:3003",
+      "http://127.0.0.1:5000"
+    ]
+[10:55:37.031] WARN (2540): [SECURITY:CORS] Request blocked — origin not in whitelist
+    blockedOrigin: "https://evil-attacker.com"
+[10:55:37.035] INFO (2540): GET /health → 307 (6ms)
+    req: {
+      "id": "f21149d3-1f91-4ac3-90c4-6880a53810b0",
+      "method": "GET",
+      "url": "/health"
+    }
+    res: {
+      "statusCode": 307
+    }
+    responseTime: 7
+[10:55:37.045] WARN (2540): [SECURITY:CORS] Request blocked — origin not in whitelist
+    blockedOrigin: "https://ajkmart.example.com"
+[10:55:37.049] ERROR (2540): [route] unhandled error
+    error: "Failed query: SELECT 1\nparams: "
+[10:55:37.052] ERROR (2540): ERROR: failed with status code 503
+    req: {
+      "id": "c8be4ffe-7ec9-466c-8f05-ebc726675931",
+      "method": "GET",
+      "url": "/api/health"
+    }
+    res: {
+      "statusCode": 503
+    }
+    responseTime: 7
+    err: {
+      "type": "Error",
+      "message": "failed with status code 503",
+      "stack":
+          Error: failed with status code 503
+              at onResFinished (/home/runner/work/google/google/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:115:39)
+              at ServerResponse.onResponseComplete (/home/runner/work/google/google/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:178:14)
+              at ServerResponse.emit (node:events:536:35)
+              at onFinish (node:_http_outgoing:1031:10)
+              at callback (node:internal/streams/writable:766:21)
+              at afterWrite (node:internal/streams/writable:710:5)
+              at afterWriteTick (node:internal/streams/writable:696:10)
+              at processTicksAndRejections (node:internal/process/task_queues:81:21)
+    }
+[10:55:37.062] ERROR (2540): [route] unhandled error
+    error: "Failed query: SELECT 1\nparams: "
+[10:55:37.063] ERROR (2540): ERROR: failed with status code 503
+    req: {
+      "id": "eaaf9d7e-5413-43eb-9396-f89cabe697a2",
+      "method": "GET",
+      "url": "/api/health"
+    }
+    res: {
+      "statusCode": 503
+    }
+    responseTime: 3
+    err: {
+      "type": "Error",
+      "message": "failed with status code 503",
+      "stack":
+          Error: failed with status code 503
+              at onResFinished (/home/runner/work/google/google/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:115:39)
+              at ServerResponse.onResponseComplete (/home/runner/work/google/google/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:178:14)
+              at ServerResponse.emit (node:events:536:35)
+              at onFinish (node:_http_outgoing:1031:10)
+              at callback (node:internal/streams/writable:766:21)
+              at afterWrite (node:internal/streams/writable:710:5)
+              at afterWriteTick (node:internal/streams/writable:696:10)
+              at processTicksAndRejections (node:internal/process/task_queues:81:21)
+    }
+ ✓ src/tests/security.test.ts > CORS security – production mode > rejects a request from an unknown origin when NODE_ENV=production 27ms
+ × src/tests/security.test.ts > CORS security – production mode > allows a request from the configured FRONTEND_URL in production 16ms
+   → expected 503 to be 200 // Object.is equality
+ × src/tests/security.test.ts > CORS security – production mode > allows requests with no Origin header (mobile/server-to-server) 5ms
+   → expected 503 to be 200 // Object.is equality
+ ✓ src/tests/security.test.ts > OSRM rate-limit passthrough > forwards a 429 with the upstream Retry-After header 1ms
+ ✓ src/tests/security.test.ts > OSRM rate-limit passthrough > defaults Retry-After to 60 when the upstream omits the header 0ms
+ ✓ src/tests/security.test.ts > OSRM rate-limit passthrough > does not interfere with non-429 responses 1ms
+ ✓ src/tests/security.test.ts > OTP logging guard > suppresses [AUTH:OTP] console.log output when NODE_ENV=production 1ms
+ ✓ src/tests/security.test.ts > OTP logging guard > emits [AUTH:OTP] console.log output when NODE_ENV=development 1ms
+[10:55:36.739] INFO (2529): [docs] Loaded OpenAPI spec from /home/runner/work/google/google/lib/api-spec/openapi.yaml
+[10:55:36.940] INFO (2529): [dev] Sibling app proxies enabled at /admin /vendor /rider /customer /__mockup
+[10:55:36.942] INFO (2529): [SECURITY:CORS] ALLOWED_ORIGINS not set — using localhost-only whitelist for development. Set ALLOWED_ORIGINS before deploying to production.
+    allowedOrigins: [
+      "http://localhost:5000",
+      "http://localhost:5173",
+      "http://localhost:3001",
+      "http://localhost:3002",
+      "http://localhost:3003",
+      "http://127.0.0.1:5000"
+    ]
+[10:55:36.942] INFO (2529): [SECURITY:CORS] Active allowed origins
+    allowedOrigins: [
+      "http://localhost:5000",
+      "http://localhost:5173",
+      "http://localhost:3001",
+      "http://localhost:3002",
+      "http://localhost:3003",
+      "http://127.0.0.1:5000"
+    ]
+[10:55:36.967] ERROR (2529): [route] unhandled error
+    error: "Failed query: SELECT 1\nparams: "
+[10:55:36.972] ERROR (2529): ERROR: failed with status code 503
+    req: {
+      "id": "a6399edf-99fc-4abf-8b94-54dbe2c66dc1",
+      "method": "GET",
+      "url": "/api/health"
+    }
+    res: {
+      "statusCode": 503
+    }
+    responseTime: 12
+    err: {
+      "type": "Error",
+      "message": "failed with status code 503",
+      "stack":
+          Error: failed with status code 503
+              at onResFinished (/home/runner/work/google/google/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:115:39)
+              at ServerResponse.onResponseComplete (/home/runner/work/google/google/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:178:14)
+              at ServerResponse.emit (node:events:536:35)
+              at onFinish (node:_http_outgoing:1031:10)
+              at callback (node:internal/streams/writable:766:21)
+              at afterWrite (node:internal/streams/writable:710:5)
+              at afterWriteTick (node:internal/streams/writable:696:10)
+              at processTicksAndRejections (node:internal/process/task_queues:81:21)
+    }
+[10:55:36.999] ERROR (2529): [route] unhandled error
+    error: "Failed query: select \"id\", \"name\", \"icon\", \"type\", \"parent_id\", \"sort_order\", \"is_active\", \"created_at\", \"updated_at\" from \"categories\" where \"categories\".\"is_active\" = $1 order by \"categories\".\"sort_order\" asc\nparams: true"
+[10:55:36.999] ERROR (2529): ERROR: failed with status code 500
+    req: {
+      "id": "56ea5405-091a-4d88-b413-77a498f9007c",
+      "method": "GET",
+      "url": "/api/categories"
+    }
+    res: {
+      "statusCode": 500
+    }
+    responseTime: 8
+    err: {
+      "type": "Error",
+      "message": "failed with status code 500",
+      "stack":
+          Error: failed with status code 500
+              at onResFinished (/home/runner/work/google/google/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:115:39)
+              at ServerResponse.onResponseComplete (/home/runner/work/google/google/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:178:14)
+              at ServerResponse.emit (node:events:536:35)
+              at onFinish (node:_http_outgoing:1031:10)
+              at callback (node:internal/streams/writable:766:21)
+              at afterWrite (node:internal/streams/writable:710:5)
+              at afterWriteTick (node:internal/streams/writable:696:10)
+              at processTicksAndRejections (node:internal/process/task_queues:81:21)
+    }
+[10:55:37.006] WARN (2529): [security] Settings cache refresh failed — using stale/empty cache
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"\nparams: : ",
+      "stack":
+          Error: Failed query: select "key", "value", "label", "category", "updated_at" from "platform_settings"
+          params: 
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+              at /home/runner/work/google/google/artifacts/api-server/src/routes/products.ts:126:16
+          caused by: AggregateError: 
+              at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:124:18
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+              at /home/runner/work/google/google/artifacts/api-server/src/routes/products.ts:126:16
+      "query": "select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"",
+      "params": []
+    }
+[10:55:37.009] ERROR (2529): [route] unhandled error
+    error: "Failed query: select \"query\", count(*)::int from \"search_logs\" where \"search_logs\".\"created_at\" >= $1 group by \"search_logs\".\"query\" order by count(*) desc limit $2\nparams: 2026-04-21T10:55:37.007Z,12"
+[10:55:37.010] ERROR (2529): ERROR: failed with status code 500
+    req: {
+      "id": "901c686d-2621-4e09-bd9d-3758db19677d",
+      "method": "GET",
+      "url": "/api/products/trending-searches"
+    }
+    res: {
+      "statusCode": 500
+    }
+    responseTime: 7
+    err: {
+      "type": "Error",
+      "message": "failed with status code 500",
+      "stack":
+          Error: failed with status code 500
+              at onResFinished (/home/runner/work/google/google/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:115:39)
+              at ServerResponse.onResponseComplete (/home/runner/work/google/google/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:178:14)
+              at ServerResponse.emit (node:events:536:35)
+              at onFinish (node:_http_outgoing:1031:10)
+              at callback (node:internal/streams/writable:766:21)
+              at afterWrite (node:internal/streams/writable:710:5)
+              at afterWriteTick (node:internal/streams/writable:696:10)
+              at processTicksAndRejections (node:internal/process/task_queues:81:21)
+    }
+[10:55:37.015] ERROR (2529): [banners GET /] DB error:
+[10:55:37.015] ERROR (2529): ERROR: failed with status code 500
+    req: {
+      "id": "c5cb1dc1-fb71-45b4-a160-f0bfac609bb5",
+      "method": "GET",
+      "url": "/api/banners"
+    }
+    res: {
+      "statusCode": 500
+    }
+    responseTime: 3
+    err: {
+      "type": "Error",
+      "message": "failed with status code 500",
+      "stack":
+          Error: failed with status code 500
+              at onResFinished (/home/runner/work/google/google/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:115:39)
+              at ServerResponse.onResponseComplete (/home/runner/work/google/google/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:178:14)
+              at ServerResponse.emit (node:events:536:35)
+              at onFinish (node:_http_outgoing:1031:10)
+              at callback (node:internal/streams/writable:766:21)
+              at afterWrite (node:internal/streams/writable:710:5)
+              at afterWriteTick (node:internal/streams/writable:696:10)
+              at processTicksAndRejections (node:internal/process/task_queues:81:21)
+    }
+[10:55:37.020] WARN (2529): [security] Settings cache refresh failed — using stale/empty cache
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"\nparams: : ",
+      "stack":
+          Error: Failed query: select "key", "value", "label", "category", "updated_at" from "platform_settings"
+          params: 
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+              at /home/runner/work/google/google/artifacts/api-server/src/routes/platform-config.ts:17:37
+          caused by: AggregateError: 
+              at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:124:18
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+              at /home/runner/work/google/google/artifacts/api-server/src/routes/platform-config.ts:17:37
+      "query": "select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"",
+      "params": []
+    }
+[10:55:37.034] INFO (2529): GET / → 200 (17ms)
+    req: {
+      "id": "a6fd3dc9-9e06-4842-9a31-8893928db3df",
+      "method": "GET",
+      "url": "/api/platform-config"
+    }
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 17
+[10:55:37.039] ERROR (2529): ERROR: failed with status code 500
+    req: {
+      "id": "26517dba-d6af-4bc1-8d12-fdd427ba52c1",
+      "method": "GET",
+      "url": "/api/vendors"
+    }
+    res: {
+      "statusCode": 500
+    }
+    responseTime: 2
+    err: {
+      "type": "Error",
+      "message": "failed with status code 500",
+      "stack":
+          Error: failed with status code 500
+              at onResFinished (/home/runner/work/google/google/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:115:39)
+              at ServerResponse.onResponseComplete (/home/runner/work/google/google/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:178:14)
+              at ServerResponse.emit (node:events:536:35)
+              at onFinish (node:_http_outgoing:1031:10)
+              at callback (node:internal/streams/writable:766:21)
+              at afterWrite (node:internal/streams/writable:710:5)
+              at afterWriteTick (node:internal/streams/writable:696:10)
+              at processTicksAndRejections (node:internal/process/task_queues:81:21)
+    }
+[10:55:37.044] ERROR (2529): [recommendations GET /trending] DB error:
+[10:55:37.045] ERROR (2529): ERROR: failed with status code 500
+    req: {
+      "id": "1efe8c9d-f2b3-4964-9449-a3f5a95c303e",
+      "method": "GET",
+      "url": "/api/recommendations/trending"
+    }
+    res: {
+      "statusCode": 500
+    }
+    responseTime: 3
+    err: {
+      "type": "Error",
+      "message": "failed with status code 500",
+      "stack":
+          Error: failed with status code 500
+              at onResFinished (/home/runner/work/google/google/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:115:39)
+              at ServerResponse.onResponseComplete (/home/runner/work/google/google/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:178:14)
+              at ServerResponse.emit (node:events:536:35)
+              at onFinish (node:_http_outgoing:1031:10)
+              at callback (node:internal/streams/writable:766:21)
+              at afterWrite (node:internal/streams/writable:710:5)
+              at afterWriteTick (node:internal/streams/writable:696:10)
+              at processTicksAndRejections (node:internal/process/task_queues:81:21)
+    }
+[10:55:37.050] WARN (2529): GET / → 401 (2ms)
+    req: {
+      "id": "505a56f7-b644-4ea9-bb93-30b938d0a2a1",
+      "method": "GET",
+      "url": "/api/orders"
+    }
+    res: {
+      "statusCode": 401
+    }
+    responseTime: 2
+[10:55:37.053] WARN (2529): GET / → 401 (1ms)
+    req: {
+      "id": "28467c65-cddd-4eb1-93d1-7a9caf912ffc",
+      "method": "GET",
+      "url": "/api/wallet"
+    }
+    res: {
+      "statusCode": 401
+    }
+    responseTime: 1
+[10:55:37.056] WARN (2529): GET / → 401 (1ms)
+    req: {
+      "id": "1ffbbc54-c5b6-414e-b95b-315f73f698f5",
+      "method": "GET",
+      "url": "/api/notifications"
+    }
+    res: {
+      "statusCode": 401
+    }
+    responseTime: 1
+[10:55:37.060] WARN (2529): GET / → 401 (1ms)
+    req: {
+      "id": "272661b0-f637-49d9-bc4c-c1c4dd0a40f7",
+      "method": "GET",
+      "url": "/api/addresses"
+    }
+    res: {
+      "statusCode": 401
+    }
+    responseTime: 2
+[10:55:37.073] WARN (2529): [security] Settings cache refresh failed — using stale/empty cache
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"\nparams: : ",
+      "stack":
+          Error: Failed query: select "key", "value", "label", "category", "updated_at" from "platform_settings"
+          params: 
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+              at /home/runner/work/google/google/artifacts/api-server/src/middleware/suspiciousPatternDetector.ts:173:24
+          caused by: AggregateError: 
+              at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:124:18
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+              at /home/runner/work/google/google/artifacts/api-server/src/middleware/suspiciousPatternDetector.ts:173:24
+      "query": "select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"",
+      "params": []
+    }
+[10:55:37.075] ERROR (2529): [error] Unhandled route error
+    method: "GET"
+    url: "/api/admin/system/stats"
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select count(*) from \"users\"\nparams: : ",
+      "stack":
+          Error: Failed query: select count(*) from "users"
+          params: 
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at /home/runner/work/google/google/artifacts/api-server/src/routes/system.ts:929:21
+          caused by: AggregateError: 
+              at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:124:18
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at /home/runner/work/google/google/artifacts/api-server/src/routes/system.ts:929:21
+      "query": "select count(*) from \"users\"",
+      "params": []
+    }
+[10:55:37.078] ERROR (2529): ERROR: failed with status code 500
+    req: {
+      "id": "37920832-509d-4efc-8072-9cc8d55ec05d",
+      "method": "GET",
+      "url": "/api/admin/system/stats"
+    }
+    res: {
+      "statusCode": 500
+    }
+    responseTime: 12
+    err: {
+      "type": "Error",
+      "message": "failed with status code 500",
+      "stack":
+          Error: failed with status code 500
+              at onResFinished (/home/runner/work/google/google/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:115:39)
+              at ServerResponse.onResponseComplete (/home/runner/work/google/google/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:178:14)
+              at ServerResponse.emit (node:events:536:35)
+              at onFinish (node:_http_outgoing:1031:10)
+              at callback (node:internal/streams/writable:766:21)
+              at afterWrite (node:internal/streams/writable:710:5)
+              at afterWriteTick (node:internal/streams/writable:696:10)
+              at processTicksAndRejections (node:internal/process/task_queues:81:21)
+    }
+[10:55:37.081] WARN (2529): GET /stats → 401 (1ms)
+    req: {
+      "id": "22274496-a749-4f29-943e-c3320504e294",
+      "method": "GET",
+      "url": "/api/admin/system/stats"
+    }
+    res: {
+      "statusCode": 401
+    }
+    responseTime: 1
+[10:55:37.084] WARN (2529): [admin-shared] Invalid admin token
+    ip: "::ffff:127.0.0.1"
+    err: {
+      "type": "Error",
+      "message": "Invalid access token: jwt malformed",
+      "stack":
+          Error: Invalid access token: jwt malformed
+              at verifyAccessToken (/home/runner/work/google/google/artifacts/api-server/src/utils/admin-jwt.ts:109:11)
+              at adminAuth (/home/runner/work/google/google/artifacts/api-server/src/routes/admin-shared.ts:514:21)
+              at Layer.handleRequest (/home/runner/work/google/google/node_modules/.pnpm/router@2.2.0/node_modules/router/lib/layer.js:152:17)
+              at trimPrefix (/home/runner/work/google/google/node_modules/.pnpm/router@2.2.0/node_modules/router/index.js:342:13)
+              at /home/runner/work/google/google/node_modules/.pnpm/router@2.2.0/node_modules/router/index.js:297:9
+              at processParams (/home/runner/work/google/google/node_modules/.pnpm/router@2.2.0/node_modules/router/index.js:582:12)
+              at next (/home/runner/work/google/google/node_modules/.pnpm/router@2.2.0/node_modules/router/index.js:291:5)
+              at /home/runner/work/google/google/node_modules/.pnpm/router@2.2.0/node_modules/router/index.js:688:15
+              at next (/home/runner/work/google/google/node_modules/.pnpm/router@2.2.0/node_modules/router/index.js:276:14)
+              at Function.handle (/home/runner/work/google/google/node_modules/.pnpm/router@2.2.0/node_modules/router/index.js:186:3)
+    }
+[10:55:37.085] WARN (2529): GET /stats → 401 (2ms)
+    req: {
+      "id": "c24510c9-a070-4c7c-b839-ed33185908dc",
+      "method": "GET",
+      "url": "/api/admin/system/stats"
+    }
+    res: {
+      "statusCode": 401
+    }
+    responseTime: 2
+[10:55:37.086] WARN (2529): [security] Settings cache refresh failed — using stale/empty cache
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"\nparams: : ",
+      "stack":
+          Error: Failed query: select "key", "value", "label", "category", "updated_at" from "platform_settings"
+          params: 
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+              at /home/runner/work/google/google/artifacts/api-server/src/middleware/suspiciousPatternDetector.ts:173:24
+          caused by: AggregateError: 
+              at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:124:18
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+              at /home/runner/work/google/google/artifacts/api-server/src/middleware/suspiciousPatternDetector.ts:173:24
+      "query": "select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"",
+      "params": []
+    }
+[10:55:37.090] WARN (2529): GET / → 404 (1ms)
+    req: {
+      "id": "a90a1121-134d-47c6-af50-1747913b1148",
+      "method": "GET",
+      "url": "/api/legal"
+    }
+    res: {
+      "statusCode": 404
+    }
+    responseTime: 1
+[10:55:37.091] WARN (2529): [security] Settings cache refresh failed — using stale/empty cache
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"\nparams: : ",
+      "stack":
+          Error: Failed query: select "key", "value", "label", "category", "updated_at" from "platform_settings"
+          params: 
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+              at /home/runner/work/google/google/artifacts/api-server/src/middleware/suspiciousPatternDetector.ts:173:24
+          caused by: AggregateError: 
+              at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:124:18
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+              at /home/runner/work/google/google/artifacts/api-server/src/middleware/suspiciousPatternDetector.ts:173:24
+      "query": "select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"",
+      "params": []
+    }
+[10:55:37.102] WARN (2529): Request body validation failed
+    validationErrors: [
+      {
+        "code": "invalid_type",
+        "expected": "string",
+        "received": "undefined",
+        "path": [
+          "identifier"
+        ],
+        "message": "Required"
+      }
+    ]
+    url: "/check-identifier"
+    method: "POST"
+[10:55:37.103] WARN (2529): POST /check-identifier → 400 (9ms)
+    req: {
+      "id": "8a93b2fa-e000-45bd-816f-8e5a13f44eb9",
+      "method": "POST",
+      "url": "/api/auth/check-identifier"
+    }
+    res: {
+      "statusCode": 400
+    }
+    responseTime: 9
+[10:55:37.107] WARN (2529): Request body validation failed
+    validationErrors: [
+      {
+        "code": "invalid_type",
+        "expected": "string",
+        "received": "undefined",
+        "path": [
+          "phone"
+        ],
+        "message": "Required"
+      }
+    ]
+    url: "/send-otp"
+    method: "POST"
+[10:55:37.107] WARN (2529): POST /send-otp → 400 (2ms)
+    req: {
+      "id": "b3b9e642-d5c9-4931-b2c9-a13c21ff9792",
+      "method": "POST",
+      "url": "/api/auth/send-otp"
+    }
+    res: {
+      "statusCode": 400
+    }
+    responseTime: 2
+[10:55:37.108] WARN (2529): [security] Settings cache refresh failed — using stale/empty cache
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"\nparams: : ",
+      "stack":
+          Error: Failed query: select "key", "value", "label", "category", "updated_at" from "platform_settings"
+          params: 
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+              at /home/runner/work/google/google/artifacts/api-server/src/middleware/suspiciousPatternDetector.ts:173:24
+          caused by: AggregateError: 
+              at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:124:18
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+              at /home/runner/work/google/google/artifacts/api-server/src/middleware/suspiciousPatternDetector.ts:173:24
+      "query": "select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"",
+      "params": []
+    }
+[10:55:37.112] WARN (2529): Request body validation failed
+    validationErrors: [
+      {
+        "code": "invalid_type",
+        "expected": "string",
+        "received": "undefined",
+        "path": [
+          "otp"
+        ],
+        "message": "Required"
+      }
+    ]
+    url: "/verify-otp"
+    method: "POST"
+[10:55:37.113] WARN (2529): POST /verify-otp → 400 (3ms)
+    req: {
+      "id": "ef4717e8-d80f-4871-93e1-e1ccffb8e468",
+      "method": "POST",
+      "url": "/api/auth/verify-otp"
+    }
+    res: {
+      "statusCode": 400
+    }
+    responseTime: 3
+[10:55:37.113] WARN (2529): [security] Settings cache refresh failed — using stale/empty cache
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"\nparams: : ",
+      "stack":
+          Error: Failed query: select "key", "value", "label", "category", "updated_at" from "platform_settings"
+          params: 
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+              at /home/runner/work/google/google/artifacts/api-server/src/middleware/suspiciousPatternDetector.ts:173:24
+          caused by: AggregateError: 
+              at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:124:18
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+              at /home/runner/work/google/google/artifacts/api-server/src/middleware/suspiciousPatternDetector.ts:173:24
+      "query": "select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"",
+      "params": []
+    }
+ × src/tests/api.test.ts > Public endpoints > GET /api/recommendations/trending returns 200 6ms
+   → expected 500 to be 200 // Object.is equality
+ ✓ src/tests/api.test.ts > Customer-protected endpoints reject unauthenticated requests > GET /api/orders returns 401 without token 4ms
+ ✓ src/tests/api.test.ts > Customer-protected endpoints reject unauthenticated requests > GET /api/wallet returns 401 without token 4ms
+ ✓ src/tests/api.test.ts > Customer-protected endpoints reject unauthenticated requests > GET /api/notifications returns 401 without token 3ms
+ ✓ src/tests/api.test.ts > Customer-protected endpoints reject unauthenticated requests > GET /api/addresses returns 401 without token 3ms
+ × src/tests/api.test.ts > Admin-protected endpoints with valid admin JWT > GET /api/admin/system/stats returns 200 with valid admin token 19ms
+   → expected 500 to be 200 // Object.is equality
+ ✓ src/tests/api.test.ts > Admin-protected endpoints with valid admin JWT > GET /api/admin/system/stats returns 401 without token 3ms
+ ✓ src/tests/api.test.ts > Admin-protected endpoints with valid admin JWT > GET /api/admin/system/stats returns 401 with an invalid token 5ms
+ ✓ src/tests/api.test.ts > Admin-protected endpoints with valid admin JWT > GET /api/legal returns 200 with valid admin token 5ms
+ ✓ src/tests/api.test.ts > Input validation rejects malformed requests > POST /api/auth/check-identifier with empty body returns 400 12ms
+ ✓ src/tests/api.test.ts > Input validation rejects malformed requests > POST /api/auth/send-otp without phone returns 400 5ms
+ ✓ src/tests/api.test.ts > Input validation rejects malformed requests > POST /api/auth/verify-otp with missing fields returns 400 5ms
+[10:55:37.272] WARN (2529): [security] Settings cache refresh failed — using stale/empty cache
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"\nparams: : ",
+      "stack":
+          Error: Failed query: select "key", "value", "label", "category", "updated_at" from "platform_settings"
+          params: 
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:41:15)
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+              at /home/runner/work/google/google/artifacts/api-server/src/middleware/suspiciousPatternDetector.ts:173:24
+          caused by: AggregateError: 
+              at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:124:18
+              at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)
+              at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:117:22
+              at getCachedSettings (/home/runner/work/google/google/artifacts/api-server/src/middleware/security.ts:32:18)
+              at /home/runner/work/google/google/artifacts/api-server/src/middleware/suspiciousPatternDetector.ts:173:24
+      "query": "select \"key\", \"value\", \"label\", \"category\", \"updated_at\" from \"platform_settings\"",
+      "params": []
+    }
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/admin-approval.test.ts [ src/tests/admin-approval.test.ts ]
+Error: Failed query: delete from "users" where "users"."id" = $1
+params: test-rider-approval-workflow-e2e-001
+ ❯ NodePgPreparedQuery.queryWithCache ../../node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/src/pg-core/session.ts:73:10
+ ❯ src/tests/admin-approval.test.ts:75:3
+     73|   const { eq } = await import("drizzle-orm");
+     74|
+     75|   await db.delete(usersTable).where(eq(usersTable.id, TEST_RIDER_ID));
+       |   ^
+     76|
+     77|   const now = new Date();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { query: 'delete from "users" where "users"."id" = $1', params: [ 'test-rider-approval-workflow-e2e-001' ] }
+{
+  stack: 'AggregateError: \n' +
+    '    at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11\n' +
+    '    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n' +
+    '    at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:113:20\n' +
+    '    at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)\n' +
+    '    at /home/runner/work/google/google/artifacts/api-server/src/tests/admin-approval.test.ts:75:3',
+  errors: [
+    {
+      stack: 'Error: connect ECONNREFUSED ::1:5432\n' +
+        '    at createConnectionError (node:net:1652:14)\n' +
+        '    at afterConnectMultiple (node:net:1682:16)',
+      message: 'connect ECONNREFUSED ::1:5432',
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 5432,
+      constructor: 'Function<Error>',
+      name: 'Error',
+      toString: 'Function<toString>'
+    },
+    {
+      stack: 'Error: connect ECONNREFUSED 127.0.0.1:5432\n' +
+        '    at createConnectionError (node:net:1652:14)\n' +
+        '    at afterConnectMultiple (node:net:1682:16)',
+      message: 'connect ECONNREFUSED 127.0.0.1:5432',
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 5432,
+      constructor: 'Function<Error>',
+      name: 'Error',
+      toString: 'Function<toString>'
+    }
+  ],
+  code: 'ECONNREFUSED',
+  constructor: 'Function<AggregateError>',
+  name: 'Caused by: AggregateError',
+  message: '',
+  toString: 'Function<toString>',
+  stacks: [
+    {
+      method: '',
+      file: '/home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js',
+      line: 45,
+      column: 11
+    },
+    {
+      method: '',
+      file: '/home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js',
+      line: 113,
+      column: 20
+    },
+    {
+      method: 'NodePgPreparedQuery.queryWithCache',
+      file: '/home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js',
+      line: 39,
+      column: 16
+    },
+    {
+      method: '',
+      file: '/home/runner/work/google/google/artifacts/api-server/src/tests/admin-approval.test.ts',
+      line: 75,
+      column: 3
+    }
+  ]
+}
+ ❯ ../../node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+ ❯ ../../node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:113:20
+ ❯ NodePgPreparedQuery.queryWithCache ../../node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16
+ ❯ src/tests/admin-approval.test.ts:75:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { errors: [ { stack: 'Error: connect ECONNREFUSED ::1:5432\n    at createConnectionError (node:net:1652:14)\n    at afterConnectMultiple (node:net:1682:16)', message: 'connect ECONNREFUSED ::1:5432', errno: -111, code: 'ECONNREFUSED', syscall: 'connect', address: '::1', port: 5432, constructor: 'Function<Error>', name: 'Error', toString: 'Function<toString>' }, { stack: 'Error: connect ECONNREFUSED 127.0.0.1:5432\n    at createConnectionError (node:net:1652:14)\n    at afterConnectMultiple (node:net:1682:16)', message: 'connect ECONNREFUSED 127.0.0.1:5432', errno: -111, code: 'ECONNREFUSED', syscall: 'connect', address: '127.0.0.1', port: 5432, constructor: 'Function<Error>', name: 'Error', toString: 'Function<toString>' } ], code: 'ECONNREFUSED' }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/12]⎯
+
+ FAIL  src/tests/rides.test.ts [ src/tests/rides.test.ts ]
+Error: Failed query: delete from "users" where "users"."id" = $1
+params: test-rides-customer-e2e-002
+ ❯ NodePgPreparedQuery.queryWithCache ../../node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/src/pg-core/session.ts:73:10
+ ❯ src/tests/rides.test.ts:51:3
+     49|   const now = new Date();
+     50|
+     51|   await db.delete(usersTable).where(eq(usersTable.id, TEST_CUSTOMER_ID…
+       |   ^
+     52|   await db.insert(usersTable).values({
+     53|     id: TEST_CUSTOMER_ID,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { query: 'delete from "users" where "users"."id" = $1', params: [ 'test-rides-customer-e2e-002' ] }
+{
+  stack: 'AggregateError: \n' +
+    '    at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11\n' +
+    '    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n' +
+    '    at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:113:20\n' +
+    '    at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)\n' +
+    '    at /home/runner/work/google/google/artifacts/api-server/src/tests/rides.test.ts:51:3',
+  errors: [
+    {
+      stack: 'Error: connect ECONNREFUSED ::1:5432\n' +
+        '    at createConnectionError (node:net:1652:14)\n' +
+        '    at afterConnectMultiple (node:net:1682:16)',
+      message: 'connect ECONNREFUSED ::1:5432',
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 5432,
+      constructor: 'Function<Error>',
+      name: 'Error',
+      toString: 'Function<toString>'
+    },
+    {
+      stack: 'Error: connect ECONNREFUSED 127.0.0.1:5432\n' +
+        '    at createConnectionError (node:net:1652:14)\n' +
+        '    at afterConnectMultiple (node:net:1682:16)',
+      message: 'connect ECONNREFUSED 127.0.0.1:5432',
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 5432,
+      constructor: 'Function<Error>',
+      name: 'Error',
+      toString: 'Function<toString>'
+    }
+  ],
+  code: 'ECONNREFUSED',
+  constructor: 'Function<AggregateError>',
+  name: 'Caused by: AggregateError',
+  message: '',
+  toString: 'Function<toString>',
+  stacks: [
+    {
+      method: '',
+      file: '/home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js',
+      line: 45,
+      column: 11
+    },
+    {
+      method: '',
+      file: '/home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js',
+      line: 113,
+      column: 20
+    },
+    {
+      method: 'NodePgPreparedQuery.queryWithCache',
+      file: '/home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js',
+      line: 39,
+      column: 16
+    },
+    {
+      method: '',
+      file: '/home/runner/work/google/google/artifacts/api-server/src/tests/rides.test.ts',
+      line: 51,
+      column: 3
+    }
+  ]
+}
+ ❯ ../../node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+ ❯ ../../node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:113:20
+ ❯ NodePgPreparedQuery.queryWithCache ../../node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16
+
+ ❯ src/tests/rides.test.ts:51:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { errors: [ { stack: 'Error: connect ECONNREFUSED ::1:5432\n    at createConnectionError (node:net:1652:14)\n    at afterConnectMultiple (node:net:1682:16)', message: 'connect ECONNREFUSED ::1:5432', errno: -111, code: 'ECONNREFUSED', syscall: 'connect', address: '::1', port: 5432, constructor: 'Function<Error>', name: 'Error', toString: 'Function<toString>' }, { stack: 'Error: connect ECONNREFUSED 127.0.0.1:5432\n    at createConnectionError (node:net:1652:14)\n    at afterConnectMultiple (node:net:1682:16)', message: 'connect ECONNREFUSED 127.0.0.1:5432', errno: -111, code: 'ECONNREFUSED', syscall: 'connect', address: '127.0.0.1', port: 5432, constructor: 'Function<Error>', name: 'Error', toString: 'Function<toString>' } ], code: 'ECONNREFUSED' }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/12]⎯
+
+ FAIL  src/tests/wallet.test.ts [ src/tests/wallet.test.ts ]
+Error: Failed query: delete from "users" where "users"."id" = $1
+params: test-wallet-customer-e2e-001
+ ❯ NodePgPreparedQuery.queryWithCache ../../node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/src/pg-core/session.ts:73:10
+ ❯ src/tests/wallet.test.ts:45:3
+     43|   adminToken = signAccessToken("test-admin-wallet-e2e", "super", "Wall…
+     44|
+     45|   await db.delete(usersTable).where(eq(usersTable.id, TEST_CUSTOMER_ID…
+       |   ^
+     46|   const now = new Date();
+     47|   await db.insert(usersTable).values({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { query: 'delete from "users" where "users"."id" = $1', params: [ 'test-wallet-customer-e2e-001' ] }
+{
+  stack: 'AggregateError: \n' +
+    '    at /home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11\n' +
+    '    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n' +
+    '    at file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:113:20\n' +
+    '    at NodePgPreparedQuery.queryWithCache (file:///home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16)\n' +
+    '    at /home/runner/work/google/google/artifacts/api-server/src/tests/wallet.test.ts:45:3',
+  errors: [
+    {
+      stack: 'Error: connect ECONNREFUSED ::1:5432\n' +
+        '    at createConnectionError (node:net:1652:14)\n' +
+        '    at afterConnectMultiple (node:net:1682:16)',
+      message: 'connect ECONNREFUSED ::1:5432',
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 5432,
+      constructor: 'Function<Error>',
+      name: 'Error',
+      toString: 'Function<toString>'
+    },
+    {
+      stack: 'Error: connect ECONNREFUSED 127.0.0.1:5432\n' +
+        '    at createConnectionError (node:net:1652:14)\n' +
+        '    at afterConnectMultiple (node:net:1682:16)',
+      message: 'connect ECONNREFUSED 127.0.0.1:5432',
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 5432,
+      constructor: 'Function<Error>',
+      name: 'Error',
+      toString: 'Function<toString>'
+    }
+  ],
+  code: 'ECONNREFUSED',
+  constructor: 'Function<AggregateError>',
+  name: 'Caused by: AggregateError',
+  message: '',
+  toString: 'Function<toString>',
+  stacks: [
+    {
+      method: '',
+      file: '/home/runner/work/google/google/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js',
+      line: 45,
+      column: 11
+    },
+    {
+      method: '',
+      file: '/home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js',
+      line: 113,
+      column: 20
+    },
+    {
+      method: 'NodePgPreparedQuery.queryWithCache',
+      file: '/home/runner/work/google/google/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js',
+      line: 39,
+      column: 16
+    },
+    {
+      method: '',
+      file: '/home/runner/work/google/google/artifacts/api-server/src/tests/wallet.test.ts',
+      line: 45,
+      column: 3
+    }
+  ]
+}
+ ❯ ../../node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+ ❯ ../../node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/node-postgres/session.js:113:20
+ ❯ NodePgPreparedQuery.queryWithCache ../../node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+better-sqlite3@7.6.13_@types+pg@8.18_bb454e3d0906996355d5d3295f1c83e2/node_modules/drizzle-orm/pg-core/session.js:39:16
+ ❯ src/tests/wallet.test.ts:45:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { errors: [ { stack: 'Error: connect ECONNREFUSED ::1:5432\n    at createConnectionError (node:net:1652:14)\n    at afterConnectMultiple (node:net:1682:16)', message: 'connect ECONNREFUSED ::1:5432', errno: -111, code: 'ECONNREFUSED', syscall: 'connect', address: '::1', port: 5432, constructor: 'Function<Error>', name: 'Error', toString: 'Function<toString>' }, { stack: 'Error: connect ECONNREFUSED 127.0.0.1:5432\n    at createConnectionError (node:net:1652:14)\n    at afterConnectMultiple (node:net:1682:16)', message: 'connect ECONNREFUSED 127.0.0.1:5432', errno: -111, code: 'ECONNREFUSED', syscall: 'connect', address: '127.0.0.1', port: 5432, constructor: 'Function<Error>', name: 'Error', toString: 'Function<toString>' } ], code: 'ECONNREFUSED' }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/12]⎯
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/api.test.ts > Public endpoints > GET /api/health returns 200 with {status: ok}
+AssertionError: expected 503 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 503
+
+ ❯ src/tests/api.test.ts:60:24
+     58|   it("GET /api/health returns 200 with {status: ok}", async () => {
+     59|     const res = await api().get("/api/health");
+     60|     expect(res.status).toBe(200);
+       |                        ^
+     61|     expect(res.body).toMatchObject({ status: "ok" });
+     62|     expect(typeof res.body.timestamp).toBe("string");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/12]⎯
+
+ FAIL  src/tests/api.test.ts > Public endpoints > GET /api/categories returns 200 with a categories array
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ src/tests/api.test.ts:67:24
+     65|   it("GET /api/categories returns 200 with a categories array", async …
+     66|     const res = await api().get("/api/categories");
+     67|     expect(res.status).toBe(200);
+       |                        ^
+     68|     expect(res.body.success).toBe(true);
+     69|     expect(Array.isArray(res.body.data?.categories)).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/12]⎯
+
+ FAIL  src/tests/api.test.ts > Public endpoints > GET /api/products/trending-searches returns 200 with a searches array
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ src/tests/api.test.ts:74:24
+     72|   it("GET /api/products/trending-searches returns 200 with a searches …
+     73|     const res = await api().get("/api/products/trending-searches");
+     74|     expect(res.status).toBe(200);
+       |                        ^
+     75|     expect(res.body.success).toBe(true);
+     76|     expect(Array.isArray(res.body.data?.searches)).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/12]⎯
+
+ FAIL  src/tests/api.test.ts > Public endpoints > GET /api/banners returns 200 with a banners array
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ src/tests/api.test.ts:81:24
+     79|   it("GET /api/banners returns 200 with a banners array", async () => {
+     80|     const res = await api().get("/api/banners");
+     81|     expect(res.status).toBe(200);
+       |                        ^
+     82|     expect(res.body.success).toBe(true);
+     83|     expect(Array.isArray(res.body.data?.banners)).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/12]⎯
+
+ FAIL  src/tests/api.test.ts > Public endpoints > GET /api/vendors returns 200 with a vendors array
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ src/tests/api.test.ts:95:24
+     93|   it("GET /api/vendors returns 200 with a vendors array", async () => {
+     94|     const res = await api().get("/api/vendors");
+     95|     expect(res.status).toBe(200);
+       |                        ^
+     96|     expect(res.body.success).toBe(true);
+     97|     expect(Array.isArray(res.body.data?.vendors)).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/12]⎯
+
+ FAIL  src/tests/api.test.ts > Public endpoints > GET /api/recommendations/trending returns 200
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ src/tests/api.test.ts:102:24
+    100|   it("GET /api/recommendations/trending returns 200", async () => {
+    101|     const res = await api().get("/api/recommendations/trending");
+    102|     expect(res.status).toBe(200);
+       |                        ^
+    103|     expect(res.body.success).toBe(true);
+    104|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/12]⎯
+
+ FAIL  src/tests/api.test.ts > Admin-protected endpoints with valid admin JWT > GET /api/admin/system/stats returns 200 with valid admin token
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ src/tests/api.test.ts:141:24
+    139|     const token = makeAdminToken();
+    140|     const res = await api().get("/api/admin/system/stats").set("Author…
+    141|     expect(res.status).toBe(200);
+       |                        ^
+    142|     expect(res.body.stats).toBeDefined();
+    143|     expect(typeof res.body.stats.users).toBe("number");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/12]⎯
+
+ FAIL  src/tests/security.test.ts > CORS security – production mode > allows a request from the configured FRONTEND_URL in production
+AssertionError: expected 503 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 503
+
+ ❯ src/tests/security.test.ts:72:26
+     70|         .set("Origin", "https://ajkmart.example.com");
+     71|
+     72|       expect(res.status).toBe(200);
+       |                          ^
+     73|     } finally {
+     74|       process.env["NODE_ENV"] = originalEnv;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/12]⎯
+
+ FAIL  src/tests/security.test.ts > CORS security – production mode > allows requests with no Origin header (mobile/server-to-server)
+AssertionError: expected 503 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 503
+
+ ❯ src/tests/security.test.ts:86:26
+     84|     try {
+     85|       const res = await supertest(app).get("/api/health");
+     86|       expect(res.status).toBe(200);
+       |                          ^
+     87|     } finally {
+     88|       process.env["NODE_ENV"] = originalEnv;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/12]⎯
+
+ Test Files  5 failed | 1 passed (6)
+      Tests  9 failed | 23 passed | 47 skipped (79)
+   Start at  10:55:26
+   Duration  11.17s (transform 8.19s, setup 0ms, import 1.05s, tests 25.18s, environment 1ms)
+
+ ELIFECYCLE  Test failed. See above for more details.
+Error: Process completed with exit code 1.

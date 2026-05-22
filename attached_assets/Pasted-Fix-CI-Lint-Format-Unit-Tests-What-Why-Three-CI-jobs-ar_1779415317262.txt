@@ -1,0 +1,42 @@
+Fix CI: Lint, Format & Unit Tests
+What & Why
+Three CI jobs are failing on every push: lint, format, and unit-tests. All three have identifiable root causes that need to be corrected so the gate job passes and merges are unblocked.
+
+Done looks like
+pnpm lint exits 0 — no ESLint errors across any workspace
+pnpm format:check exits 0 — all files formatted correctly
+pnpm test in artifacts/api-server exits 0 — all 5 test suites pass
+CI gate job reports ✅ on all three jobs
+Out of scope
+Fixing integration or E2E tests
+Adding new tests or lint rules
+Changing the overall ESLint/Prettier configuration beyond what is needed to pass
+Steps
+1. Fix unit-tests — break circular dependency in sos.ts
+src/routes/sos.ts imports adminAuth from ./admin.js, while admin.ts imports sosRoutes from ./sos.js. This circular reference causes adminAuth to be undefined at module evaluation time, producing TypeError: argument handler must be a function and failing all 5 test suites. Change the import in sos.ts to pull adminAuth from ./admin-shared.js instead of ./admin.js.
+
+2. Fix format — remove unresolvable prettier plugin
+.prettierrc lists prettier-plugin-organize-imports as a plugin. In this pnpm workspace layout, prettier cannot resolve it at runtime (Cannot find package 'prettier-plugin-organize-imports'). Remove prettier-plugin-organize-imports from the plugins array in .prettierrc (keep prettier-plugin-tailwindcss). Then run pnpm format to reformat any files whose import order was previously managed by that plugin so the check passes cleanly.
+
+3. Fix lint — resolve all error-level ESLint violations in api-server
+Run pnpm lint:fix (auto-fix) to resolve mechanical issues (prefer-const, eqeqeq, some no-unused-vars), then manually fix the remaining errors which fall into these categories across several api-server source files:
+
+no-unused-vars: Rename catch (err) blocks that never use err to catch (_err) or catch (_e). Remove or prefix unused local variables and imports with _.
+no-explicit-any: Replace any with specific types (unknown, typed interfaces, or Drizzle inferred types) in the affected files.
+no-floating-promises: Prefix fire-and-forget async calls (e.g. cache refreshes, background socket emits) with void to explicitly mark them as intentionally unawaited.
+4. Migrate .eslintignore → eslint.config.mjs ignores
+The .eslintignore file is not supported by ESLint flat config and emits a warning on every run. Move its entries into the ignores array inside eslint.config.mjs and delete .eslintignore. This prevents the warning from masking real errors in CI output.
+
+Relevant files
+artifacts/api-server/src/routes/sos.ts
+artifacts/api-server/src/routes/admin-shared.ts
+.prettierrc
+eslint.config.mjs
+.eslintignore
+artifacts/api-server/src/middleware/security.ts
+artifacts/api-server/src/routes/admin/whitelist.ts
+artifacts/api-server/src/routes/admin/security.ts
+artifacts/api-server/src/routes/admin/content.ts
+artifacts/api-server/src/routes/rider.ts
+artifacts/api-server/src/routes/wallet.ts
+artifacts/api-server/src/routes/rides.ts

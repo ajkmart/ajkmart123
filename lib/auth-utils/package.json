@@ -1,0 +1,64 @@
+{
+  "name": "@workspace/auth-utils",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./captcha": "./src/captcha/index.ts",
+    "./captcha/native": "./src/captcha/native.tsx",
+    "./oauth": "./src/oauth/index.ts",
+    "./oauth/native": "./src/oauth/native.ts",
+    "./two-factor": "./src/two-factor/index.ts",
+    "./two-factor/native": "./src/two-factor/index.native.ts",
+    "./magic-link": "./src/magic-link/index.ts",
+    "./server": "./src/server.ts",
+    "./permissions": "./src/permissions.ts"
+  },
+  "dependencies": {
+    "@react-oauth/google": "^0.12.1",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@workspace/phone-utils": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18",
+    "react-native": ">=0.73",
+    "react-native-webview": ">=13",
+    "expo-auth-session": ">=5",
+    "expo-web-browser": ">=12",
+    "expo-clipboard": ">=5",
+    "expo-file-system": ">=16",
+    "expo-sharing": ">=11"
+  },
+  "peerDependenciesMeta": {
+    "react-dom": {
+      "optional": true
+    },
+    "react-native": {
+      "optional": true
+    },
+    "react-native-webview": {
+      "optional": true
+    },
+    "expo-auth-session": {
+      "optional": true
+    },
+    "expo-web-browser": {
+      "optional": true
+    },
+    "expo-clipboard": {
+      "optional": true
+    },
+    "expo-file-system": {
+      "optional": true
+    },
+    "expo-sharing": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  }
+}

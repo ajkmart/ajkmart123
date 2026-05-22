@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/vendor/"
+title = "AJKMart Vendor App"
+version = "1.0.0"
+id = "artifacts/vendor-app"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/vendor/" ]
+localPort = 21463
+
+[services.development]
+run = "pnpm --filter @workspace/vendor-app run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/vendor-app", "run", "build" ]
+publicDir = "artifacts/vendor-app/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21463"
+BASE_PATH = "/vendor/"

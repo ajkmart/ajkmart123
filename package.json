@@ -1,0 +1,90 @@
+{
+  "name": "workspace",
+  "version": "0.0.0",
+  "license": "MIT",
+  "scripts": {
+    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+    "prepare": "husky",
+    "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "typecheck:libs": "tsc --build",
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "typecheck:all": "concurrently 'tsc -p lib/db/tsconfig.json --noEmit' 'tsc -p lib/i18n/tsconfig.json --noEmit' 'tsc -p lib/auth-utils/tsconfig.json --noEmit' 'tsc -p lib/auth-react/tsconfig.json --noEmit' 'tsc -p lib/api-client-react/tsconfig.json --noEmit' 'tsc -p artifacts/api-server/tsconfig.json --noEmit' 'tsc -p artifacts/admin/tsconfig.json --noEmit' 'tsc -p artifacts/rider-app/tsconfig.json --noEmit' 'tsc -p artifacts/vendor-app/tsconfig.json --noEmit'",
+    "typecheck:ci": "concurrently --max-processes 6 --names db,i18n,auth-utils,auth-react,api-client,api,admin,rider,vendor 'tsc -p lib/db/tsconfig.json --noEmit' 'tsc -p lib/i18n/tsconfig.json --noEmit' 'tsc -p lib/auth-utils/tsconfig.json --noEmit' 'tsc -p lib/auth-react/tsconfig.json --noEmit' 'tsc -p lib/api-client-react/tsconfig.json --noEmit' 'tsc -p artifacts/api-server/tsconfig.json --noEmit' 'tsc -p artifacts/admin/tsconfig.json --noEmit' 'tsc -p artifacts/rider-app/tsconfig.json --noEmit' 'tsc -p artifacts/vendor-app/tsconfig.json --noEmit'",
+    "e2e": "playwright test",
+    "e2e:admin": "playwright test --project=admin",
+    "e2e:vendor": "playwright test --project=vendor",
+    "e2e:rider": "playwright test --project=rider",
+    "e2e:report": "playwright show-report e2e/reports",
+    "audit:check": "pnpm audit --audit-level moderate",
+    "audit:fix": "pnpm audit --fix",
+    "lint": "eslint . --cache --cache-location .eslintcache",
+    "lint:fix": "eslint . --fix --cache --cache-location .eslintcache",
+    "lint:ci": "concurrently --max-processes 5 --names api,admin,rider,vendor,lib \"eslint artifacts/api-server/src --max-warnings 0 --cache --cache-location .eslintcache\" \"eslint artifacts/admin/src --max-warnings 0 --cache --cache-location .eslintcache\" \"eslint artifacts/rider-app/src --max-warnings 0 --cache --cache-location .eslintcache\" \"eslint artifacts/vendor-app/src --max-warnings 0 --cache --cache-location .eslintcache\" \"eslint lib --max-warnings 0 --cache --cache-location .eslintcache\"",
+    "lint:api": "eslint artifacts/api-server/src --cache --cache-location .eslintcache",
+    "lint:admin": "eslint artifacts/admin/src --cache --cache-location .eslintcache",
+    "lint:check": "eslint . --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "format:api": "prettier --write artifacts/api-server/src",
+    "format:admin": "prettier --write artifacts/admin/src"
+  },
+  "lint-staged": {
+    "artifacts/api-server/src/**/*.ts": [
+      "prettier --write",
+      "eslint --fix",
+      "node_modules/.bin/tsc -p artifacts/api-server/tsconfig.json --noEmit"
+    ],
+    "artifacts/admin/src/**/*.{ts,tsx}": [
+      "prettier --write",
+      "eslint --fix",
+      "node_modules/.bin/tsc -p artifacts/admin/tsconfig.json --noEmit"
+    ],
+    "artifacts/rider-app/src/**/*.{ts,tsx}": [
+      "prettier --write",
+      "eslint --fix",
+      "node_modules/.bin/tsc -p artifacts/rider-app/tsconfig.json --noEmit"
+    ],
+    "artifacts/vendor-app/src/**/*.{ts,tsx}": [
+      "prettier --write",
+      "eslint --fix",
+      "node_modules/.bin/tsc -p artifacts/vendor-app/tsconfig.json --noEmit"
+    ],
+    "lib/**/*.{ts,tsx}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "**/*.{ts,tsx,js,jsx}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "**/*.{json,yaml,yml}": [
+      "prettier --write"
+    ],
+    "**/*.md": [
+      "prettier --write"
+    ]
+  },
+  "private": true,
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.0.0",
+    "eslint-import-resolver-typescript": "^3.6.0",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-jsx-a11y": "^6.10.0",
+    "eslint-plugin-react": "^7.37.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "globals": "^15.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.1",
+    "prettier": "^3.8.1",
+    "prettier-plugin-organize-imports": "^4.1.0",
+    "prettier-plugin-tailwindcss": "^0.6.0",
+    "typescript": "~5.9.2"
+  },
+  "dependencies": {
+    "@react-oauth/google": "^0.13.4"
+  }
+}

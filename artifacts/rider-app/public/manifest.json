@@ -1,0 +1,17 @@
+{
+  "name": "AJKMart Rider App",
+  "short_name": "Rider",
+  "description": "AJKMart Delivery Partner — Accept rides, track earnings, navigate deliveries",
+  "start_url": "/rider/",
+  "scope": "/rider/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#111827",
+  "theme_color": "#111827",
+  "icons": [
+    { "src": "/rider/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "categories": ["business", "navigation"],
+  "lang": "en-PK",
+  "dir": "ltr"
+}

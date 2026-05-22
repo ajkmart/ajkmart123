@@ -1,0 +1,40 @@
+═══ PROMPT 3 — Database Schema — Rider Tables ═══
+Task: Document all 10 rider-related DB tables with columns, FK refs, and indexes.
+Import: from "@workspace/db/schema"
+1. rider_profiles (lib/db/src/schema/rider_profiles.ts)
+   Primary key: user_id (FK → users.id CASCADE DELETE)
+   Columns: vehicle_type, vehicle_plate, vehicle_reg_no, driving_license,
+            vehicle_photo, documents, daily_goal (decimal 10,2),
+            created_at, updated_at
+   Notes: One row per rider. Populated on /auth/register with role=rider.
+2. rides (lib/db/src/schema/rides.ts)
+   Primary key: id (text)
+   Indexes: rides_user_id_idx, rides_rider_id_idx, rides_status_idx, rides_created_at_idx
+   Key columns:
+     user_id       → FK users.id CASCADE DELETE (customer)
+     rider_id      → FK users.id SET NULL (assigned rider)
+     dispatched_rider_id → FK users.id SET NULL
+     status        — searching/accepted/arrived/in_transit/completed/cancelled
+     fare, distance (decimal)
+     trip_otp, otp_verified
+     is_parcel, receiver_name, receiver_phone, package_type
+     is_scheduled, scheduled_at
+     is_pool_ride, pool_group_id, stops (jsonb)
+     accepted_at, arrived_at, started_at, completed_at, cancelled_at, refunded_at
+3. ride_bids (lib/db/src/schema/ride_bids.ts)
+   Primary key: id (text)
+   FK: ride_id → rides.id CASCADE, rider_id → users.id CASCADE
+   Indexes: ride_bids_ride_rider_uidx (unique on ride_id+rider_id WHERE status='pending'),
+            ride_bids_ride_id_idx, ride_bids_rider_id_idx, ride_bids_status_idx
+   Columns: fare (decimal), note, status (pending/accepted/rejected), expires_at
+4. rider_penalties (lib/db/src/schema/rider_penalties.ts)
+   Primary key: id (text)
+   FK: rider_id → users.id CASCADE
+   Indexes: rider_penalties_rider_id_idx, rider_penalties_type_idx, rider_penalties_created_at_idx
+   Columns: type, amount (decimal), reason, created_at
+5. live_locations (lib/db/src/schema/live_locations.ts)
+   Primary key: user_id (FK → users.id CASCADE DELETE)
+   Indexes: live_locations_role_idx, live_locations_lat_lng_idx, live_locations_role_updated_idx
+   Columns: latitude, longitude (decimal 10,6), role, action,
+            battery_level (real), last_seen, online_since, updated_at
+   Notes: One row per online rider. Deleted by heartbeat cleanup after 5 min stale.

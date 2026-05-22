@@ -1,0 +1,8 @@
+{
+  "sourceApp": "admin",
+  "errorType": "ui_error",
+  "errorMessage": "SOS badge fetch failed: API route not found: GET /api/admin/sos/alerts?limit=1",
+  "functionName": "[AdminLayout]",
+  "stackTrace": "AdminFetchError: API route not found: GET /api/admin/sos/alerts?limit=1\n    at fetchAdmin (http://localhost:3000/admin/src/lib/adminFetcher.tsx:134:13)\n    at async adminFetch (http://localhost:3000/admin/src/lib/adminFetcher.tsx:224:18)",
+  "errorHash": "a64816d3"
+}

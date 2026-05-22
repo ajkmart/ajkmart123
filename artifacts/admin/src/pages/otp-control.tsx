@@ -1,0 +1,1689 @@
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { PageHeader } from "@/components/shared";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  useAddOtpWhitelist,
+  useDeleteOtpWhitelist,
+  useOtpWhitelist,
+  usePlatformSettings,
+  useUpdateOtpWhitelist,
+  useUpdatePlatformSettings,
+} from "@/hooks/use-admin";
+import { useToast } from "@/hooks/use-toast";
+import { adminFetch } from "@/lib/adminFetcher";
+import {
+  Activity,
+  AlertTriangle,
+  CalendarDays,
+  CheckCheck,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  Copy,
+  Eye,
+  EyeOff,
+  Gauge,
+  Info,
+  KeyRound,
+  ListChecks,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Search,
+  Shield,
+  ShieldOff,
+  Trash2,
+  Unlock,
+  UserCheck,
+  Users,
+  UserX,
+  XCircle,
+  Zap,
+} from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type ElementType, type ReactNode } from "react";
+
+const BYPASS_CODE_REGEX = /^[0-9]{6}$/;
+
+interface ApiError {
+  status?: number;
+  message?: string;
+}
+
+function isApiError(value: unknown): value is ApiError {
+  return typeof value === "object" && value != null && ("status" in value || "message" in value);
+}
+
+function errorMessage(value: unknown, fallback = "Something went wrong"): string {
+  if (isApiError(value) && typeof value.message === "string" && value.message.length > 0) {
+    return value.message;
+  }
+  if (value instanceof Error) return value.message;
+  return fallback;
+}
+
+async function api(method: string, path: string, body?: unknown) {
+  try {
+    return await adminFetch(path, {
+      method,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch (e: unknown) {
+    if (isApiError(e) && e.status === 401) return null;
+    throw e;
+  }
+}
+
+function useCountdown(targetIso: string | null) {
+  const [remaining, setRemaining] = useState(0);
+  useEffect(() => {
+    if (!targetIso) {
+      setRemaining(0);
+      return;
+    }
+    const tick = () => {
+      const diff = Math.max(0, new Date(targetIso).getTime() - Date.now());
+      setRemaining(diff);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [targetIso]);
+  return remaining;
+}
+
+function fmtCountdown(ms: number) {
+  if (ms <= 0) return "Expired";
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleString("en-PK", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function generateBypassCode() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+type OTPStatus = {
+  isGloballyDisabled: boolean;
+  disabledUntil: string | null;
+  activeBypassCount: number;
+};
+
+type UserRow = {
+  id: string;
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  otpBypassUntil: string | null;
+};
+
+type OtpWhitelistEntry = {
+  id: string;
+  identifier: string;
+  label?: string;
+  bypassCode: string;
+  isActive: boolean;
+  expiresAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type OtpAuditEvent = "login_otp_bypass" | "login_global_otp_bypass" | "otp_send_bypassed";
+
+type AuditRow = {
+  id: string;
+  event: OtpAuditEvent;
+  createdAt: string;
+  ip: string;
+  userId?: string | null;
+  phone?: string | null;
+  name?: string | null;
+};
+
+function isBypassActive(otpBypassUntil: string | null | undefined): boolean {
+  if (!otpBypassUntil) return false;
+  const ts = new Date(otpBypassUntil).getTime();
+  if (Number.isNaN(ts)) return false;
+  return ts > Date.now();
+}
+
+/* ── Design primitives ───────────────────────────────────────────────────── */
+
+function ProCard({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return (
+    <div
+      className={`border-border overflow-hidden rounded-2xl border bg-white shadow-sm ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function CardHeader({
+  icon: Icon,
+  label,
+  sub,
+  color,
+  gradient,
+}: {
+  icon: ElementType;
+  label: string;
+  sub?: string;
+  color: string;
+  gradient: string;
+}) {
+  return (
+    <div className={`border-border/60 border-b px-5 py-4 ${gradient}`}>
+      <div className="flex items-center gap-2.5">
+        <div
+          className={`flex h-8 w-8 items-center justify-center rounded-lg ${color} bg-white/60 backdrop-blur-sm`}
+        >
+          <Icon className="h-4 w-4" />
+        </div>
+        <div>
+          <h3 className="font-display text-sm leading-none font-bold text-gray-900">{label}</h3>
+          {sub && <p className="mt-0.5 text-[11px] text-gray-500">{sub}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  icon: ElementType;
+  label: string;
+  value: ReactNode;
+  sub?: string;
+  accent: string;
+}) {
+  return (
+    <div className={`flex items-center gap-4 rounded-2xl border bg-white px-5 py-4 shadow-sm`}>
+      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${accent}`}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-muted-foreground text-[11px] font-semibold tracking-wider uppercase">
+          {label}
+        </p>
+        <p className="font-display text-foreground mt-0.5 text-xl leading-tight font-bold">
+          {value}
+        </p>
+        {sub && <p className="text-muted-foreground mt-0.5 text-[11px]">{sub}</p>}
+      </div>
+    </div>
+  );
+}
+
+function AvatarInitial({ name }: { name: string | null }) {
+  const initials = (name ?? "?")
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+  return (
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-indigo-400 to-purple-500 text-xs font-bold text-white shadow-sm">
+      {initials}
+    </div>
+  );
+}
+
+/* ── Main page ───────────────────────────────────────────────────────────── */
+
+type _DeliveryOtpResult = {
+  rideId: string;
+  otp: string | null;
+  otpVerified: boolean;
+  displayStatus: "pending" | "used" | "expired";
+  rideStatus: string;
+  arrivedAt: string | null;
+  createdAt: string;
+  otpAttempts: {
+    count: number;
+    firstAt: string | null;
+    expiresAt: string | null;
+  };
+};
+
+export default function OtpControl() {
+  const { toast } = useToast();
+
+  const [status, setStatus] = useState<OTPStatus | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [customMinutes, setCustomMinutes] = useState("");
+  const remaining = useCountdown(status?.disabledUntil ?? null);
+
+  const [query, setQuery] = useState("");
+  const [users, setUsers] = useState<UserRow[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [bypassMins, setBypassMins] = useState<Record<string, string>>({});
+  const searchAbortRef = useRef<AbortController | null>(null);
+
+  const [auditRows, setAuditRows] = useState<AuditRow[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+
+  /* ── Global-suspension confirmation modal ── */
+  const [suspendModal, setSuspendModal] = useState<{
+    open: boolean;
+    mins: number;
+  }>({ open: false, mins: 0 });
+  const [suspendReason, setSuspendReason] = useState("");
+  const [suspendPending, setSuspendPending] = useState(false);
+
+  /* ── OTP Rate Limiting card ── */
+  const { data: settingsData } = usePlatformSettings();
+  const updateSettings = useUpdatePlatformSettings();
+  const getSetting = useCallback(
+    (key: string, fallback: string) =>
+      (settingsData?.settings ?? []).find((s: { key: string; value: string }) => s.key === key)
+        ?.value ?? fallback,
+    [settingsData?.settings]
+  );
+  const [rlPhone, setRlPhone] = useState("");
+  const [rlIp, setRlIp] = useState("");
+  const [rlWindow, setRlWindow] = useState("");
+  const [rlSaving, setRlSaving] = useState(false);
+  useEffect(() => {
+    if (settingsData?.settings?.length > 0) {
+      setRlPhone(getSetting("security_otp_max_per_phone", "5"));
+      setRlIp(getSetting("security_otp_max_per_ip", "20"));
+      setRlWindow(getSetting("security_otp_window_min", "60"));
+    }
+  }, [settingsData, getSetting]);
+
+  /* ── Delivery OTP Viewer ── */
+  const [rideIdInput, setRideIdInput] = useState("");
+  const [otpLookupResult, setOtpLookupResult] = useState<{
+    rideId: string;
+    otp: string | null;
+    otpStatus: "Pending" | "Used" | "Expired";
+    createdAt: string;
+    rideStatus: string;
+  } | null>(null);
+  const [otpLookupError, setOtpLookupError] = useState<string | null>(null);
+  const [otpLookupLoading, setOtpLookupLoading] = useState(false);
+  const [otpVisible, setOtpVisible] = useState(false);
+  const loadStatus = useCallback(async () => {
+    setStatusLoading(true);
+    try {
+      const d = await api("GET", "/otp/status");
+      if (d?.data) setStatus(d.data);
+    } catch (_err) {
+      toast({ title: "Failed to load OTP status", variant: "destructive" });
+    } finally {
+      setStatusLoading(false);
+    }
+  }, [toast]);
+
+  const loadAudit = useCallback(async () => {
+    setAuditLoading(true);
+    try {
+      const d = await api("GET", "/otp/audit?page=1");
+      if (d?.data?.entries) {
+        const bypass = (d.data.entries as AuditRow[])
+          .filter(
+            (e) =>
+              e.event === "login_otp_bypass" ||
+              e.event === "login_global_otp_bypass" ||
+              e.event === "otp_send_bypassed"
+          )
+          .slice(0, 20);
+        setAuditRows(bypass);
+      }
+    } catch (err) {
+      toast({
+        title: "Failed to load audit log",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setAuditLoading(false);
+    }
+  }, [toast]);
+
+  const loadRateLimits = useCallback(async () => {
+    try {
+      const d = await adminFetch("/platform-settings");
+      const settings: Array<{ key: string; value: string }> = d?.settings ?? [];
+      const get = (key: string, def: string) => settings.find((s) => s.key === key)?.value ?? def;
+      const perPhone = get("security_otp_max_per_phone", "5");
+      const perIp = get("security_otp_max_per_ip", "10");
+      const winMin = get("security_otp_window_min", "10");
+      setRlPhone(perPhone);
+      setRlIp(perIp);
+      setRlWindow(winMin);
+    } catch (err) {
+      console.warn("[otp-control] Failed to load rate-limit settings:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadStatus();
+    void loadAudit();
+    void loadRateLimits();
+  }, [loadStatus, loadAudit, loadRateLimits]);
+
+  useEffect(() => {
+    if (status?.isGloballyDisabled && remaining === 0 && status.disabledUntil) {
+      const t = setTimeout(loadStatus, 1500);
+      return () => clearTimeout(t);
+    }
+    return undefined;
+  }, [remaining, status?.isGloballyDisabled, status?.disabledUntil, loadStatus]);
+
+  const openSuspendModal = (mins: number) => {
+    if (!mins || mins <= 0) return;
+    setSuspendReason("");
+    setSuspendModal({ open: true, mins });
+  };
+
+  const confirmSuspend = async () => {
+    if (!suspendReason.trim()) return;
+    setSuspendPending(true);
+    try {
+      const d = await api("POST", "/otp/disable", {
+        minutes: suspendModal.mins,
+        reason: suspendReason.trim(),
+      });
+      if (d?.data) {
+        toast({
+          title: "OTP Suspended",
+          description: `All OTPs suspended for ${suspendModal.mins} minute(s).`,
+        });
+        void loadStatus();
+        void loadAudit();
+        setSuspendModal({ open: false, mins: 0 });
+        setSuspendReason("");
+      } else {
+        toast({
+          title: "Error",
+          description: d?.error ?? "Failed",
+          variant: "destructive",
+        });
+      }
+    } catch (e: unknown) {
+      toast({
+        title: "Error",
+        description: errorMessage(e, "Failed to suspend OTPs."),
+        variant: "destructive",
+      });
+    } finally {
+      setSuspendPending(false);
+    }
+  };
+
+  const saveRateLimits = async () => {
+    const phone = parseInt(rlPhone, 10);
+    const ip = parseInt(rlIp, 10);
+    const win = parseInt(rlWindow, 10);
+    if (isNaN(phone) || phone < 1 || isNaN(ip) || ip < 1 || isNaN(win) || win < 1) {
+      toast({
+        title: "Invalid values",
+        description: "All rate limit fields must be positive integers.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setRlSaving(true);
+    try {
+      await updateSettings.mutateAsync([
+        { key: "security_otp_max_per_phone", value: String(phone) },
+        { key: "security_otp_max_per_ip", value: String(ip) },
+        { key: "security_otp_window_min", value: String(win) },
+      ]);
+      toast({
+        title: "Rate limits saved",
+        description: "OTP rate limiting settings updated.",
+      });
+    } catch (e: unknown) {
+      toast({
+        title: "Failed to save",
+        description: errorMessage(e, "Could not update rate limit settings."),
+        variant: "destructive",
+      });
+    } finally {
+      setRlSaving(false);
+    }
+  };
+
+  const lookupDeliveryOtp = async () => {
+    const id = rideIdInput.trim();
+    if (!id) return;
+    setOtpLookupLoading(true);
+    setOtpLookupError(null);
+    setOtpLookupResult(null);
+    setOtpVisible(false);
+    try {
+      const d = await api("GET", `/otp/delivery-otp/${encodeURIComponent(id)}`);
+      if (d?.data) {
+        setOtpLookupResult(d.data);
+      } else {
+        setOtpLookupError(d?.error ?? "Ride not found.");
+      }
+    } catch (e: unknown) {
+      if (isApiError(e) && e.status === 404) {
+        setOtpLookupError("Ride not found. Check the Ride ID and try again.");
+      } else {
+        setOtpLookupError(errorMessage(e, "Failed to look up delivery OTP."));
+      }
+    } finally {
+      setOtpLookupLoading(false);
+    }
+  };
+
+  const searchUsers = useCallback(async () => {
+    if (!query.trim() || query.trim().length < 2) return;
+    searchAbortRef.current?.abort();
+    const ctrl = new AbortController();
+    searchAbortRef.current = ctrl;
+    setSearching(true);
+    try {
+      const d = await adminFetch(`/users/search?q=${encodeURIComponent(query)}&limit=20`, {
+        signal: ctrl.signal,
+      });
+      if (ctrl.signal.aborted) return;
+      setUsers(
+        (d?.users ?? []).map((u: UserRow) => ({
+          id: u.id,
+          name: u.name,
+          phone: u.phone,
+          email: u.email ?? null,
+          otpBypassUntil: u.otpBypassUntil ?? null,
+        }))
+      );
+    } catch (e: unknown) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      if (isApiError(e) && (e as { name?: string }).name === "AbortError") return;
+      toast({
+        title: "Search failed",
+        description: errorMessage(e, "Could not load users."),
+        variant: "destructive",
+      });
+    } finally {
+      if (searchAbortRef.current === ctrl) {
+        searchAbortRef.current = null;
+        setSearching(false);
+      }
+    }
+  }, [query, toast]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (query.trim().length >= 2) void searchUsers();
+    }, 400);
+    return () => clearTimeout(t);
+  }, [query, searchUsers]);
+
+  useEffect(
+    () => () => {
+      searchAbortRef.current?.abort();
+    },
+    []
+  );
+
+  const grantBypass = async (userId: string, mins: number) => {
+    try {
+      const d = await api("POST", `/users/${userId}/otp/bypass`, {
+        minutes: mins,
+      });
+      if (d?.data?.bypassUntil) {
+        toast({
+          title: "Bypass Granted",
+          description: `OTP bypass active for ${mins} minute(s).`,
+        });
+        setUsers((prev) =>
+          prev.map((u) => (u.id === userId ? { ...u, otpBypassUntil: d.data.bypassUntil } : u))
+        );
+        void loadStatus();
+      } else {
+        toast({
+          title: "Error",
+          description: d?.error ?? "Failed",
+          variant: "destructive",
+        });
+      }
+    } catch (e: unknown) {
+      if (isApiError(e) && e.status === 409) {
+        toast({
+          title: "Bypass already active",
+          description: errorMessage(e, "User already has an active OTP bypass."),
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({
+        title: "Error",
+        description: errorMessage(e, "Failed to grant bypass."),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const cancelBypass = async (userId: string) => {
+    try {
+      await api("DELETE", `/users/${userId}/otp/bypass`);
+      toast({ title: "Bypass Removed" });
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, otpBypassUntil: null } : u)));
+      void loadStatus();
+    } catch (e: unknown) {
+      toast({
+        title: "Error",
+        description: errorMessage(e, "Failed to remove bypass."),
+        variant: "destructive",
+      });
+    }
+  };
+
+  /* ── Generate OTP for user (support tool) ── */
+  const [generatedOtp, setGeneratedOtp] = useState<{
+    userId: string;
+    code: string;
+    copiedCode: boolean;
+  } | null>(null);
+  const [generatingOtpFor, setGeneratingOtpFor] = useState<string | null>(null);
+
+  const generateUserOtp = async (userId: string) => {
+    setGeneratingOtpFor(userId);
+    try {
+      const d = await api("POST", `/users/${userId}/otp/generate`);
+      if (d?.data?.code) {
+        setGeneratedOtp({ userId, code: d.data.code, copiedCode: false });
+      } else {
+        toast({
+          title: "Error",
+          description: d?.error ?? "Failed to generate OTP.",
+          variant: "destructive",
+        });
+      }
+    } catch (e: unknown) {
+      toast({
+        title: "Error",
+        description: errorMessage(e, "Failed to generate OTP."),
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingOtpFor(null);
+    }
+  };
+
+  const copyOtpCode = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setGeneratedOtp((prev) => (prev ? { ...prev, copiedCode: true } : null));
+      setTimeout(
+        () => setGeneratedOtp((prev) => (prev ? { ...prev, copiedCode: false } : null)),
+        2000
+      );
+    } catch (_e) {
+      /* ignore */
+    }
+  };
+
+  /* ── Unlock (clear OTP attempts) ── */
+  const [unlockingFor, setUnlockingFor] = useState<string | null>(null);
+
+  const clearOtpAttempts = async (userId: string, name: string | null) => {
+    setUnlockingFor(userId);
+    try {
+      await api("DELETE", `/users/${userId}/otp/attempts`);
+      toast({
+        title: "User Unlocked",
+        description: `OTP attempt counter cleared for ${name ?? "user"}.`,
+      });
+    } catch (e: unknown) {
+      toast({
+        title: "Error",
+        description: errorMessage(e, "Failed to clear attempts."),
+        variant: "destructive",
+      });
+    } finally {
+      setUnlockingFor(null);
+    }
+  };
+
+  const eventLabel: Record<OtpAuditEvent, string> = {
+    login_otp_bypass: "Per-user bypass",
+    login_global_otp_bypass: "Global suspension",
+    otp_send_bypassed: "OTP send bypassed",
+  };
+
+  const eventColors: Record<OtpAuditEvent, string> = {
+    login_otp_bypass: "bg-blue-500",
+    login_global_otp_bypass: "bg-orange-500",
+    otp_send_bypassed: "bg-purple-500",
+  };
+
+  const eventBadgeColors: Record<OtpAuditEvent, string> = {
+    login_otp_bypass: "bg-blue-50 text-blue-700 border-blue-200",
+    login_global_otp_bypass: "bg-orange-50 text-orange-700 border-orange-200",
+    otp_send_bypassed: "bg-purple-50 text-purple-700 border-purple-200",
+  };
+
+  return (
+    <ErrorBoundary
+      fallback={
+        <div className="p-8 text-center text-sm text-red-500">
+          OTP Control page crashed. Please reload.
+        </div>
+      }
+    >
+      <div className="max-w-4xl space-y-6">
+        {/* ── Header ── */}
+        <PageHeader
+          icon={Shield}
+          title="OTP Control Center"
+          subtitle="Unified panel for all OTP settings — global suspension, per-user bypasses, and whitelist management."
+          iconBgClass="bg-indigo-100"
+          iconColorClass="text-indigo-700"
+          actions={
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                void loadStatus();
+                void loadAudit();
+              }}
+              disabled={statusLoading}
+              className="gap-1.5 rounded-xl"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${statusLoading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          }
+        />
+
+        {/* ── Dev-only: OTP bypass production warning ── */}
+        {import.meta.env.DEV && (
+          <div className="flex items-start gap-2.5 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+            <span>
+              <strong>Development mode:</strong> OTP bypass codes (including{" "}
+              <code className="rounded bg-amber-100 px-1 font-mono">000000</code> and{" "}
+              <code className="rounded bg-amber-100 px-1 font-mono">123456</code>) are blocked
+              server-side in production. Bypass features here only work in development and staging
+              environments.
+            </span>
+          </div>
+        )}
+
+        {/* ── Stat cards ── */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <StatCard
+            icon={status?.isGloballyDisabled ? ShieldOff : Shield}
+            label="Global OTP"
+            value={
+              status == null ? (
+                <span className="flex items-center gap-1">
+                  <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
+                </span>
+              ) : status.isGloballyDisabled ? (
+                <span className="text-red-600">Suspended</span>
+              ) : (
+                <span className="text-green-600">Active</span>
+              )
+            }
+            sub={
+              status?.isGloballyDisabled && remaining > 0
+                ? `Restores in ${fmtCountdown(remaining)}`
+                : "All users must verify"
+            }
+            accent={
+              status?.isGloballyDisabled ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600"
+            }
+          />
+          <StatCard
+            icon={Users}
+            label="Active Bypasses"
+            value={status == null ? "—" : status.activeBypassCount}
+            sub="Users skipping OTP"
+            accent="bg-blue-100 text-blue-600"
+          />
+          <StatCard
+            icon={Activity}
+            label="Audit Events"
+            value={
+              auditLoading ? (
+                <span className="flex items-center gap-1">
+                  <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
+                </span>
+              ) : (
+                auditRows.length
+              )
+            }
+            sub="No-OTP logins recorded"
+            accent="bg-purple-100 text-purple-600"
+          />
+        </div>
+
+        {/* ── 1. GLOBAL SUSPENSION ── */}
+        <ProCard>
+          <CardHeader
+            icon={ShieldOff}
+            label="Global OTP Suspension"
+            sub="Temporarily disable OTP for all users during SMS outages"
+            color="text-indigo-600"
+            gradient="bg-gradient-to-r from-indigo-50/80 to-slate-50"
+          />
+          <div className="space-y-4 p-5">
+            {/* Status banner */}
+            {status == null ? (
+              <div className="bg-muted/30 border-border flex h-16 items-center justify-center rounded-xl border">
+                <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
+              </div>
+            ) : status.isGloballyDisabled ? (
+              <div className="flex items-center gap-4 rounded-xl border-2 border-red-200 bg-red-50 p-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-bold text-red-800">OTPs are GLOBALLY SUSPENDED</p>
+                    <span className="inline-flex items-center gap-1 rounded-lg bg-red-200 px-2 py-0.5 font-mono text-xs font-bold text-red-800">
+                      <Clock className="h-3 w-3" />
+                      {fmtCountdown(remaining)}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-red-600">
+                    All users can log in without OTP. Auto-restores when the timer expires.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() =>
+                    api("DELETE", "/otp/disable")
+                      .then(() => {
+                        toast({
+                          title: "OTPs Restored",
+                          description: "Global OTP suspension lifted.",
+                        });
+                        void loadStatus();
+                        void loadAudit();
+                      })
+                      .catch((e: unknown) => {
+                        toast({
+                          title: "Error",
+                          description: errorMessage(e, "Failed to restore OTPs."),
+                          variant: "destructive",
+                        });
+                      })
+                  }
+                  className="shrink-0 rounded-xl"
+                >
+                  Restore Now
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-4 rounded-xl border border-green-200 bg-green-50 p-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-green-800">OTPs are ACTIVE</p>
+                  <p className="mt-0.5 text-xs text-green-600">
+                    {status.activeBypassCount > 0
+                      ? `${status.activeBypassCount} user(s) have per-user bypass active.`
+                      : "All users must verify OTP on login."}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Info notice */}
+            <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+              <span>
+                Use during SMS/OTP delivery outages. OTP verification auto-resumes when the timer
+                expires. New registrations during suspension will have{" "}
+                <code className="rounded bg-amber-100 px-1 py-0.5 text-[10px]">
+                  is_verified = false
+                </code>
+                .
+              </span>
+            </div>
+
+            {/* Suspend buttons */}
+            <div>
+              <p className="text-muted-foreground mb-2.5 text-[11px] font-semibold tracking-wider uppercase">
+                Suspend for
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: "30 min", mins: 30 },
+                  { label: "1 hour", mins: 60 },
+                  { label: "2 hours", mins: 120 },
+                  { label: "24 hours", mins: 1440 },
+                ].map((opt) => (
+                  <button
+                    key={opt.mins}
+                    onClick={() => openSuspendModal(opt.mins)}
+                    disabled={statusLoading}
+                    className="rounded-xl border border-red-200 bg-white px-3.5 py-2 text-xs font-semibold text-red-700 shadow-sm transition-colors hover:bg-red-50 disabled:opacity-50"
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="number"
+                    placeholder="Custom min"
+                    value={customMinutes}
+                    onChange={(e) => setCustomMinutes(e.target.value)}
+                    className="h-8 w-28 rounded-xl text-xs"
+                    min={1}
+                    max={10080}
+                  />
+                  <button
+                    onClick={() => {
+                      const m = parseInt(customMinutes, 10);
+                      if (Number.isNaN(m) || m <= 0) {
+                        toast({
+                          title: "Invalid duration",
+                          description: "Enter a whole number of minutes greater than 0.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      openSuspendModal(m);
+                    }}
+                    disabled={!customMinutes || statusLoading}
+                    className="h-8 rounded-xl border border-red-200 bg-white px-3.5 py-2 text-xs font-semibold text-red-700 shadow-sm transition-colors hover:bg-red-50 disabled:opacity-50"
+                  >
+                    Suspend
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ProCard>
+
+        {/* ── Suspension Confirmation Modal ── */}
+        <Dialog
+          open={suspendModal.open}
+          onOpenChange={(open) => {
+            if (!open && !suspendPending) setSuspendModal({ open: false, mins: 0 });
+          }}
+        >
+          <DialogContent className="max-w-md rounded-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-600">
+                <ShieldOff className="h-5 w-5" /> Confirm Global OTP Suspension
+              </DialogTitle>
+            </DialogHeader>
+            <div className="mt-1 space-y-4">
+              <div className="rounded-xl border border-red-200 bg-red-50 p-3">
+                <p className="text-sm text-red-800">
+                  You are about to suspend OTP verification for <strong>all users</strong> for{" "}
+                  <strong>
+                    {suspendModal.mins >= 60
+                      ? `${suspendModal.mins / 60 === Math.floor(suspendModal.mins / 60) ? suspendModal.mins / 60 + " hour(s)" : suspendModal.mins + " minutes"}`
+                      : `${suspendModal.mins} minute(s)`}
+                  </strong>
+                  . Users will be able to log in without receiving an OTP code.
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-foreground text-xs font-semibold tracking-wider uppercase">
+                  Reason for suspension <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={suspendReason}
+                  onChange={(e) => setSuspendReason(e.target.value)}
+                  placeholder="e.g. SMS gateway outage — Twilio down, users cannot receive OTP codes"
+                  className="border-input bg-background h-24 w-full resize-none rounded-xl border px-3 py-2.5 text-sm focus:ring-2 focus:ring-red-300 focus:outline-none"
+                />
+                <p className="text-muted-foreground text-[11px]">
+                  This reason is written to the audit log and included in the admin notification.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1 rounded-xl"
+                  onClick={() => setSuspendModal({ open: false, mins: 0 })}
+                  disabled={suspendPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1 gap-1.5 rounded-xl"
+                  onClick={confirmSuspend}
+                  disabled={!suspendReason.trim() || suspendPending}
+                >
+                  {suspendPending ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Suspending…
+                    </>
+                  ) : (
+                    <>
+                      <ShieldOff className="h-3.5 w-3.5" /> Confirm Suspension
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* ── 2. PER-USER BYPASS ── */}
+        <ProCard>
+          <CardHeader
+            icon={Users}
+            label="Per-User OTP Bypass"
+            sub="Users here always skip OTP — highest-priority bypass, overrides global setting"
+            color="text-blue-600"
+            gradient="bg-gradient-to-r from-blue-50/80 to-slate-50"
+          />
+          <div className="space-y-4 p-5">
+            {/* Search */}
+            <div className="relative">
+              <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2" />
+              {searching && (
+                <Loader2 className="text-muted-foreground absolute top-1/2 right-3.5 h-4 w-4 -translate-y-1/2 animate-spin" />
+              )}
+              <Input
+                className="h-10 rounded-xl pr-10 pl-10 text-sm focus-visible:ring-blue-400"
+                placeholder="Search by name, phone, or email…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
+
+            {/* Results */}
+            {users.length > 0 && (
+              <div className="space-y-2">
+                {users.map((user) => {
+                  const bypassActive = isBypassActive(user.otpBypassUntil);
+                  return (
+                    <div
+                      key={user.id}
+                      className={`rounded-xl border p-3.5 transition-colors ${bypassActive ? "border-blue-200 bg-blue-50/60" : "border-border bg-white"}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <AvatarInitial name={user.name} />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-foreground text-sm font-semibold">
+                              {user.name ?? "Unnamed"}
+                            </p>
+                            {bypassActive ? (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-700">
+                                <UserCheck className="h-2.5 w-2.5" /> Bypass Active
+                              </span>
+                            ) : (
+                              <span className="bg-muted text-muted-foreground border-border inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium">
+                                <UserX className="h-2.5 w-2.5" /> Normal OTP
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-muted-foreground mt-0.5 font-mono text-xs">
+                            {user.phone ?? user.email ?? "—"}
+                          </p>
+                          {bypassActive && user.otpBypassUntil && (
+                            <p className="mt-0.5 flex items-center gap-1 text-[10px] text-green-700">
+                              <Clock className="h-3 w-3" /> Until {fmtDate(user.otpBypassUntil)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="border-border/50 mt-3 space-y-2 border-t pt-3">
+                        {/* Bypass row */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {bypassActive ? (
+                            <button
+                              onClick={() => cancelBypass(user.id)}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 transition-colors hover:bg-red-50"
+                            >
+                              <XCircle className="h-3 w-3" /> Remove Bypass
+                            </button>
+                          ) : (
+                            <>
+                              {[
+                                { label: "15 min", mins: 15 },
+                                { label: "1 hour", mins: 60 },
+                                { label: "24 hrs", mins: 1440 },
+                              ].map((opt) => (
+                                <button
+                                  key={opt.mins}
+                                  onClick={() => grantBypass(user.id, opt.mins)}
+                                  className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-100"
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                              <div className="flex items-center gap-1">
+                                <Input
+                                  type="number"
+                                  placeholder="min"
+                                  value={bypassMins[user.id] ?? ""}
+                                  onChange={(e) =>
+                                    setBypassMins((p) => ({
+                                      ...p,
+                                      [user.id]: e.target.value,
+                                    }))
+                                  }
+                                  className="h-7 w-16 rounded-lg text-xs"
+                                  min={1}
+                                />
+                                <button
+                                  onClick={() => {
+                                    const m = parseInt(bypassMins[user.id] ?? "", 10);
+                                    if (m > 0) void grantBypass(user.id, m);
+                                  }}
+                                  className="border-border text-foreground hover:bg-muted/40 h-7 rounded-lg border bg-white px-2.5 py-1.5 text-xs font-semibold transition-colors"
+                                >
+                                  Custom
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Support tools row */}
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          <button
+                            onClick={() => generateUserOtp(user.id)}
+                            disabled={generatingOtpFor === user.id}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-60"
+                          >
+                            {generatingOtpFor === user.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <KeyRound className="h-3 w-3" />
+                            )}
+                            Generate OTP
+                          </button>
+                          <button
+                            onClick={() => clearOtpAttempts(user.id, user.name)}
+                            disabled={unlockingFor === user.id}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-60"
+                          >
+                            {unlockingFor === user.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Unlock className="h-3 w-3" />
+                            )}
+                            Unlock
+                          </button>
+                        </div>
+
+                        {/* Generated OTP display */}
+                        {generatedOtp?.userId === user.id && (
+                          <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                            <span className="text-[11px] font-medium text-emerald-700">
+                              Generated OTP:
+                            </span>
+                            <span className="font-mono text-sm font-bold tracking-widest text-emerald-800">
+                              {generatedOtp.code}
+                            </span>
+                            <button
+                              onClick={() => copyOtpCode(generatedOtp.code)}
+                              className="ml-auto shrink-0 rounded p-1 text-emerald-600 transition-colors hover:text-emerald-800"
+                              title="Copy to clipboard"
+                            >
+                              {generatedOtp.copiedCode ? (
+                                <CheckCheck className="h-3.5 w-3.5" />
+                              ) : (
+                                <Copy className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                            <span className="text-[10px] text-emerald-600">Expires in 10 min</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {!searching && query.trim().length >= 2 && users.length === 0 && (
+              <div className="text-muted-foreground bg-muted/20 border-border rounded-xl border border-dashed py-8 text-center text-sm">
+                No users found matching "{query}"
+              </div>
+            )}
+
+            {!query.trim() && (
+              <div className="text-muted-foreground bg-muted/10 border-border rounded-xl border border-dashed py-8 text-center text-sm">
+                <Search className="text-muted-foreground/40 mx-auto mb-2 h-8 w-8" />
+                Type at least 2 characters to search users
+              </div>
+            )}
+          </div>
+        </ProCard>
+
+        {/* ── 3. AUDIT LOG ── */}
+        <ProCard>
+          <CardHeader
+            icon={Activity}
+            label="No-OTP Login Audit"
+            sub="Every login that bypassed OTP, per-user or via global suspension"
+            color="text-purple-600"
+            gradient="bg-gradient-to-r from-purple-50/80 to-slate-50"
+          />
+          <div className="p-5">
+            {auditLoading ? (
+              <div className="text-muted-foreground flex items-center gap-2 py-4 text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading audit log…
+              </div>
+            ) : auditRows.length === 0 ? (
+              <div className="text-muted-foreground bg-muted/10 border-border rounded-xl border border-dashed py-8 text-center text-sm">
+                <Clock className="text-muted-foreground/40 mx-auto mb-2 h-8 w-8" />
+                No no-OTP logins recorded yet
+              </div>
+            ) : (
+              <div className="space-y-px">
+                {auditRows.map((row, i) => (
+                  <div
+                    key={row.id}
+                    className={`hover:bg-muted/30 flex items-center gap-3 px-3 py-2.5 text-xs transition-colors ${i === 0 ? "rounded-t-xl" : ""} ${i === auditRows.length - 1 ? "rounded-b-xl" : ""}`}
+                  >
+                    <div
+                      className={`h-2 w-2 shrink-0 rounded-full ${eventColors[row.event] ?? "bg-gray-400"}`}
+                    />
+                    <span className="text-muted-foreground hidden w-36 shrink-0 font-mono sm:block">
+                      {fmtDate(row.createdAt)}
+                    </span>
+                    <ChevronRight className="text-muted-foreground/50 hidden h-3 w-3 shrink-0 sm:block" />
+                    <span className="text-foreground flex-1 truncate font-semibold">
+                      {row.name ?? row.phone ?? row.userId ?? "—"}
+                    </span>
+                    <span
+                      className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${eventBadgeColors[row.event] ?? "bg-muted text-muted-foreground border-border"}`}
+                    >
+                      {eventLabel[row.event] ?? row.event}
+                    </span>
+                    <span className="text-muted-foreground hidden shrink-0 font-mono md:block">
+                      {row.ip}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="border-border/50 mt-4 border-t pt-4">
+              <button
+                onClick={loadAudit}
+                disabled={auditLoading}
+                className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-xs font-medium transition-colors"
+              >
+                <RefreshCw className={`h-3 w-3 ${auditLoading ? "animate-spin" : ""}`} />
+                Refresh log
+              </button>
+            </div>
+          </div>
+        </ProCard>
+
+        {/* ── 4. OTP RATE LIMITING ── */}
+        <ProCard>
+          <CardHeader
+            icon={Gauge}
+            label="OTP Rate Limiting"
+            sub="Max OTP requests per phone/IP before the user is throttled"
+            color="text-orange-600"
+            gradient="bg-gradient-to-r from-orange-50/80 to-slate-50"
+          />
+          <div className="space-y-5 p-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="space-y-1.5">
+                <label className="text-foreground flex items-center gap-1.5 text-xs font-semibold tracking-wider uppercase">
+                  <span className="h-2 w-2 rounded-full bg-orange-400" />
+                  Max per phone
+                </label>
+                <Input
+                  type="number"
+                  value={rlPhone}
+                  onChange={(e) => setRlPhone(e.target.value)}
+                  className="h-9 rounded-xl text-sm"
+                  min={1}
+                  max={100}
+                  placeholder="5"
+                />
+                <p className="text-muted-foreground text-[10px]">OTPs per phone per window</p>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-foreground flex items-center gap-1.5 text-xs font-semibold tracking-wider uppercase">
+                  <span className="h-2 w-2 rounded-full bg-rose-400" />
+                  Max per IP
+                </label>
+                <Input
+                  type="number"
+                  value={rlIp}
+                  onChange={(e) => setRlIp(e.target.value)}
+                  className="h-9 rounded-xl text-sm"
+                  min={1}
+                  max={500}
+                  placeholder="20"
+                />
+                <p className="text-muted-foreground text-[10px]">OTPs per IP per window</p>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-foreground flex items-center gap-1.5 text-xs font-semibold tracking-wider uppercase">
+                  <span className="h-2 w-2 rounded-full bg-amber-400" />
+                  Window (minutes)
+                </label>
+                <Input
+                  type="number"
+                  value={rlWindow}
+                  onChange={(e) => setRlWindow(e.target.value)}
+                  className="h-9 rounded-xl text-sm"
+                  min={1}
+                  max={1440}
+                  placeholder="60"
+                />
+                <p className="text-muted-foreground text-[10px]">Rolling window duration</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 pt-1">
+              <Button
+                size="sm"
+                className="gap-1.5 rounded-xl bg-orange-600 text-white hover:bg-orange-700"
+                onClick={saveRateLimits}
+                disabled={rlSaving || updateSettings.isPending}
+              >
+                {rlSaving ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…
+                  </>
+                ) : (
+                  "Save Rate Limits"
+                )}
+              </Button>
+              <p className="text-muted-foreground text-xs">
+                Changes apply to new OTP requests immediately.
+              </p>
+            </div>
+          </div>
+        </ProCard>
+
+        {/* ── 5. DELIVERY OTP VIEWER ── */}
+        <ProCard>
+          <CardHeader
+            icon={KeyRound}
+            label="Delivery OTP Viewer"
+            sub="Look up the current handover OTP for a ride or parcel delivery"
+            color="text-teal-600"
+            gradient="bg-gradient-to-r from-teal-50/80 to-slate-50"
+          />
+          <div className="space-y-4 p-5">
+            <div className="flex gap-2">
+              <Input
+                className="h-10 flex-1 rounded-xl font-mono text-sm"
+                placeholder="Enter Ride ID or Delivery ID…"
+                value={rideIdInput}
+                onChange={(e) => {
+                  setRideIdInput(e.target.value);
+                  setOtpLookupResult(null);
+                  setOtpLookupError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void lookupDeliveryOtp();
+                }}
+              />
+              <Button
+                size="sm"
+                className="h-10 gap-1.5 rounded-xl bg-teal-600 px-4 text-white hover:bg-teal-700"
+                onClick={lookupDeliveryOtp}
+                disabled={!rideIdInput.trim() || otpLookupLoading}
+              >
+                {otpLookupLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Look Up"}
+              </Button>
+            </div>
+
+            {otpLookupError && (
+              <div className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3">
+                <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+                <p className="text-sm text-red-800">{otpLookupError}</p>
+              </div>
+            )}
+
+            {otpLookupResult && (
+              <div className="space-y-3 rounded-xl border border-teal-200 bg-teal-50 p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold tracking-wider text-teal-700 uppercase">
+                    Ride {otpLookupResult.rideId}
+                  </p>
+                  <Badge
+                    variant="outline"
+                    className={`text-[10px] font-bold ${
+                      otpLookupResult.otpStatus === "Used"
+                        ? "border-green-300 bg-green-100 text-green-700"
+                        : otpLookupResult.otpStatus === "Expired"
+                          ? "border-red-300 bg-red-100 text-red-700"
+                          : "border-amber-300 bg-amber-100 text-amber-700"
+                    }`}
+                  >
+                    {otpLookupResult.otpStatus}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <p className="text-muted-foreground mb-1 text-[10px]">OTP Code</p>
+                    {otpLookupResult.otp ? (
+                      <div className="flex items-center gap-2">
+                        <code
+                          className={`rounded-lg border border-teal-300 bg-white px-3 py-1.5 font-mono text-xl font-bold tracking-[0.3em] text-teal-900 ${!otpVisible ? "blur-sm select-none" : ""}`}
+                        >
+                          {otpLookupResult.otp}
+                        </code>
+                        <button
+                          onClick={() => setOtpVisible((v) => !v)}
+                          className="border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 flex h-8 w-8 items-center justify-center rounded-lg border transition-colors"
+                          title={otpVisible ? "Hide OTP" : "Reveal OTP"}
+                        >
+                          {otpVisible ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-sm italic">No OTP generated</span>
+                    )}
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-muted-foreground mb-0.5 text-[10px]">Ride Status</p>
+                    <p className="text-foreground text-xs font-semibold capitalize">
+                      {otpLookupResult.rideStatus}
+                    </p>
+                    <p className="text-muted-foreground mt-1 text-[10px]">
+                      {new Date(otpLookupResult.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                {!otpVisible && otpLookupResult.otp && (
+                  <p className="flex items-center gap-1 text-[11px] text-teal-600">
+                    <AlertTriangle className="h-3 w-3" /> Click the eye icon to reveal the OTP —
+                    only do this when assisting a customer.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {!otpLookupResult && !otpLookupError && !otpLookupLoading && (
+              <div className="text-muted-foreground bg-muted/10 border-border rounded-xl border border-dashed py-6 text-center text-sm">
+                <KeyRound className="text-muted-foreground/40 mx-auto mb-2 h-8 w-8" />
+                Enter a Ride ID above to look up its delivery OTP
+              </div>
+            )}
+          </div>
+        </ProCard>
+
+        {/* ── 6. WHITELIST ── */}
+        <WhitelistSection />
+      </div>
+    </ErrorBoundary>
+  );
+}
+
+/* ── Whitelist section ───────────────────────────────────────────────────── */
+
+function WhitelistSection() {
+  const { toast } = useToast();
+  const { data, isLoading, refetch } = useOtpWhitelist();
+  const addEntry = useAddOtpWhitelist();
+  const updateEntry = useUpdateOtpWhitelist();
+  const deleteEntry = useDeleteOtpWhitelist();
+
+  const [identifier, setIdentifier] = useState("");
+  const [label, setLabel] = useState("");
+  const [bypassCode, setBypassCode] = useState(() => generateBypassCode());
+  const [expiresAt, setExpiresAt] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  const entries: Array<OtpWhitelistEntry> = data?.entries ?? [];
+
+  async function handleAdd() {
+    if (!identifier.trim()) {
+      toast({ title: "Identifier required", variant: "destructive" });
+      return;
+    }
+    const code = bypassCode?.trim() || generateBypassCode();
+    if (!BYPASS_CODE_REGEX.test(code)) {
+      toast({
+        title: "Invalid bypass code",
+        description: "Use a 6-digit numeric code.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setAdding(true);
+    try {
+      await addEntry.mutateAsync({
+        identifier: identifier.trim(),
+        label: label.trim() || undefined,
+        bypassCode: code,
+        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined,
+      });
+      toast({
+        title: "Added to whitelist",
+        description: `Bypass code ${code} is active.`,
+      });
+      setIdentifier("");
+      setLabel("");
+      setBypassCode(generateBypassCode());
+      setExpiresAt("");
+    } catch (e: unknown) {
+      toast({
+        title: "Error",
+        description: errorMessage(e, "Could not add whitelist entry."),
+        variant: "destructive",
+      });
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  async function handleToggle(entry: OtpWhitelistEntry) {
+    try {
+      await updateEntry.mutateAsync({
+        id: entry.id,
+        isActive: !entry.isActive,
+      });
+      toast({
+        title: entry.isActive ? "Whitelist entry disabled" : "Whitelist entry enabled",
+        description: entry.identifier,
+      });
+    } catch (e: unknown) {
+      toast({
+        title: "Error",
+        description: errorMessage(e, "Could not update whitelist entry."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleDelete(id: string, identifier: string) {
+    if (!confirm(`Remove "${identifier}" from whitelist?`)) return;
+    try {
+      await deleteEntry.mutateAsync(id);
+      toast({ title: "Removed from whitelist" });
+    } catch (e: unknown) {
+      toast({
+        title: "Error",
+        description: errorMessage(e, "Could not delete entry."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  return (
+    <ProCard>
+      <CardHeader
+        icon={ListChecks}
+        label="OTP Whitelist"
+        sub="Per-identity bypass — phones/emails that accept a fixed 6-digit code instead of real SMS"
+        color="text-indigo-600"
+        gradient="bg-gradient-to-r from-indigo-50/80 to-slate-50"
+      />
+      <div className="space-y-5 p-5">
+        {/* Info */}
+        <div className="flex items-start gap-2.5 rounded-xl border border-indigo-200 bg-indigo-50 p-3 text-xs text-indigo-800">
+          <Zap className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />
+          <span>
+            Perfect for App Store reviewers and testers. Identifiers here bypass real SMS and accept
+            the configured 6-digit bypass code.
+          </span>
+        </div>
+
+        {/* Add form */}
+        <div className="border-border bg-muted/20 space-y-3 rounded-xl border p-4">
+          <p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
+            Add Entry
+          </p>
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            <Input
+              className="h-9 rounded-xl text-sm"
+              placeholder="Phone or email (identifier)"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+            />
+            <Input
+              className="h-9 rounded-xl text-sm"
+              placeholder="Label (e.g. Apple Reviewer)"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+            />
+            <div className="relative">
+              <Input
+                className="h-9 rounded-xl pr-16 font-mono text-sm"
+                placeholder="Bypass code (6 digits)"
+                value={bypassCode}
+                onChange={(e) => setBypassCode(e.target.value)}
+              />
+              <button
+                onClick={() => setBypassCode(generateBypassCode())}
+                className="absolute top-1/2 right-2 -translate-y-1/2 rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-600 hover:text-indigo-700"
+              >
+                New
+              </button>
+            </div>
+            <Input
+              className="h-9 rounded-xl text-sm"
+              type="datetime-local"
+              placeholder="Expires (optional)"
+              value={expiresAt}
+              onChange={(e) => setExpiresAt(e.target.value)}
+            />
+          </div>
+          <Button
+            size="sm"
+            className="h-9 w-full gap-1.5 rounded-xl"
+            onClick={handleAdd}
+            disabled={adding}
+          >
+            {adding ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Plus className="h-3.5 w-3.5" />
+            )}
+            Add to Whitelist
+          </Button>
+        </div>
+
+        {/* List */}
+        {isLoading ? (
+          <div className="text-muted-foreground flex items-center gap-2 py-4 text-sm">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading whitelist…
+          </div>
+        ) : entries.length === 0 ? (
+          <div className="text-muted-foreground bg-muted/10 border-border rounded-xl border border-dashed py-8 text-center text-sm">
+            <ListChecks className="text-muted-foreground/40 mx-auto mb-2 h-8 w-8" />
+            No whitelist entries yet
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {entries.map((entry: OtpWhitelistEntry) => (
+              <div
+                key={entry.id}
+                className={`flex items-center gap-3 rounded-xl border px-3.5 py-3 text-sm transition-colors ${
+                  entry.isActive
+                    ? "border-indigo-200 bg-indigo-50/50"
+                    : "bg-muted/20 border-border opacity-60"
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-foreground truncate font-semibold">{entry.identifier}</p>
+                    {entry.isActive ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-500" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                    )}
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    {entry.label && (
+                      <span className="text-muted-foreground text-xs">{entry.label}</span>
+                    )}
+                    <span className="border-border text-foreground rounded-md border bg-white px-1.5 py-0.5 font-mono text-[10px]">
+                      {entry.bypassCode}
+                    </span>
+                    {entry.expiresAt && (
+                      <span className="text-muted-foreground flex items-center gap-1 text-[10px]">
+                        <CalendarDays className="h-3 w-3" />
+                        {new Date(entry.expiresAt) < new Date() ? (
+                          <span className="font-medium text-red-500">Expired</span>
+                        ) : (
+                          `Expires ${new Date(entry.expiresAt).toLocaleDateString()}`
+                        )}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    onClick={() => handleToggle(entry)}
+                    className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                      entry.isActive
+                        ? "border-border text-muted-foreground hover:bg-muted/40 bg-white"
+                        : "border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
+                    }`}
+                  >
+                    {entry.isActive ? "Disable" : "Enable"}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(entry.id, entry.identifier)}
+                    className="border-border flex h-7 w-7 items-center justify-center rounded-lg border text-red-400 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="pt-1">
+          <button
+            onClick={() => refetch()}
+            className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-xs font-medium transition-colors"
+          >
+            <RefreshCw className="h-3 w-3" /> Refresh whitelist
+          </button>
+        </div>
+      </div>
+    </ProCard>
+  );
+}

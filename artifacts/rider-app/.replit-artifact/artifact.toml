@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/rider/"
+title = "AJKMart Rider App"
+version = "1.0.0"
+id = "artifacts/rider-app"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/rider/" ]
+localPort = 22969
+
+[services.development]
+run = "pnpm --filter @workspace/rider-app run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/rider-app", "run", "build" ]
+publicDir = "artifacts/rider-app/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22969"
+BASE_PATH = "/rider/"
