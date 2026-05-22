@@ -45,7 +45,7 @@ export function BottomNav() {
     queryKey: ["rider-active"],
     queryFn: () => api.getActive(),
     refetchInterval: 8000,
-    staleTime: 5000,
+    staleTime: 60_000,
   });
   const hasActive = !!(activeData?.order || activeData?.ride);
 

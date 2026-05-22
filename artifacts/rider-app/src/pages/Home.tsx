@@ -222,6 +222,7 @@ export default function Home() {
     queryKey: ["rider-active"],
     queryFn: () => api.getActive(),
     refetchInterval: tabVisible ? 8000 : false,
+    staleTime: 60_000,
     enabled: effectiveOnline && tabVisible,
   });
   const hasActiveTask = !!(activeData?.order || activeData?.ride);
@@ -235,6 +236,7 @@ export default function Home() {
     queryFn: () => api.getRequests(),
     refetchInterval:
       tabVisible && effectiveOnline ? getPollingIntervalForTier(networkTier) : 60_000,
+    staleTime: 60_000,
     enabled: effectiveOnline,
   });
 

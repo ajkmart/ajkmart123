@@ -39,19 +39,19 @@ import { SocketProvider } from "./lib/socket";
 import { getRiderModules, usePlatformConfig } from "./lib/useConfig";
 import { LanguageProvider, useLanguage } from "./lib/useLanguage";
 import Active from "./pages/Active";
-import ForgotPassword from "./pages/ForgotPassword";
-import GuestLanding from "./pages/GuestLanding";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
-import Register from "./pages/Register";
-import NotFound from "./pages/not-found";
 const log = createLogger("[App]");
 
-/* PF4 / R3: Lazy-load the heavy / less-frequent routes so first paint doesn't
-   download Wallet, VanDriver, Chat (with WebRTC plumbing), Notifications,
-   History, Earnings, SecuritySettings. Home / Active / Login / Profile remain
-   eager because they're the rider's hot path. */
+/* PF4 / R3: Lazy-load all non-hot-path routes so first paint only downloads
+   the rider's critical screens. Home / Active / Login / Profile remain eager
+   because they are the rider's primary hot path on every session start.
+   All other 13 routes are lazy so their JS chunks are only fetched on demand. */
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const GuestLanding = lazy(() => import("./pages/GuestLanding"));
+const Register = lazy(() => import("./pages/Register"));
+const NotFound = lazy(() => import("./pages/not-found"));
 const History = lazy(() => import("./pages/History"));
 const Earnings = lazy(() => import("./pages/Earnings"));
 const Wallet = lazy(() => import("./pages/Wallet"));
@@ -799,15 +799,17 @@ function AppRoutes() {
           />
         )}
         {!sessionExpired && (
-          <Switch>
-            <Route path="/" component={GuestLanding} />
-            <Route path="/register">{() => <Register />}</Route>
-            <Route path="/forgot-password" component={ForgotPassword} />
-            <Route path="/login">{() => <Login />}</Route>
-            <Route>
-              <GuestLanding />
-            </Route>
-          </Switch>
+          <Suspense fallback={<PageFallback />}>
+            <Switch>
+              <Route path="/" component={GuestLanding} />
+              <Route path="/register">{() => <Register />}</Route>
+              <Route path="/forgot-password" component={ForgotPassword} />
+              <Route path="/login">{() => <Login />}</Route>
+              <Route>
+                <GuestLanding />
+              </Route>
+            </Switch>
+          </Suspense>
         )}
       </>
     );

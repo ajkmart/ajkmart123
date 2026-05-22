@@ -13,7 +13,23 @@ function _warnGps(msg: string, ...args: unknown[]): void {
   console.warn("[gpsQueue]", msg, ...args); // eslint-disable-line no-console
 }
 
-/* Last valid ping seen — used by the validator to compute speed between pings */
+/** Haversine great-circle distance in metres between two WGS-84 coordinates. */
+function _haversineMetres(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6_371_000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/** Minimum distance (metres) a rider must move before a ping is enqueued.
+ *  Prevents flooding the offline queue with duplicate positions when stationary. */
+const GPS_MIN_DISTANCE_M = 25;
+
+/* Last valid ping seen — used by the validator to compute speed between pings
+   and by the 25 m deduplication gate to suppress stationary duplicate pings. */
 let _lastValidPing: GpsPing | null = null;
 
 /* Exponential-backoff state for batch drain failures.
@@ -144,6 +160,26 @@ export async function enqueue(ping: QueuedPing): Promise<void> {
     });
     return;
   }
+
+  /* ── 25 m deduplication gate ──────────────────────────────────────────────
+     When the rider is stationary, GPS continues to emit pings with the same
+     (or nearly identical) coordinates. Without this check every 5-second tick
+     would create a new IndexedDB entry that wastes storage and adds noise to
+     the batch upload. We suppress any ping that hasn't moved ≥ 25 m from the
+     last enqueued position. This mirrors the heartbeat distance check in
+     socket.tsx and is the authoritative dedup gate for the offline queue. */
+  if (_lastValidPing) {
+    const distM = _haversineMetres(
+      _lastValidPing.latitude,
+      _lastValidPing.longitude,
+      ping.latitude,
+      ping.longitude
+    );
+    if (distM < GPS_MIN_DISTANCE_M) {
+      return;
+    }
+  }
+
   /* Propagate suspicious metadata so the batch payload carries the flag
      and the backend can audit or alert on it. */
   if (result.suspicious) {

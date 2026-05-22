@@ -444,7 +444,7 @@ export function ActiveOrderPanel({
                       src={proofPhoto}
                       alt="Delivery proof"
                       className="h-full w-full object-cover"
-                      loading="eager"
+                      loading="lazy"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
                     <div className="absolute top-3 right-3">

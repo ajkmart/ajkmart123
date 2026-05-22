@@ -224,6 +224,7 @@ export default function Active() {
     queryKey: ["rider-active"],
     queryFn: () => api.getActive(),
     refetchInterval: tabVisible ? 8000 : false,
+    staleTime: 60_000,
   });
   refetchRef.current = refetch;
 
