@@ -342,6 +342,15 @@ type WalletTx = {
   paymentMethod?: string;
 };
 
+interface DepositItem {
+  id: string;
+  status: string;
+  method?: string;
+  createdAt: string;
+  note?: string;
+  amount: number | string;
+}
+
 type TxFilter = "all" | "credit" | "debit" | "bonus" | "fees";
 
 function SkeletonWallet() {
@@ -475,7 +484,9 @@ export default function Wallet() {
   });
 
   const [showDeposits, setShowDeposits] = useState(false);
-  const { data: depositsData, refetch: refetchDeposits } = useQuery({
+  const { data: depositsData, refetch: refetchDeposits } = useQuery<
+    { deposits?: DepositItem[] } | DepositItem[] | null
+  >({
     queryKey: ["rider-deposits"],
     queryFn: () => api.getDeposits(),
     enabled: showDeposits && config.features.wallet,
@@ -1103,18 +1114,9 @@ export default function Wallet() {
                 </div>
               ) : (
                 (() => {
-                  interface DepositItem {
-                    id: string;
-                    status: string;
-                    method?: string;
-                    createdAt: string;
-                    note?: string;
-                    amount: number | string;
-                  }
-                  const depositList: DepositItem[] =
-                    (depositsData as { deposits?: DepositItem[] } | null)?.deposits ??
-                    (depositsData as DepositItem[] | null) ??
-                    [];
+                  const depositList: DepositItem[] = Array.isArray(depositsData)
+                    ? (depositsData as DepositItem[])
+                    : ((depositsData as { deposits?: DepositItem[] }).deposits ?? []);
                   if (depositList.length === 0)
                     return (
                       <div className="px-5 py-8 text-center">
