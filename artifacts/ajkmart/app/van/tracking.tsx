@@ -14,7 +14,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { Font } from "@/constants/typography";
 import { useAuth } from "@/context/AuthContext";
-import { SOCKET_BASE } from "@/utils/api";
+import { API_BASE, SOCKET_BASE } from "@/utils/api";
 const log = createLogger("[van-tracking]");
 
 const SOCKET_URL = SOCKET_BASE;
@@ -28,20 +28,76 @@ interface VanLocation {
   stopsAway?: number;
 }
 
+interface RouteCoords {
+  originLat: number;
+  originLng: number;
+  destLat: number;
+  destLng: number;
+  routeFrom: string;
+  routeTo: string;
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function buildMapHtml(
   vanLat: number,
   vanLng: number,
   pickupLat: number,
   pickupLng: number,
+  route?: RouteCoords,
 ) {
+  const hasRoute =
+    route != null &&
+    isFinite(route.originLat) &&
+    isFinite(route.originLng) &&
+    isFinite(route.destLat) &&
+    isFinite(route.destLng);
+
+  const originLat = hasRoute ? route!.originLat : vanLat;
+  const originLng = hasRoute ? route!.originLng : vanLng;
+  const destLat = hasRoute ? route!.destLat : pickupLat;
+  const destLng = hasRoute ? route!.destLng : pickupLng;
+  const fromLabel = hasRoute ? escapeHtml(route!.routeFrom) : "";
+  const toLabel = hasRoute ? escapeHtml(route!.routeTo) : "";
+
+  const routePolylines = hasRoute
+    ? `
+var bgPolyline=L.polyline([[${originLat},${originLng}],[${destLat},${destLng}]],{color:'#9CA3AF',weight:3,dashArray:'8 6',opacity:0.7}).addTo(map);
+var routePolyline=L.polyline([[${originLat},${originLng}],[${vanLat},${vanLng}],[${destLat},${destLng}]],{color:'#6366F1',weight:4,opacity:0.9}).addTo(map);
+var originIcon=L.divIcon({className:'',html:'<div style="width:26px;height:26px;background:#16A34A;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:12px">\\u{1F7E2}</div>',iconSize:[26,26],iconAnchor:[13,13]});
+var destIcon=L.divIcon({className:'',html:'<div style="width:26px;height:26px;background:#DC2626;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:12px">\\u{1F3C1}</div>',iconSize:[26,26],iconAnchor:[13,26]});
+L.marker([${originLat},${originLng}],{icon:originIcon}).addTo(map).bindPopup('Origin: ${fromLabel}');
+L.marker([${destLat},${destLng}],{icon:destIcon}).addTo(map).bindPopup('Destination: ${toLabel}');
+`
+    : `var routePolyline=null;`;
+
+  const fitBoundsPoints = hasRoute
+    ? `[[${originLat},${originLng}],[${vanLat},${vanLng}],[${pickupLat},${pickupLng}],[${destLat},${destLng}]]`
+    : `[[${vanLat},${vanLng}],[${pickupLat},${pickupLng}]]`;
+
+  const badgeHtml =
+    hasRoute && fromLabel && toLabel
+      ? `<div id="route-badge" style="position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:1000;background:rgba(17,24,39,0.78);color:#fff;font-size:12px;font-weight:600;padding:6px 14px;border-radius:20px;white-space:nowrap;max-width:90%;overflow:hidden;text-overflow:ellipsis;pointer-events:none;backdrop-filter:blur(4px);box-shadow:0 2px 8px rgba(0,0,0,0.25)">${fromLabel} &rarr; ${toLabel}</div>`
+      : "";
+
   return `<!DOCTYPE html>
 <html><head>
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
-<style>html,body,#map{margin:0;padding:0;width:100%;height:100%}</style>
+<style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden}#wrap{position:relative;width:100%;height:100%}#map{width:100%;height:100%}</style>
 </head><body>
+<div id="wrap">
 <div id="map"></div>
+${badgeHtml}
+</div>
 <script>
 var map=L.map('map',{zoomControl:false}).setView([${vanLat},${vanLng}],14);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'OSM'}).addTo(map);
@@ -52,8 +108,9 @@ var pickupIcon=L.divIcon({className:'',html:'<div style="width:28px;height:28px;
 var vanMarker=L.marker([${vanLat},${vanLng}],{icon:vanIcon}).addTo(map).bindPopup('Van Location');
 var pickupMarker=L.marker([${pickupLat},${pickupLng}],{icon:pickupIcon}).addTo(map).bindPopup('Your Pickup Point');
 var vanCircle=L.circle([${vanLat},${vanLng}],{radius:50,color:'#6366F1',fillColor:'#818CF8',fillOpacity:0.15,weight:2}).addTo(map);
+${routePolylines}
 
-var bounds=L.latLngBounds([[${vanLat},${vanLng}],[${pickupLat},${pickupLng}]]);
+var bounds=L.latLngBounds(${fitBoundsPoints});
 if(bounds.isValid())map.fitBounds(bounds,{padding:[40,40]});
 
 function handleMsg(e){
@@ -64,6 +121,9 @@ function handleMsg(e){
       if(typeof d.lat!=='number'||typeof d.lng!=='number')return;
       vanMarker.setLatLng([d.lat,d.lng]);
       vanCircle.setLatLng([d.lat,d.lng]);
+      if(routePolyline){
+        routePolyline.setLatLngs([[${originLat},${originLng}],[d.lat,d.lng],[${destLat},${destLng}]]);
+      }
       map.panTo([d.lat,d.lng]);
     }
   }catch(x){
@@ -80,10 +140,12 @@ function TrackingMap({
   location,
   pickupLat,
   pickupLng,
+  route,
 }: {
   location: VanLocation | null;
   pickupLat: number;
   pickupLng: number;
+  route?: RouteCoords;
 }) {
   const vanLat = location?.latitude ?? pickupLat;
   const vanLng = location?.longitude ?? pickupLng;
@@ -93,7 +155,7 @@ function TrackingMap({
     // bundle, so the web vs. native branch is chosen once and never flips.
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const iframeRef = useRef<HTMLIFrameElement>(null);
-    const html = buildMapHtml(vanLat, vanLng, pickupLat, pickupLng);
+    const html = buildMapHtml(vanLat, vanLng, pickupLat, pickupLng, route);
 
     // eslint-disable-next-line react-hooks/rules-of-hooks
     useEffect(() => {
@@ -133,7 +195,7 @@ function TrackingMap({
   // bundle, so the web vs. native branch is chosen once and never flips.
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const webViewRef = useRef<any>(null);
-  const html = buildMapHtml(vanLat, vanLng, pickupLat, pickupLng);
+  const html = buildMapHtml(vanLat, vanLng, pickupLat, pickupLng, route);
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
@@ -208,6 +270,50 @@ export default function VanTrackingScreen() {
   const [tripStatus, setTripStatus] = useState<string>("in_progress");
   const [connected, setConnected] = useState(false);
   const [stopsAway, setStopsAway] = useState<number | undefined>(undefined);
+  const [routeCoords, setRouteCoords] = useState<RouteCoords | undefined>(undefined);
+
+  useEffect(() => {
+    if (!scheduleId || !date) return;
+    let cancelled = false;
+    const fetchRoute = async () => {
+      try {
+        const url = `${API_BASE}/van/schedules/${encodeURIComponent(scheduleId)}/availability?date=${encodeURIComponent(date)}`;
+        const res = await fetch(url, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok || cancelled) return;
+        const json = (await res.json()) as {
+          data?: {
+            fromLat?: string | number | null;
+            fromLng?: string | number | null;
+            toLat?: string | number | null;
+            toLng?: string | number | null;
+            fromAddress?: string | null;
+            toAddress?: string | null;
+          };
+        };
+        const d = json?.data;
+        const oLat = d?.fromLat != null ? parseFloat(String(d.fromLat)) : NaN;
+        const oLng = d?.fromLng != null ? parseFloat(String(d.fromLng)) : NaN;
+        const dLat = d?.toLat != null ? parseFloat(String(d.toLat)) : NaN;
+        const dLng = d?.toLng != null ? parseFloat(String(d.toLng)) : NaN;
+        if (!cancelled && isFinite(oLat) && isFinite(oLng) && isFinite(dLat) && isFinite(dLng)) {
+          setRouteCoords({
+            originLat: oLat,
+            originLng: oLng,
+            destLat: dLat,
+            destLng: dLng,
+            routeFrom: d?.fromAddress ?? "",
+            routeTo: d?.toAddress ?? "",
+          });
+        }
+      } catch (err) {
+        log.warn("Failed to fetch route coords:", err);
+      }
+    };
+    void fetchRoute();
+    return () => { cancelled = true; };
+  }, [scheduleId, date, token]);
 
   useEffect(() => {
     if (!scheduleId || !date) return;
@@ -316,6 +422,7 @@ export default function VanTrackingScreen() {
                 location={location}
                 pickupLat={pickupLat}
                 pickupLng={pickupLng}
+                route={routeCoords}
               />
             </View>
 
@@ -334,6 +441,17 @@ export default function VanTrackingScreen() {
                 </View>
               )}
             </View>
+
+            {routeCoords && (routeCoords.routeFrom || routeCoords.routeTo) && (
+              <View style={ss.routeRow}>
+                <Ionicons name="navigate" size={14} color="#6366F1" />
+                <Text style={ss.routeText} numberOfLines={1}>
+                  {routeCoords.routeFrom}
+                  {routeCoords.routeFrom && routeCoords.routeTo ? " → " : ""}
+                  {routeCoords.routeTo}
+                </Text>
+              </View>
+            )}
 
             <View style={ss.pickupInfo}>
               <Ionicons name="location" size={16} color="#EF4444" />
@@ -440,6 +558,22 @@ const ss = StyleSheet.create({
     backgroundColor: "#16A34A",
   },
   liveText: { fontFamily: Font.bold, fontSize: 10, color: "#16A34A" },
+  routeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#EEF2FF",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  routeText: {
+    fontFamily: Font.medium,
+    fontSize: 12,
+    color: "#4338CA",
+    flex: 1,
+  },
   pickupInfo: {
     flexDirection: "row",
     alignItems: "center",

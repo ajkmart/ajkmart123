@@ -396,6 +396,12 @@ router.get("/schedules/:id/availability", async (req, res, next) => {
         fareWindow: vanRoutesTable.fareWindow,
         fareAisle: vanRoutesTable.fareAisle,
         fareEconomy: vanRoutesTable.fareEconomy,
+        fromLat: vanRoutesTable.fromLat,
+        fromLng: vanRoutesTable.fromLng,
+        toLat: vanRoutesTable.toLat,
+        toLng: vanRoutesTable.toLng,
+        fromAddress: vanRoutesTable.fromAddress,
+        toAddress: vanRoutesTable.toAddress,
       })
       .from(vanRoutesTable)
       .where(eq(vanRoutesTable.id, schedule.routeId))
