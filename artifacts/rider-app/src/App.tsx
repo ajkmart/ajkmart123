@@ -38,16 +38,17 @@ import { initSentry } from "./lib/sentry";
 import { SocketProvider } from "./lib/socket";
 import { getRiderModules, usePlatformConfig } from "./lib/useConfig";
 import { LanguageProvider, useLanguage } from "./lib/useLanguage";
-import Active from "./pages/Active";
-import Home from "./pages/Home";
-import Login from "./pages/Login";
-import Profile from "./pages/Profile";
 const log = createLogger("[App]");
 
-/* PF4 / R3: Lazy-load all non-hot-path routes so first paint only downloads
-   the rider's critical screens. Home / Active / Login / Profile remain eager
-   because they are the rider's primary hot path on every session start.
-   All other 13 routes are lazy so their JS chunks are only fetched on demand. */
+/* PF4 / R3: All pages are lazy-loaded so the initial bundle only downloads
+   the app shell, providers, and routing logic. Each page (and its transitive
+   imports, including Leaflet for Active/Home) is fetched on-demand the first
+   time the user navigates to that route. Suspense fallbacks are already in
+   place at all three render paths (unauthenticated, VanDriver, authenticated). */
+const Active = lazy(() => import("./pages/Active"));
+const Home = lazy(() => import("./pages/Home"));
+const Login = lazy(() => import("./pages/Login"));
+const Profile = lazy(() => import("./pages/Profile"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const GuestLanding = lazy(() => import("./pages/GuestLanding"));
 const Register = lazy(() => import("./pages/Register"));
