@@ -96,7 +96,10 @@ export default function History() {
     refetch,
     isFetching,
   } = useInfiniteQuery({
-    queryKey: ["rider-history"],
+    /* Include kind + period in the queryKey so switching filters triggers
+       a fresh page-1 fetch rather than re-using the stale accumulated pages
+       from a different filter combination. */
+    queryKey: ["rider-history", kind, period],
     queryFn: ({ pageParam }: { pageParam: number }) =>
       api.getHistory({ limit: PAGE_SIZE, offset: pageParam }),
     initialPageParam: 0,
@@ -155,8 +158,8 @@ export default function History() {
   }
 
   const handlePullRefresh = useCallback(async () => {
-    await qc.invalidateQueries({ queryKey: ["rider-history"] });
-  }, [qc]);
+    await qc.invalidateQueries({ queryKey: ["rider-history", kind, period] });
+  }, [qc, kind, period]);
 
   const totalLoaded = raw.length;
 

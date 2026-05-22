@@ -22,6 +22,8 @@ interface OrderRequestCardProps {
   anyAcceptPending: boolean;
   /** ISO timestamp from the server response envelope for clock-offset correction */
   serverTime?: string | null;
+  /** When true the rider's account is restricted — disable the Accept button */
+  isRestricted?: boolean;
   T: (key: TranslationKey) => string;
 }
 
@@ -37,6 +39,7 @@ export const OrderRequestCard = memo(function OrderRequestCard({
   rejectPending,
   anyAcceptPending,
   serverTime,
+  isRestricted = false,
   T,
 }: OrderRequestCardProps) {
   const acceptTimeoutSec =
@@ -186,7 +189,7 @@ export const OrderRequestCard = memo(function OrderRequestCard({
         </button>
         <button
           onClick={() => onAccept(o.id)}
-          disabled={isExpired || acceptPending || anyAcceptPending}
+          disabled={isExpired || acceptPending || anyAcceptPending || isRestricted}
           className="flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-gray-900 py-2.5 text-sm font-extrabold text-white shadow-sm transition-all hover:bg-gray-800 active:scale-[0.98] disabled:opacity-60"
           aria-label="Accept order"
         >

@@ -131,6 +131,7 @@ export function HomeRequestList({
           rejectPending={rejectOrderPending}
           anyAcceptPending={acceptRidePending}
           serverTime={requestsServerTime}
+          isRestricted={isRestricted}
           T={T}
         />
       ))}

@@ -1006,6 +1006,43 @@ function AppRoutes() {
     );
   }
 
+  if (user.isRestricted) {
+    qc.clear(); /* S-Sec10 */
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-red-50 to-rose-100 p-6">
+        <div className="w-full max-w-sm rounded-3xl bg-white p-8 text-center shadow-xl">
+          <div className="mb-4 text-5xl">
+            <span>🚫</span>
+          </div>
+          <h2 className="mb-2 text-xl font-bold text-gray-800">Account Suspended</h2>
+          <p className="mb-6 text-sm leading-relaxed text-gray-500">
+            Your account has been suspended. Please contact support for assistance.
+          </p>
+          {supportPhone && (
+            <a
+              href={`tel:${supportPhone}`}
+              className="mb-2 block w-full rounded-2xl bg-emerald-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+            >
+              {T("contactSupport")}
+            </a>
+          )}
+          <button
+            onClick={async () => {
+              try {
+                logout();
+              } finally {
+                window.location.reload();
+              }
+            }}
+            className="w-full rounded-2xl bg-gray-100 py-3 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200"
+          >
+            {T("signOutLabel")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (config.platform.appStatus === "maintenance") {
     qc.clear(); /* S-Sec10 */
     return (

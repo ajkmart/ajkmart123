@@ -261,6 +261,11 @@ function RiderAuthInner({ children }: { children: ReactNode }) {
         setUser(u);
       } catch (err) {
         log.warn("refreshUser failed:", err);
+        try {
+          window.dispatchEvent(new Event("ajkmart:refresh-user-failed"));
+        } catch {
+          /* ignore dispatch errors in SSR/test environments */
+        }
       } finally {
         refreshUserInflightRef.current = null;
       }
