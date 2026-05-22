@@ -254,6 +254,7 @@ function RiderDetailDrawer({ rider, onClose }: { rider: any; onClose: () => void
   };
 
   const isBusy = restrictMut.isPending || unrestrictMut.isPending;
+  const [, navigate] = useLocation();
 
   return (
     <AdminFormSheet
@@ -264,24 +265,36 @@ function RiderDetailDrawer({ rider, onClose }: { rider: any; onClose: () => void
       busy={isBusy}
       width="sm:max-w-lg"
       footer={
-        rider.isRestricted ? (
+        <div className="flex w-full gap-2">
           <Button
-            onClick={handleUnrestrict}
-            disabled={isBusy}
-            className="flex-1 gap-2 rounded-xl bg-green-600 text-white hover:bg-green-700"
-          >
-            <ShieldCheck className="h-4 w-4" /> Unrestrict Rider
-          </Button>
-        ) : (
-          <Button
-            onClick={handleRestrict}
-            disabled={isBusy}
             variant="outline"
-            className="flex-1 gap-2 rounded-xl border-red-300 text-red-700 hover:bg-red-50"
+            onClick={() => {
+              navigate(`/transactions?userId=${rider.id}`);
+              onClose();
+            }}
+            className="flex-1 gap-2 rounded-xl border-sky-300 text-sky-700 hover:bg-sky-50"
           >
-            <ShieldAlert className="h-4 w-4" /> Restrict Rider
+            <Wallet className="h-4 w-4" /> View Wallet
           </Button>
-        )
+          {rider.isRestricted ? (
+            <Button
+              onClick={handleUnrestrict}
+              disabled={isBusy}
+              className="flex-1 gap-2 rounded-xl bg-green-600 text-white hover:bg-green-700"
+            >
+              <ShieldCheck className="h-4 w-4" /> Unrestrict Rider
+            </Button>
+          ) : (
+            <Button
+              onClick={handleRestrict}
+              disabled={isBusy}
+              variant="outline"
+              className="flex-1 gap-2 rounded-xl border-red-300 text-red-700 hover:bg-red-50"
+            >
+              <ShieldAlert className="h-4 w-4" /> Restrict Rider
+            </Button>
+          )}
+        </div>
       }
     >
       <div className="space-y-4">
@@ -1010,6 +1023,15 @@ export default function Riders() {
                         title="Conditions"
                       >
                         <Gavel className="h-3.5 w-3.5" /> Conditions
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate(`/transactions?userId=${r.id}`)}
+                        className="h-9 gap-1.5 rounded-xl border-sky-200 text-xs text-sky-700 hover:bg-sky-50"
+                        title="View Wallet"
+                      >
+                        <Wallet className="h-3.5 w-3.5" /> View Wallet
                       </Button>
                       {r.autoSuspendedAt && !r.adminOverrideSuspension && (
                         <Button

@@ -16,7 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useTransactions } from "@/hooks/use-admin";
-import { useSearch } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { parseApiError } from "@/lib/errorParser";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useLanguage } from "@/lib/useLanguage";
@@ -32,6 +32,7 @@ import {
   TrendingDown,
   TrendingUp,
   User,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -39,6 +40,7 @@ export default function Transactions() {
   const { language } = useLanguage();
   const T = (key: TranslationKey) => tDual(key, language);
   const search_ = useSearch();
+  const [, navigate] = useLocation();
   const urlParams = new URLSearchParams(search_);
   const userIdFilter = urlParams.get("userId") ?? undefined;
   const { data, isLoading, isError, error, refetch, isFetching } = useTransactions(userIdFilter);
@@ -185,6 +187,24 @@ export default function Transactions() {
             </div>
           }
         />
+
+        {/* Active userId filter banner */}
+        {userIdFilter && (
+          <div className="flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5">
+            <User className="h-4 w-4 shrink-0 text-sky-600" />
+            <span className="flex-1 text-sm font-medium text-sky-800">
+              Filtered by rider:{" "}
+              <span className="font-mono text-xs">{userIdFilter}</span>
+            </span>
+            <button
+              onClick={() => navigate("/transactions")}
+              className="ml-2 flex h-6 w-6 items-center justify-center rounded-full text-sky-600 hover:bg-sky-100"
+              aria-label="Clear filter"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
