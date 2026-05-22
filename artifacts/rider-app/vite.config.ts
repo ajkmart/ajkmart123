@@ -5,33 +5,25 @@ import path from "path";
 import { visualizer } from "rollup-plugin-visualizer";
 import { defineConfig } from "vite";
 
-const rawPort = process.env.PORT;
+export default defineConfig(async ({ command }) => {
+  /* PORT is only required for dev/preview, not for production builds */
+  const rawPort = process.env.PORT;
+  const isBuild = command === "build";
 
-if (!rawPort) {
-  throw new Error("PORT environment variable is required but was not provided.");
-}
+  if (!rawPort && !isBuild) {
+    throw new Error("PORT environment variable is required but was not provided.");
+  }
 
-const port = Number(rawPort);
+  const port = rawPort ? Number(rawPort) : 3002;
 
-if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
-}
+  if (!isBuild && (Number.isNaN(port) || port <= 0)) {
+    throw new Error(`Invalid PORT value: "${rawPort}"`);
+  }
 
-const basePath = process.env.BASE_PATH;
+  const basePath = process.env.BASE_PATH ?? "/rider";
 
-if (!basePath) {
-  throw new Error("BASE_PATH environment variable is required but was not provided.");
-}
-
-export default defineConfig({
-  base: basePath,
-  plugins: [
-    react(),
-    tailwindcss(),
-    runtimeErrorOverlay(),
-    process.env.ANALYZE === "1" &&
-      visualizer({ filename: "dist/bundle-stats.html", open: false, gzipSize: true }),
-    ...(process.env.NODE_ENV !== "production" && process.env.REPL_ID !== undefined
+  const devPlugins =
+    process.env.NODE_ENV !== "production" && process.env.REPL_ID !== undefined
       ? [
           await import("@replit/vite-plugin-cartographer").then((m) =>
             m.cartographer({
@@ -40,45 +32,56 @@ export default defineConfig({
           ),
           await import("@replit/vite-plugin-dev-banner").then((m) => m.devBanner()),
         ]
-      : []),
-  ],
-  resolve: {
-    alias: {
-      "@": path.resolve(import.meta.dirname, "src"),
-      "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
+      : [];
+
+  return {
+    base: basePath,
+    plugins: [
+      react(),
+      tailwindcss(),
+      runtimeErrorOverlay(),
+      process.env.ANALYZE === "1" &&
+        visualizer({ filename: "dist/bundle-stats.html", open: false, gzipSize: true }),
+      ...devPlugins,
+    ],
+    resolve: {
+      alias: {
+        "@": path.resolve(import.meta.dirname, "src"),
+        "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
+      },
+      dedupe: ["react", "react-dom"],
     },
-    dedupe: ["react", "react-dom"],
-  },
-  root: path.resolve(import.meta.dirname),
-  build: {
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
-    emptyOutDir: true,
-  },
-  server: {
-    port,
-    host: "0.0.0.0",
-    allowedHosts: true,
-    hmr: process.env.REPL_ID
-      ? {
-          clientPort: 443,
-          protocol: "wss",
-          host: process.env.REPLIT_DEV_DOMAIN,
-        }
-      : undefined,
-    proxy: {
-      "/api": {
-        target: `http://127.0.0.1:${process.env.VITE_API_PROXY_TARGET ? new URL(process.env.VITE_API_PROXY_TARGET).port : "5000"}`,
-        changeOrigin: true,
+    root: path.resolve(import.meta.dirname),
+    build: {
+      outDir: path.resolve(import.meta.dirname, "dist/public"),
+      emptyOutDir: true,
+    },
+    server: {
+      port,
+      host: "0.0.0.0",
+      allowedHosts: true,
+      hmr: process.env.REPL_ID
+        ? {
+            clientPort: 443,
+            protocol: "wss",
+            host: process.env.REPLIT_DEV_DOMAIN,
+          }
+        : undefined,
+      proxy: {
+        "/api": {
+          target: `http://127.0.0.1:${process.env.VITE_API_PROXY_TARGET ? new URL(process.env.VITE_API_PROXY_TARGET).port : "5000"}`,
+          changeOrigin: true,
+        },
+      },
+      fs: {
+        strict: true,
+        deny: ["**/.*"],
       },
     },
-    fs: {
-      strict: true,
-      deny: ["**/.*"],
+    preview: {
+      port,
+      host: "0.0.0.0",
+      allowedHosts: true,
     },
-  },
-  preview: {
-    port,
-    host: "0.0.0.0",
-    allowedHosts: true,
-  },
+  };
 });

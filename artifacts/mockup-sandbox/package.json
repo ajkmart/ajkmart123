@@ -5,7 +5,6 @@
   "private": true,
   "scripts": {
     "dev": "PORT=8081 vite dev --strictPort",
-    "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
