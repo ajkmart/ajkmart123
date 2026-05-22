@@ -5,12 +5,14 @@
 
 import { db } from "@workspace/db";
 import {
+  adminAccountsTable,
   idempotencyKeysTable,
   magicLinkTokensTable,
   otpAttemptsTable,
   otpTokensTable,
   platformSettingsTable,
   refreshTokensTable,
+  riderPenaltiesTable,
   riderProfilesTable,
   ridesTable,
   usersTable,
@@ -316,4 +318,51 @@ export async function deleteRide(rideId: string): Promise<void> {
 /** Clean up ride OTP attempts for a ride. */
 export async function cleanupRideOtpAttempts(rideId: string): Promise<void> {
   await db.delete(otpAttemptsTable).where(eq(otpAttemptsTable.key, rideId));
+}
+
+// ─── Admin Account Helpers ─────────────────────────────────────────────────────
+
+export interface CreateAdminOpts {
+  id?: string;
+  name?: string;
+  role?: string;
+}
+
+/** Insert a minimal admin account row for tests that need a real admin in the DB. */
+export async function createTestAdmin(opts: CreateAdminOpts = {}): Promise<string> {
+  const id = opts.id ?? generateTestId();
+  await db.insert(adminAccountsTable).values({
+    id,
+    name: opts.name ?? "Test Admin",
+    username: `admin_${id}`,
+    secret: `hashed_secret_${id}`,
+    role: opts.role ?? "super",
+    permissions: "",
+    isActive: true,
+  });
+  return id;
+}
+
+/** Remove an admin account created during a test. */
+export async function deleteTestAdmin(adminId: string): Promise<void> {
+  await db.delete(adminAccountsTable).where(eq(adminAccountsTable.id, adminId));
+}
+
+// ─── Rider Penalty Helpers ─────────────────────────────────────────────────────
+
+/** Fetch a single penalty row by its ID. */
+export async function getPenaltyById(
+  penaltyId: string
+): Promise<typeof riderPenaltiesTable.$inferSelect | null> {
+  const [row] = await db
+    .select()
+    .from(riderPenaltiesTable)
+    .where(eq(riderPenaltiesTable.id, penaltyId))
+    .limit(1);
+  return row ?? null;
+}
+
+/** Remove all penalty rows for a rider. */
+export async function cleanupRiderPenalties(riderId: string): Promise<void> {
+  await db.delete(riderPenaltiesTable).where(eq(riderPenaltiesTable.riderId, riderId));
 }

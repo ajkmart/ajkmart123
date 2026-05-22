@@ -985,6 +985,131 @@ router.get("/riders/:id/penalties", async (req, res) => {
   }
 });
 
+router.post(
+  "/riders/:id/penalties",
+  requirePermission("finance.payouts.release"),
+  async (req, res) => {
+    try {
+      const riderId = req.params["id"] as string;
+      const { type = "manual", amount = 0, reason } = req.body as Record<string, unknown>;
+      const [rider] = await db
+        .select({ id: usersTable.id })
+        .from(usersTable)
+        .where(eq(usersTable.id, riderId))
+        .limit(1);
+      if (!rider) {
+        sendNotFound(res, "Rider not found");
+        return;
+      }
+      const amt = parseFloat(String(amount));
+      if (isNaN(amt) || amt < 0) {
+        sendValidationError(res, "Invalid amount");
+        return;
+      }
+      const [penalty] = await db
+        .insert(riderPenaltiesTable)
+        .values({
+          id: generateId(),
+          riderId,
+          type: String(type),
+          amount: String(amt),
+          reason: reason ? String(reason) : null,
+        })
+        .returning();
+      if (amt > 0) {
+        await db
+          .update(usersTable)
+          .set({
+            walletBalance: sql`GREATEST(CAST(wallet_balance AS NUMERIC) - ${amt}, 0)`,
+            updatedAt: new Date(),
+          })
+          .where(eq(usersTable.id, riderId));
+        await db.insert(walletTransactionsTable).values({
+          id: generateId(),
+          userId: riderId,
+          type: "debit",
+          amount: String(amt),
+          description: `Penalty — ${reason ?? type}`,
+          reference: `penalty_${penalty!.id}`,
+        });
+      }
+      await sendUserNotification(
+        riderId,
+        "Penalty Applied ⚠️",
+        reason
+          ? `A penalty of Rs. ${amt} has been applied: ${String(reason)}`
+          : `A penalty of Rs. ${amt} has been applied to your account.`,
+        "warning",
+        "alert-circle-outline"
+      );
+      res.status(201).json({
+        success: true,
+        penalty: { ...penalty!, amount: amt },
+      });
+    } catch (err) {
+      logger.error(
+        { error: err instanceof Error ? err.message : String(err), timestamp: new Date().toISOString() },
+        "[route] unhandled error"
+      );
+      res.status(500).json({ success: false, error: "Internal server error" });
+    }
+  }
+);
+
+router.delete(
+  "/riders/:id/penalties/:pid",
+  requirePermission("finance.payouts.release"),
+  async (req, res) => {
+    try {
+      const { id: riderId, pid } = req.params as { id: string; pid: string };
+      const [penalty] = await db
+        .select()
+        .from(riderPenaltiesTable)
+        .where(and(eq(riderPenaltiesTable.id, pid), eq(riderPenaltiesTable.riderId, riderId)))
+        .limit(1);
+      if (!penalty) {
+        sendNotFound(res, "Penalty not found");
+        return;
+      }
+      await db
+        .delete(riderPenaltiesTable)
+        .where(and(eq(riderPenaltiesTable.id, pid), eq(riderPenaltiesTable.riderId, riderId)));
+      const amt = parseFloat(String(penalty.amount));
+      if (amt > 0) {
+        await db
+          .update(usersTable)
+          .set({
+            walletBalance: sql`CAST(wallet_balance AS NUMERIC) + ${amt}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(usersTable.id, riderId));
+        await db.insert(walletTransactionsTable).values({
+          id: generateId(),
+          userId: riderId,
+          type: "credit",
+          amount: String(amt),
+          description: `Penalty reversed — ${penalty.reason ?? penalty.type}`,
+          reference: `penalty_reversal_${pid}`,
+        });
+        await sendUserNotification(
+          riderId,
+          "Penalty Reversed ✅",
+          `A penalty of Rs. ${amt} has been reversed and credited back to your account.`,
+          "system",
+          "checkmark-circle-outline"
+        );
+      }
+      res.json({ success: true });
+    } catch (err) {
+      logger.error(
+        { error: err instanceof Error ? err.message : String(err), timestamp: new Date().toISOString() },
+        "[route] unhandled error"
+      );
+      res.status(500).json({ success: false, error: "Internal server error" });
+    }
+  }
+);
+
 router.get("/riders/:id/ratings", async (req, res) => {
   try {
     const riderId = req.params["id"] as string;
