@@ -1,0 +1,46 @@
+My CI pipeline is failing with:
+- lint → failure
+- unit-tests → failure
+- component-tests → failure
+
+I need ALL these to pass. Please fix everything automatically by following these steps:
+
+## 1. Fix linting errors (already partially identified)
+- Open `artifacts/rider-app/src/lib/socket.tsx` line 343. Add missing dependency 'user' to useEffect array. If adding 'user' causes infinite re-renders, wrap user with useMemo or useRef.
+- Open `artifacts/rider-app/src/pages/Chat.tsx` lines 374-376. Each line has a floating promise. Fix by either:
+  - Adding `await` inside an async function, OR
+  - Adding `.catch(error => console.error(...))`, OR
+  - Using `void` operator if truly fire-and-forget (prefer error handling).
+- After fixing, run `pnpm lint:ci` again. It must exit with 0 errors and 0 warnings.
+
+## 2. Fix unit-tests failures
+Run `pnpm test --reporter=verbose --coverage` and examine any failing tests. Common issues:
+- Database connection (already fixed via DATABASE_URL)
+- Mock issues or timing problems
+- Missing environment variables in test environment
+
+For each failing test:
+- Ensure proper setup/teardown (e.g., database cleanup doesn't throw if DB not available – use conditional check)
+- Fix any async/await mistakes
+- If a test expects a 200 but gets 503/500, check if the route handler properly awaits database queries
+- Ensure test database is migrated (`pnpm db:push` before tests)
+
+## 3. Fix component-tests failures
+Component tests likely involve React components (maybe in admin, rider, vendor apps). Run the specific component test command (e.g., `pnpm test:components` or check package.json scripts). Common fixes:
+- Wrap components with necessary providers (ThemeProvider, AuthProvider, etc.)
+- Mock API calls and external dependencies
+- Fix missing props or incorrect state updates
+- Ensure all async operations are awaited in tests
+
+## 4. Ensure all tests pass
+After fixing individual failures, run the full test suite again. If any test is flaky, add proper retries or fix the root cause.
+
+## 5. Final verification
+Run these commands and ensure they all exit with code 0:
+- `pnpm lint:ci`
+- `pnpm test` (or `pnpm test:unit` and `pnpm test:components` separately)
+- `pnpm typecheck` (already passing, but keep it)
+
+Once everything is green, report the summary of changes made.
+
+Do everything automatically – do not ask for clarification. I trust you to fix all issues.

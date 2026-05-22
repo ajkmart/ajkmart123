@@ -20,7 +20,15 @@ export default defineConfig({
     reporters: ["verbose"],
     server: {
       deps: {
-        inline: ["react", "react-dom", "@testing-library/react", "@testing-library/user-event"],
+        inline: [
+          /\/lib\/ui\//,
+          /\/lib\/i18n\//,
+          /\/lib\/api-client-react\//,
+          "react",
+          "react-dom",
+          "@testing-library/react",
+          "@testing-library/user-event",
+        ],
       },
     },
   },

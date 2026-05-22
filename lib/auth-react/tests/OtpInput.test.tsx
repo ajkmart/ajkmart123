@@ -106,7 +106,7 @@ describe("OtpInput", () => {
 
   it("shows resend button when onResend prop is provided and cooldown expires", () => {
     vi.useFakeTimers();
-    render(<OtpInput onComplete={vi.fn()} onResend={vi.fn()} resendCooldownSeconds={1} />);
+    render(<OtpInput onComplete={vi.fn()} onResend={vi.fn()} resendCooldown={1} />);
 
     act(() => {
       vi.advanceTimersByTime(2000);
@@ -119,7 +119,7 @@ describe("OtpInput", () => {
 
   it("shows cooldown timer when onResend is provided", () => {
     vi.useFakeTimers();
-    render(<OtpInput onComplete={vi.fn()} onResend={vi.fn()} resendCooldownSeconds={60} />);
+    render(<OtpInput onComplete={vi.fn()} onResend={vi.fn()} resendCooldown={60} />);
 
     expect(screen.getByText(/resend in/i)).toBeInTheDocument();
 
@@ -131,7 +131,7 @@ describe("OtpInput", () => {
     const user = userEvent.setup({ delay: null });
 
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    render(<OtpInput onComplete={vi.fn()} onResend={onResend} resendCooldownSeconds={1} />);
+    render(<OtpInput onComplete={vi.fn()} onResend={onResend} resendCooldown={1} />);
 
     act(() => {
       vi.advanceTimersByTime(2000);
