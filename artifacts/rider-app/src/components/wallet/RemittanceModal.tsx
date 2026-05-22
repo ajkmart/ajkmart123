@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   CheckCircle,
   ChevronRight,
+  Clock,
   Landmark,
   Lightbulb,
   Loader2,
@@ -36,11 +37,13 @@ function MethodLogo({ id }: { id: string }) {
 export default function RemittanceModal({
   netOwed,
   codCollected,
+  pendingFullRemittance = false,
   onClose,
   onSuccess,
 }: {
   netOwed: number;
   codCollected?: number;
+  pendingFullRemittance?: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }) {
@@ -112,6 +115,12 @@ export default function RemittanceModal({
     }
     if (amt > netOwed) {
       setErr(`Amount ${fc(amt)} owed amount ${fc(netOwed)} se zyada nahi ho sakta`);
+      return;
+    }
+    if (pendingFullRemittance && amt >= netOwed) {
+      setErr(
+        `A remittance for the full amount is already pending admin verification. Submit a smaller partial amount instead.`
+      );
       return;
     }
     const balanceCheck = checkSufficientBalance(netOwed, amt);
@@ -452,6 +461,18 @@ export default function RemittanceModal({
                 <p className="mt-0.5 text-4xl font-extrabold">{fc(netOwed)}</p>
                 <p className="mt-2 text-xs text-blue-300">Company ke account mein remit karein</p>
               </div>
+              {pendingFullRemittance ? (
+                <div className="mb-5 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                  <Clock size={18} className="mt-0.5 flex-shrink-0 text-amber-500" />
+                  <div>
+                    <p className="text-sm font-bold text-amber-800">Remittance already pending</p>
+                    <p className="mt-1 text-xs text-amber-700">
+                      A remittance is already pending admin verification for the full owed amount.
+                      Partial re-submissions for a smaller amount are still allowed below.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
               <p className="mb-4 text-sm text-gray-600">Kahan bheja? Method select karein:</p>
               {loadingMethods ? (
                 <div className="space-y-3">

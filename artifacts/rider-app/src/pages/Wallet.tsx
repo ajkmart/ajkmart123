@@ -566,6 +566,8 @@ export default function Wallet() {
   const codPending = codRemittances.filter(
     (r) => !r.reference || r.reference === "pending" || r.reference == null
   );
+  const hasPendingFullRemittance =
+    codNetOwed > 0 && codPending.some((r) => Number(r.amount) >= codNetOwed);
 
   const filtered = useMemo(() => {
     if (filter === "all") return transactions;
@@ -998,6 +1000,14 @@ export default function Wallet() {
               </div>
             )}
 
+            {hasPendingFullRemittance && (
+              <div className="mx-5 mb-2 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+                <Clock size={13} className="flex-shrink-0 text-amber-500" />
+                <p className="text-xs font-semibold text-amber-700">
+                  A remittance is already pending admin verification
+                </p>
+              </div>
+            )}
             <div className="flex gap-2 px-5 pb-4">
               {codNetOwed > 0 && (
                 <button
@@ -1450,6 +1460,7 @@ export default function Wallet() {
         <RemittanceModal
           netOwed={codNetOwed}
           codCollected={codCollected}
+          pendingFullRemittance={hasPendingFullRemittance}
           onClose={() => setShowRemittance(false)}
           onSuccess={() => {
             void qc.invalidateQueries({ queryKey: ["rider-cod"] });
