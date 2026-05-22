@@ -78,6 +78,7 @@ type Rider = {
   batteryLevel?: number | null;
   lastSeen?: string;
   lastActive?: string | null;
+  offlineSince?: string | null;
   currentTripId?: string | null;
 };
 
@@ -828,6 +829,9 @@ export default function LiveRidersMap() {
   const [currentTripIdOverrides, setCurrentTripIdOverrides] = useState<
     Record<string, string | null>
   >({});
+  const [riderOfflineAtOverrides, setRiderOfflineAtOverrides] = useState<Record<string, string>>(
+    {}
+  );
 
   /* Provider picker */
   const [quickProvider, setQuickProvider] = useState<string | null>(null);
@@ -999,6 +1003,26 @@ export default function LiveRidersMap() {
     );
 
     socket.on(
+      "rider:offline",
+      (payload: {
+        userId: string;
+        isOnline: boolean;
+        reason?: string;
+        lastSeenAt: string;
+      }) => {
+        if (typeof payload.userId !== "string") return;
+        setRiderStatusOverrides((prev) => ({
+          ...prev,
+          [payload.userId]: { isOnline: false, updatedAt: payload.lastSeenAt },
+        }));
+        setRiderOfflineAtOverrides((prev) => ({
+          ...prev,
+          [payload.userId]: payload.lastSeenAt,
+        }));
+      }
+    );
+
+    socket.on(
       "rider:heartbeat",
       (payload: { userId: string; batteryLevel?: number | null; sentAt: string }) => {
         if (typeof payload.userId !== "string") return;
@@ -1078,6 +1102,7 @@ export default function LiveRidersMap() {
       batteryLevel: hb?.batteryLevel ?? null,
       lastSeen: hb?.lastSeen ?? r.updatedAt,
       lastActive: r.lastActive ?? null,
+      offlineSince: riderOfflineAtOverrides[r.userId] ?? r.lastActive ?? null,
       vehicleType: (() => {
         const vtOv = vehicleTypeOverrides[r.userId];
         return vtOv !== undefined ? vtOv : r.vehicleType;
@@ -1111,6 +1136,7 @@ export default function LiveRidersMap() {
         action: ov.action ?? null,
         batteryLevel: hb?.batteryLevel ?? null,
         lastSeen: hb?.lastSeen ?? ov.updatedAt,
+        offlineSince: riderOfflineAtOverrides[uid] ?? null,
       };
     });
 
@@ -2011,9 +2037,9 @@ export default function LiveRidersMap() {
                               )
                             }
                           >
-                            <Popup maxWidth={160} autoPanPadding={[40, 40]}>
+                            <Popup maxWidth={200} autoPanPadding={[40, 40]}>
                               <div style={{ fontFamily: "sans-serif" }}>
-                                <p style={{ fontWeight: 700, margin: "0 0 3px", fontSize: 13 }}>
+                                <p style={{ fontWeight: 700, margin: "0 0 4px", fontSize: 13 }}>
                                   {riderDisplayName(rider)}
                                 </p>
                                 <span
@@ -2044,6 +2070,22 @@ export default function LiveRidersMap() {
                                       ? "On Trip"
                                       : "Offline"}
                                 </span>
+                                <p
+                                  style={{
+                                    margin: "5px 0 0",
+                                    fontSize: 11,
+                                    color: status === "offline" ? "#ef4444" : "#6b7280",
+                                  }}
+                                >
+                                  {status === "offline"
+                                    ? `Last seen: ${fd(rider.offlineSince ?? rider.lastActive ?? rider.updatedAt)}`
+                                    : `Seen: ${fd(rider.lastSeen ?? rider.updatedAt)}`}
+                                </p>
+                                {rider.phone && (
+                                  <p style={{ margin: "3px 0 0", fontSize: 10, color: "#9ca3af" }}>
+                                    {rider.phone}
+                                  </p>
+                                )}
                               </div>
                             </Popup>
                           </AnimatedMarker>

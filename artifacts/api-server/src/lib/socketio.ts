@@ -343,13 +343,15 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
         if (staleRows.length === 0) return;
         const staleUserIds = staleRows.map((r) => r.userId);
 
-        /* Emit rider:offline to admin-fleet for each stale rider */
-        for (const { userId } of staleRows) {
+        /* Emit rider:offline to admin-fleet for each stale rider.
+           updatedAt here is the row's last GPS ping time — i.e. when the
+           rider was actually last seen — not the current cleanup time.     */
+        for (const { userId, updatedAt } of staleRows) {
           _io!.to("admin-fleet").emit("rider:offline", {
             userId,
             isOnline: false,
             reason: "heartbeat_timeout",
-            updatedAt: new Date().toISOString(),
+            lastSeenAt: updatedAt?.toISOString() ?? new Date().toISOString(),
           });
         }
 
