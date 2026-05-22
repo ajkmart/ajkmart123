@@ -397,9 +397,8 @@ router.post(
           result: "success",
         });
         // Issue access-only token for pending accounts
-        const { signAccessToken, getAccessTokenTtlSec: _ttl } = await import(
-          "../../middleware/security.js"
-        );
+        const { signAccessToken, getAccessTokenTtlSec: _ttl } =
+          await import("../../middleware/security.js");
         const accessToken = signAccessToken(
           user.id,
           user.phone ?? "",

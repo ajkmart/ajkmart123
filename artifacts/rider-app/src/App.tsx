@@ -94,7 +94,7 @@ function getRouterBase(): string {
 
 /* U5: Splash deadline — if `getMe` hangs longer than this, the splash screen
    surfaces a retry CTA so the user is never stuck on the spinner forever. */
-const SPLASH_DEADLINE_MS = 30_000;
+const SPLASH_DEADLINE_MS = 15_000;
 
 /* P4: Track once-per-tab whether we've already requested notification
    permission so we don't re-prompt on every `user` change. The browser will
@@ -1030,7 +1030,7 @@ function AppRoutes() {
           </div>
         )}
         {offlineHint && (
-          <div className="pointer-events-none fixed top-12 left-1/2 z-[9999] -translate-x-1/2 rounded-full bg-gray-800 px-4 py-2 text-xs font-bold text-white shadow-lg">
+          <div className="pointer-events-none fixed top-12 left-1/2 z-[9999] -translate-x-1/2 rounded-full bg-yellow-400 px-4 py-2 text-xs font-bold text-gray-900 shadow-lg">
             {T("offline")}
           </div>
         )}
@@ -1065,7 +1065,7 @@ function AppRoutes() {
         </div>
       )}
       {offlineHint && (
-        <div className="pointer-events-none fixed top-12 left-1/2 z-[9999] -translate-x-1/2 rounded-full bg-gray-800 px-4 py-2 text-xs font-bold text-white shadow-lg">
+        <div className="pointer-events-none fixed top-12 left-1/2 z-[9999] -translate-x-1/2 rounded-full bg-yellow-400 px-4 py-2 text-xs font-bold text-gray-900 shadow-lg">
           {T("offline")}
         </div>
       )}

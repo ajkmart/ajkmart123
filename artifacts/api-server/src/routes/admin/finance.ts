@@ -701,11 +701,7 @@ router.post("/riders/:id/bonus", requirePermission("finance.payouts.release"), a
 
 router.get("/riders/:id", requirePermission("fleet.rides.view"), async (req, res) => {
   const riderId = req.params["id"] as string;
-  const [rider] = await db
-    .select()
-    .from(usersTable)
-    .where(eq(usersTable.id, riderId))
-    .limit(1);
+  const [rider] = await db.select().from(usersTable).where(eq(usersTable.id, riderId)).limit(1);
   if (!rider) {
     res.status(404).json({ error: "Rider not found" });
     return;
@@ -780,7 +776,10 @@ router.post(
     if (amt > 0) {
       await db
         .update(usersTable)
-        .set({ walletBalance: sql`GREATEST(CAST(wallet_balance AS NUMERIC) - ${amt}, 0)`, updatedAt: new Date() })
+        .set({
+          walletBalance: sql`GREATEST(CAST(wallet_balance AS NUMERIC) - ${amt}, 0)`,
+          updatedAt: new Date(),
+        })
         .where(eq(usersTable.id, riderId));
       await db.insert(walletTransactionsTable).values({
         id: generateId(),
@@ -828,7 +827,10 @@ router.delete(
     if (amt > 0) {
       await db
         .update(usersTable)
-        .set({ walletBalance: sql`CAST(wallet_balance AS NUMERIC) + ${amt}`, updatedAt: new Date() })
+        .set({
+          walletBalance: sql`CAST(wallet_balance AS NUMERIC) + ${amt}`,
+          updatedAt: new Date(),
+        })
         .where(eq(usersTable.id, riderId));
       await db.insert(walletTransactionsTable).values({
         id: generateId(),

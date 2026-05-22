@@ -368,7 +368,7 @@ function RiderDetailDrawer({ rider, onClose }: { rider: any; onClose: () => void
                   size="sm"
                   variant="outline"
                   onClick={() => setShowAddPenalty(false)}
-                  className="flex-1 h-8 rounded-lg text-xs"
+                  className="h-8 flex-1 rounded-lg text-xs"
                 >
                   Cancel
                 </Button>
@@ -376,7 +376,7 @@ function RiderDetailDrawer({ rider, onClose }: { rider: any; onClose: () => void
                   size="sm"
                   onClick={handleAddPenalty}
                   disabled={addPenaltyMut.isPending}
-                  className="flex-1 h-8 rounded-lg bg-red-600 text-xs text-white hover:bg-red-700"
+                  className="h-8 flex-1 rounded-lg bg-red-600 text-xs text-white hover:bg-red-700"
                 >
                   {addPenaltyMut.isPending ? "Adding..." : "Apply Penalty"}
                 </Button>
@@ -391,7 +391,7 @@ function RiderDetailDrawer({ rider, onClose }: { rider: any; onClose: () => void
                   key={p.id}
                   className="bg-muted/30 flex items-center justify-between rounded-lg px-3 py-2 text-xs"
                 >
-                  <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex min-w-0 items-center gap-2">
                     {p.type === "cancel" ? (
                       <XCircle className="h-3.5 w-3.5 shrink-0 text-red-500" />
                     ) : (

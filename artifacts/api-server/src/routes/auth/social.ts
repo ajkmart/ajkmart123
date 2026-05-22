@@ -803,9 +803,8 @@ router.post("/firebase-verify", sharedValidateBody(FirebaseVerifySchema), async 
     const ip = getClientIp(req);
 
     /* Dynamic import — only works if FIREBASE_SERVICE_ACCOUNT_JSON is set */
-    const { verifyFirebaseToken, setFirebaseCustomClaims } = await import(
-      "../../services/firebase.js"
-    );
+    const { verifyFirebaseToken, setFirebaseCustomClaims } =
+      await import("../../services/firebase.js");
     const decoded = await verifyFirebaseToken(idToken);
 
     if (!decoded) {
