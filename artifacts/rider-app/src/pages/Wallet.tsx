@@ -479,6 +479,7 @@ export default function Wallet() {
   const { data: codData, refetch: refetchCod } = useQuery({
     queryKey: ["rider-cod"],
     queryFn: () => api.getCodSummary(),
+    staleTime: 60_000,
     refetchInterval: 30000,
     enabled: config.features.wallet,
   });

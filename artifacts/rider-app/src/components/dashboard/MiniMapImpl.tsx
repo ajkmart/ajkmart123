@@ -5,7 +5,12 @@ import { Maximize2, Navigation, X } from "lucide-react";
 import { memo, useEffect, useState } from "react";
 import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
 import { riderEnv } from "../../lib/envValidation";
+import { patchLeafletDefaultIcon } from "../../lib/leafletIconFix";
 import { buildMapsDeepLink } from "./helpers";
+
+/* Patch Leaflet's default marker icon URLs once at lazy-load time so that any
+   <Marker> without an explicit icon prop renders correctly in Vite builds. */
+patchLeafletDefaultIcon();
 
 const PICKUP_ICON_MINI = L.divIcon({
   html: `<div style="width:14px;height:14px;background:#22c55e;border:2.5px solid white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.4)"></div>`,

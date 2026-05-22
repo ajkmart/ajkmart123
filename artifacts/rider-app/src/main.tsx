@@ -6,7 +6,6 @@ import "./index.css";
 import { checkApiHealth } from "./lib/checkApiHealth";
 import { auditRiderEnv } from "./lib/envValidation";
 import { initErrorReporter, reportError } from "./lib/error-reporter";
-import { patchLeafletDefaultIcon } from "./lib/leafletIconFix";
 
 // Run env audit once at module load — warnings appear in dev only.
 auditRiderEnv();
@@ -14,10 +13,9 @@ auditRiderEnv();
 initErrorReporter();
 registerErrorHandler(reportError);
 
-/* Apply the Leaflet default-marker patch once at app boot so every map
-   instance (Active trip, MiniMap, dashboard) renders proper marker icons
-   instead of broken-image placeholders. */
-patchLeafletDefaultIcon();
+/* Leaflet default-icon patch is applied lazily inside ActiveHelpersLeaflet.tsx
+   and MiniMapImpl.tsx — both modules are code-split and only fetched when a
+   map is first rendered, keeping leaflet out of the main entry bundle. */
 
 void (async () => {
   const container = document.getElementById("root")!;
