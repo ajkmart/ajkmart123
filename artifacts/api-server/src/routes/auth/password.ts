@@ -261,7 +261,8 @@ router.post(
   sharedValidateBody(forgotPasswordSchema),
   async (req, res) => {
     try {
-      const { phone, email, identifier } = req.body;
+      let { phone, email } = req.body as { phone?: string; email?: string };
+      const { identifier } = req.body as { identifier?: string };
       const ip = getClientIp(req);
       const settings = await getCachedSettings();
 
@@ -544,7 +545,13 @@ router.post(
   sharedValidateBody(ResetPasswordSchema),
   async (req, res) => {
     try {
-      const { phone, email, identifier, resetToken, newPassword, totpCode } = req.body;
+      let { phone, email } = req.body as { phone?: string; email?: string };
+      const { identifier, resetToken, newPassword, totpCode } = req.body as {
+        identifier?: string;
+        resetToken?: string;
+        newPassword?: string;
+        totpCode?: string;
+      };
       const ip = getClientIp(req);
       const settings = await getCachedSettings();
 

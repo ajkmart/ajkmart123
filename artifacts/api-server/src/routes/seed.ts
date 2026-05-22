@@ -1459,6 +1459,7 @@ router.post("/products", devSeedAuth, async (req, res) => {
 
     let seededMart = 0;
     let seededFood = 0;
+    let _seededPharmacy = 0;
 
     if (existingMart.length === 0) {
       for (const p of MART_PRODUCTS) {
