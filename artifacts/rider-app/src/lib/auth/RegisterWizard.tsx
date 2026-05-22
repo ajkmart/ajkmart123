@@ -1,7 +1,7 @@
 import { OtpInput } from "@workspace/auth-react";
 import { tDual, type TranslationKey } from "@workspace/i18n";
 import { isValidPhone } from "@workspace/phone-utils";
-import { ArrowLeft, Eye, EyeOff, Shield, Smartphone, Upload } from "lucide-react";
+import { ArrowLeft, CheckCircle, Eye, EyeOff, Shield, Smartphone, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { api } from "../api";
@@ -47,15 +47,6 @@ function strength(pw: string) {
   return { pct: 100, label: "Strong", color: "#10b981" };
 }
 
-async function fileToDataUrl(file: File): Promise<string> {
-  return await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result ?? ""));
-    reader.onerror = () => reject(new Error("Failed to read file"));
-    reader.readAsDataURL(file);
-  });
-}
-
 export interface RegisterWizardProps {
   onDone?: () => void;
 }
@@ -77,16 +68,27 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
       return {};
     }
   });
+
+  /* Step 1 — OTP send/verify within the same step */
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
   const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
   const [otpCooldown, setOtpCooldown] = useState(0);
+
+  /* Step 2 — password visibility */
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  /* Step 4 — document upload state */
+  const [uploading, setUploading] = useState<string | null>(null);
+  const [uploadPct, setUploadPct] = useState<Record<string, number>>({});
+  const [uploadError, setUploadError] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+
+  /* Username availability */
   const [usernameState, setUsernameState] = useState<"idle" | "checking" | "available" | "taken">(
     "idle"
   );
-  const [uploading, setUploading] = useState<string | null>(null);
-  const [uploadPct, setUploadPct] = useState<Record<string, number>>({});
-  const [submitted, setSubmitted] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
     if (otpCooldown <= 0) return;
@@ -118,6 +120,7 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
     }
   };
 
+  /* ── Step 1: send OTP ── */
   const sendPhoneOtp = async () => {
     const phone = (draft.phone ?? "").replace(/[^0-9]/g, "");
     if (!draft.name?.trim()) return setError("Full name is required");
@@ -127,56 +130,80 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
     setOtpSending(false);
     if (!res.success) return setError(res.error ?? "Failed to send OTP");
     update("phone", phone);
-    setStep(2);
+    setPhoneOtpSent(true);
     setOtpCooldown(60);
+    setError(null);
   };
 
+  /* ── Step 1: verify OTP → advance to step 2 ── */
+  const verifyPhoneOtp = () => {
+    if ((draft.otp ?? "").length !== 6) {
+      setError("Enter the complete 6-digit OTP");
+      return;
+    }
+    /* OTP is verified by the server at registration time — we just advance the
+       wizard here. The OTP code is stored in draft and submitted with the final
+       registerRider call so the server can validate it atomically. */
+    setError(null);
+    setStep(2);
+  };
+
+  /* ── Step 4: upload a document ── */
   const uploadFile = async (field: keyof Draft, file?: File) => {
     if (!file) return;
-    setUploading(String(field));
-    setUploadPct((prev) => ({ ...prev, [String(field)]: 0 }));
-    const dataUrl = await fileToDataUrl(file);
-    update(field, dataUrl);
-    setUploadPct((prev) => ({ ...prev, [String(field)]: 100 }));
-    setTimeout(() => {
+    const fieldKey = String(field);
+    setUploading(fieldKey);
+    setUploadPct((prev) => ({ ...prev, [fieldKey]: 0 }));
+    setUploadError((prev) => ({ ...prev, [fieldKey]: "" }));
+    try {
+      const uploadToken = await api.getRegistrationUploadToken();
+      const result = await api.uploadRegistrationDocWithProgress(file, uploadToken, (pct) =>
+        setUploadPct((prev) => ({ ...prev, [fieldKey]: pct }))
+      );
+      const stored = result.url ?? "";
+      if (!stored) throw new Error("Server returned no URL for uploaded file");
+      update(field, stored);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Upload failed";
+      setUploadError((prev) => ({ ...prev, [fieldKey]: msg }));
+      setUploadPct((prev) => ({ ...prev, [fieldKey]: 0 }));
+    } finally {
       setUploading(null);
-      setUploadPct((prev) => ({ ...prev, [String(field)]: 0 }));
-    }, 400);
+    }
   };
 
+  /* ── Step 4: submit application → advance to step 5 ── */
   const submit = async () => {
-    if (!draft.password || draft.password.length < 8)
-      return setError("Password must be at least 8 characters");
-    if (draft.password !== draft.confirmPassword) return setError("Passwords do not match");
-    if (!draft.terms) return setError("You must accept the terms");
     if (!draft.vehiclePhoto || !draft.licensePhoto || !draft.cnicFrontPhoto || !draft.cnicBackPhoto)
       return setError("Please upload all required documents");
 
     setError(null);
-    const res = await api.registerRider({
-      name: draft.name?.trim() ?? "",
-      phone: draft.phone?.trim() ?? "",
-      username: draft.username?.trim() || undefined,
-      otp: draft.otp,
-      cnic: draft.cnic?.trim() ?? "",
-      vehicleType: draft.vehicleType?.trim() ?? "",
-      vehiclePlate: draft.vehiclePlate?.trim() ?? "",
-      drivingLicense: draft.drivingLicense?.trim() ?? "",
-      vehicleRegistration: draft.vehicleRegistration?.trim() ?? "",
-      vehiclePhoto: draft.vehiclePhoto,
-      licensePhoto: draft.licensePhoto,
-      cnicFrontPhoto: draft.cnicFrontPhoto,
-      cnicBackPhoto: draft.cnicBackPhoto,
-      password: draft.password,
-    } as never);
-    if (res?.token) {
-      setSubmitted(true);
+    setSubmitting(true);
+    try {
+      await api.registerRider({
+        name: draft.name?.trim() ?? "",
+        phone: draft.phone?.trim() ?? "",
+        username: draft.username?.trim() || undefined,
+        otp: draft.otp,
+        cnic: draft.cnic?.trim() ?? "",
+        vehicleType: draft.vehicleType?.trim() ?? "",
+        vehiclePlate: draft.vehiclePlate?.trim() ?? "",
+        drivingLicense: draft.drivingLicense?.trim() ?? "",
+        vehicleRegistration: draft.vehicleRegistration?.trim() ?? "",
+        vehiclePhoto: draft.vehiclePhoto,
+        licensePhoto: draft.licensePhoto,
+        cnicFrontPhoto: draft.cnicFrontPhoto,
+        cnicBackPhoto: draft.cnicBackPhoto,
+        password: draft.password,
+      } as never);
       localStorage.removeItem(DRAFT_KEY);
       onDone?.();
-      navigate("/");
-      return;
+      setStep(5);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Registration failed. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
-    setError("Registration failed");
   };
 
   const pwStrength = draft.password ? strength(draft.password) : null;
@@ -189,44 +216,38 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
     boxShadow: "0 24px 64px rgba(0,0,0,0.45)",
   };
 
-  if (submitted) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: theme.background,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: 16,
-        }}
-      >
-        <div style={{ ...card, width: "100%", maxWidth: 420, textAlign: "center" }}>
-          <div
-            style={{
-              width: 72,
-              height: 72,
-              borderRadius: "50%",
-              background: `${theme.primary}18`,
-              border: `1px solid ${theme.primary}40`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 16px",
-            }}
-          >
-            <Shield size={34} color={theme.primary} />
-          </div>
-          <h2 style={{ color: theme.text, fontSize: 22, fontWeight: 800, margin: 0 }}>
-            Application submitted
-          </h2>
-          <p style={{ color: theme.textMuted, fontSize: 14, lineHeight: 1.6 }}>
-            Your rider application is under review. You’ll be notified after approval.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const inputStyle: React.CSSProperties = {
+    height: 48,
+    padding: "0 16px",
+    borderRadius: 12,
+    background: theme.background,
+    border: `1.5px solid ${theme.border}`,
+    color: theme.text,
+    width: "100%",
+    outline: "none",
+    fontSize: 14,
+  };
+
+  const backBtnStyle: React.CSSProperties = {
+    background: "none",
+    border: "none",
+    color: theme.textMuted,
+    cursor: "pointer",
+    fontSize: 13,
+  };
+
+  const nextBtnStyle = (enabled = true): React.CSSProperties => ({
+    height: 44,
+    borderRadius: 12,
+    border: "none",
+    background: enabled
+      ? `linear-gradient(135deg, ${theme.primary}, ${theme.primaryDark})`
+      : `${theme.primary}60`,
+    color: "#fff",
+    fontWeight: 800,
+    cursor: enabled ? "pointer" : "not-allowed",
+    padding: "0 20px",
+  });
 
   return (
     <div style={{ minHeight: "100vh", background: theme.background, padding: 16 }}>
@@ -249,6 +270,8 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
         >
           <ArrowLeft size={14} /> Back
         </button>
+
+        {/* Progress bar — always visible including step 5 */}
         <div style={{ marginBottom: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
             <span
@@ -260,7 +283,9 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
                 textTransform: "uppercase",
               }}
             >
-              Step {step} of {total}
+              {step === 5
+                ? "Complete"
+                : `Step ${step} of ${total - 1} — ${["Phone OTP", "Personal Details", "Vehicle Info", "Documents"][step - 1]}`}
             </span>
             <span style={{ color: theme.textMuted, fontSize: 11 }}>{progress}%</span>
           </div>
@@ -271,10 +296,12 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
                 width: `${progress}%`,
                 borderRadius: 999,
                 background: `linear-gradient(90deg, ${theme.primary}, ${theme.primaryDark})`,
+                transition: "width 0.3s ease",
               }}
             />
           </div>
         </div>
+
         <div style={card}>
           <div style={{ textAlign: "center", marginBottom: 20 }}>
             <div
@@ -282,19 +309,28 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
                 width: 64,
                 height: 64,
                 borderRadius: 20,
-                background: `linear-gradient(135deg, ${theme.primary}, ${theme.primaryDark})`,
+                background:
+                  step === 5
+                    ? `${theme.primary}18`
+                    : `linear-gradient(135deg, ${theme.primary}, ${theme.primaryDark})`,
+                border: step === 5 ? `1px solid ${theme.primary}40` : undefined,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 margin: "0 auto 12px",
               }}
             >
-              <Smartphone size={30} color="#fff" />
+              {step === 5 ? (
+                <Shield size={30} color={theme.primary} />
+              ) : (
+                <Smartphone size={30} color="#fff" />
+              )}
             </div>
-            <h1 style={{ color: theme.text, fontSize: 24, fontWeight: 800, margin: 0 }}>
-              {T("riderRegistration")}
+            <h1 style={{ color: theme.text, fontSize: 22, fontWeight: 800, margin: 0 }}>
+              {step === 5 ? "Application Submitted" : T("riderRegistration")}
             </h1>
           </div>
+
           {error && (
             <div
               role="alert"
@@ -312,20 +348,14 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
             </div>
           )}
 
-          {step === 1 && (
+          {/* ── Step 1: Phone OTP ── */}
+          {step === 1 && !phoneOtpSent && (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <input
                 value={draft.name ?? ""}
                 onChange={(e) => update("name", e.target.value)}
-                placeholder="Full name"
-                style={{
-                  height: 48,
-                  padding: "0 16px",
-                  borderRadius: 12,
-                  background: theme.background,
-                  border: `1.5px solid ${theme.border}`,
-                  color: theme.text,
-                }}
+                placeholder="Full name *"
+                style={inputStyle}
               />
               <div style={{ display: "flex", gap: 8 }}>
                 <div
@@ -338,6 +368,7 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
                     display: "flex",
                     alignItems: "center",
                     color: theme.textMuted,
+                    flexShrink: 0,
                   }}
                 >
                   +92
@@ -345,16 +376,8 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
                 <input
                   value={draft.phone ?? ""}
                   onChange={(e) => update("phone", e.target.value)}
-                  placeholder="03XXXXXXXXX"
-                  style={{
-                    flex: 1,
-                    height: 48,
-                    padding: "0 16px",
-                    borderRadius: 12,
-                    background: theme.background,
-                    border: `1.5px solid ${theme.border}`,
-                    color: theme.text,
-                  }}
+                  placeholder="03XXXXXXXXX *"
+                  style={{ ...inputStyle, flex: 1 }}
                 />
               </div>
               <input
@@ -362,20 +385,13 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
                 onChange={(e) => update("username", e.target.value)}
                 onBlur={() => void checkUsername()}
                 placeholder="Username (optional)"
-                style={{
-                  height: 48,
-                  padding: "0 16px",
-                  borderRadius: 12,
-                  background: theme.background,
-                  border: `1.5px solid ${theme.border}`,
-                  color: theme.text,
-                }}
+                style={inputStyle}
               />
               {usernameState === "checking" && (
                 <div style={{ color: theme.textMuted, fontSize: 12 }}>Checking availability…</div>
               )}
               {usernameState === "available" && (
-                <div style={{ color: "#10b981", fontSize: 12 }}>Username available</div>
+                <div style={{ color: "#10b981", fontSize: 12 }}>✓ Username available</div>
               )}
               {usernameState === "taken" && (
                 <div style={{ color: "#f87171", fontSize: 12 }}>Username already taken</div>
@@ -384,60 +400,55 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
                 onClick={() => void sendPhoneOtp()}
                 disabled={otpSending}
                 style={{
+                  ...nextBtnStyle(!otpSending),
+                  width: "100%",
                   height: 48,
-                  borderRadius: 12,
-                  border: "none",
-                  background: otpSending
-                    ? `${theme.primary}60`
-                    : `linear-gradient(135deg, ${theme.primary}, ${theme.primaryDark})`,
-                  color: "#fff",
-                  fontWeight: 800,
-                  cursor: otpSending ? "not-allowed" : "pointer",
+                  fontSize: 15,
                 }}
               >
-                {otpSending ? "Sending OTP…" : "Continue"}
+                {otpSending ? "Sending OTP…" : "Send OTP"}
               </button>
             </div>
           )}
 
-          {step === 2 && (
+          {step === 1 && phoneOtpSent && (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div style={{ textAlign: "center" }}>
-                <p style={{ color: theme.textMuted, fontSize: 13, margin: 0 }}>OTP sent to</p>
+                <p style={{ color: theme.textMuted, fontSize: 13, margin: 0 }}>
+                  Enter the 6-digit OTP sent to
+                </p>
                 <p style={{ color: theme.text, fontSize: 15, fontWeight: 700, margin: "4px 0 0" }}>
                   {draft.phone}
                 </p>
               </div>
-              <OtpInput onComplete={(v) => update("otp", v)} length={6} label="OTP" />
+              <OtpInput
+                onComplete={(v) => {
+                  update("otp", v);
+                  setError(null);
+                }}
+                length={6}
+                label="OTP"
+                disabled={otpVerifying}
+              />
               <button
-                onClick={() => setStep(3)}
-                disabled={(draft.otp ?? "").length !== 6}
+                onClick={() => {
+                  setOtpVerifying(true);
+                  verifyPhoneOtp();
+                  setOtpVerifying(false);
+                }}
+                disabled={otpVerifying || (draft.otp ?? "").length !== 6}
                 style={{
+                  ...nextBtnStyle((draft.otp ?? "").length === 6 && !otpVerifying),
+                  width: "100%",
                   height: 48,
-                  borderRadius: 12,
-                  border: "none",
-                  background:
-                    (draft.otp ?? "").length === 6
-                      ? `linear-gradient(135deg, ${theme.primary}, ${theme.primaryDark})`
-                      : `${theme.primary}60`,
-                  color: "#fff",
-                  fontWeight: 800,
-                  cursor: (draft.otp ?? "").length === 6 ? "pointer" : "not-allowed",
+                  fontSize: 15,
                 }}
               >
-                Verify OTP
+                Verify & Continue
               </button>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <button
-                  onClick={() => setStep(1)}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: theme.textMuted,
-                    cursor: "pointer",
-                  }}
-                >
-                  Back
+                <button onClick={() => setPhoneOtpSent(false)} style={backBtnStyle}>
+                  Change Number
                 </button>
                 {otpCooldown > 0 ? (
                   <span style={{ color: theme.textMuted, fontSize: 12 }}>
@@ -452,6 +463,7 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
                       color: theme.primary,
                       cursor: "pointer",
                       fontWeight: 600,
+                      fontSize: 13,
                     }}
                   >
                     Resend OTP
@@ -461,219 +473,22 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
             </div>
           )}
 
-          {step === 3 && (
+          {/* ── Step 2: Personal Details ── */}
+          {step === 2 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <input
                 value={draft.cnic ?? ""}
                 onChange={(e) => update("cnic", e.target.value)}
-                placeholder="CNIC XXXXX-XXXXXXX-X"
-                style={{
-                  height: 48,
-                  padding: "0 16px",
-                  borderRadius: 12,
-                  background: theme.background,
-                  border: `1.5px solid ${theme.border}`,
-                  color: theme.text,
-                }}
+                placeholder="CNIC XXXXX-XXXXXXX-X *"
+                style={inputStyle}
               />
-              <select
-                value={draft.vehicleType ?? ""}
-                onChange={(e) => update("vehicleType", e.target.value)}
-                style={{
-                  height: 48,
-                  padding: "0 16px",
-                  borderRadius: 12,
-                  background: theme.background,
-                  border: `1.5px solid ${theme.border}`,
-                  color: theme.text,
-                }}
-              >
-                <option value="">Vehicle type</option>
-                {VEHICLES.map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-              <input
-                value={draft.vehiclePlate ?? ""}
-                onChange={(e) => update("vehiclePlate", e.target.value)}
-                placeholder="Vehicle plate number"
-                style={{
-                  height: 48,
-                  padding: "0 16px",
-                  borderRadius: 12,
-                  background: theme.background,
-                  border: `1.5px solid ${theme.border}`,
-                  color: theme.text,
-                }}
-              />
-              <input
-                value={draft.drivingLicense ?? ""}
-                onChange={(e) => update("drivingLicense", e.target.value)}
-                placeholder="Driving license number"
-                style={{
-                  height: 48,
-                  padding: "0 16px",
-                  borderRadius: 12,
-                  background: theme.background,
-                  border: `1.5px solid ${theme.border}`,
-                  color: theme.text,
-                }}
-              />
-              <input
-                value={draft.vehicleRegistration ?? ""}
-                onChange={(e) => update("vehicleRegistration", e.target.value)}
-                placeholder="Vehicle registration number"
-                style={{
-                  height: 48,
-                  padding: "0 16px",
-                  borderRadius: 12,
-                  background: theme.background,
-                  border: `1.5px solid ${theme.border}`,
-                  color: theme.text,
-                }}
-              />
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <button
-                  onClick={() => setStep(2)}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: theme.textMuted,
-                    cursor: "pointer",
-                  }}
-                >
-                  Back
-                </button>
-                <button
-                  onClick={() => setStep(4)}
-                  style={{
-                    height: 44,
-                    borderRadius: 12,
-                    border: "none",
-                    background: `linear-gradient(135deg, ${theme.primary}, ${theme.primaryDark})`,
-                    color: "#fff",
-                    fontWeight: 800,
-                    cursor: "pointer",
-                  }}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
-
-          {step === 4 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {(["vehiclePhoto", "licensePhoto", "cnicFrontPhoto", "cnicBackPhoto"] as const).map(
-                (field) => (
-                  <label
-                    key={field}
-                    style={{
-                      border: `1px solid ${theme.border}`,
-                      borderRadius: 14,
-                      padding: 14,
-                      background: theme.background,
-                      color: theme.text,
-                      cursor: "pointer",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 12,
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontSize: 14, fontWeight: 700 }}>
-                          {field.replace(/([A-Z])/g, " $1")}
-                        </div>
-                        <div style={{ fontSize: 11, color: theme.textMuted }}>Tap to upload</div>
-                      </div>
-                      <Upload size={16} color={theme.primary} />
-                    </div>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => void uploadFile(field, e.target.files?.[0])}
-                      style={{ display: "none" }}
-                    />
-                    {uploading === field && (
-                      <div
-                        style={{
-                          marginTop: 10,
-                          height: 4,
-                          borderRadius: 999,
-                          background: theme.border,
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: `${uploadPct[field] ?? 0}%`,
-                            height: "100%",
-                            background: theme.primary,
-                            borderRadius: 999,
-                          }}
-                        />
-                      </div>
-                    )}
-                    {(draft[field] as string) && (
-                      <div style={{ marginTop: 10, fontSize: 11, color: "#10b981" }}>Uploaded</div>
-                    )}
-                  </label>
-                )
-              )}
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <button
-                  onClick={() => setStep(3)}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: theme.textMuted,
-                    cursor: "pointer",
-                  }}
-                >
-                  Back
-                </button>
-                <button
-                  onClick={() => setStep(5)}
-                  style={{
-                    height: 44,
-                    borderRadius: 12,
-                    border: "none",
-                    background: `linear-gradient(135deg, ${theme.primary}, ${theme.primaryDark})`,
-                    color: "#fff",
-                    fontWeight: 800,
-                    cursor: "pointer",
-                  }}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
-
-          {step === 5 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div style={{ position: "relative" }}>
                 <input
                   type={showPassword ? "text" : "password"}
                   value={draft.password ?? ""}
                   onChange={(e) => update("password", e.target.value)}
-                  placeholder="Password"
-                  style={{
-                    width: "100%",
-                    height: 48,
-                    padding: "0 16px",
-                    paddingRight: 44,
-                    borderRadius: 12,
-                    background: theme.background,
-                    border: `1.5px solid ${theme.border}`,
-                    color: theme.text,
-                  }}
+                  placeholder="Password *"
+                  style={{ ...inputStyle, paddingRight: 44 }}
                 />
                 <button
                   type="button"
@@ -704,6 +519,7 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
                           height: "100%",
                           background: pwStrength.color,
                           borderRadius: 999,
+                          transition: "width 0.2s ease",
                         }}
                       />
                     </div>
@@ -718,17 +534,8 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
                   type={showConfirm ? "text" : "password"}
                   value={draft.confirmPassword ?? ""}
                   onChange={(e) => update("confirmPassword", e.target.value)}
-                  placeholder="Confirm password"
-                  style={{
-                    width: "100%",
-                    height: 48,
-                    padding: "0 16px",
-                    paddingRight: 44,
-                    borderRadius: 12,
-                    background: theme.background,
-                    border: `1.5px solid ${theme.border}`,
-                    color: theme.text,
-                  }}
+                  placeholder="Confirm password *"
+                  style={{ ...inputStyle, paddingRight: 44 }}
                 />
                 <button
                   type="button"
@@ -760,50 +567,242 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
                   type="checkbox"
                   checked={!!draft.terms}
                   onChange={(e) => update("terms", e.target.checked)}
-                />{" "}
-                I agree to the terms
+                />
+                I agree to the terms &amp; conditions
               </label>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <button onClick={() => setStep(1)} style={backBtnStyle}>
+                  Back
+                </button>
+                <button
+                  onClick={() => {
+                    if (!draft.cnic?.trim()) return setError("CNIC is required");
+                    if (!draft.password || draft.password.length < 8)
+                      return setError("Password must be at least 8 characters");
+                    if (draft.password !== draft.confirmPassword)
+                      return setError("Passwords do not match");
+                    if (!draft.terms) return setError("You must accept the terms");
+                    setError(null);
+                    setStep(3);
+                  }}
+                  style={nextBtnStyle()}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Step 3: Vehicle Info ── */}
+          {step === 3 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <select
+                value={draft.vehicleType ?? ""}
+                onChange={(e) => update("vehicleType", e.target.value)}
+                style={{ ...inputStyle, appearance: "none" }}
+              >
+                <option value="">Vehicle type *</option>
+                {VEHICLES.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+              <input
+                value={draft.vehiclePlate ?? ""}
+                onChange={(e) => update("vehiclePlate", e.target.value)}
+                placeholder="Vehicle plate number *"
+                style={inputStyle}
+              />
+              <input
+                value={draft.drivingLicense ?? ""}
+                onChange={(e) => update("drivingLicense", e.target.value)}
+                placeholder="Driving license number *"
+                style={inputStyle}
+              />
+              <input
+                value={draft.vehicleRegistration ?? ""}
+                onChange={(e) => update("vehicleRegistration", e.target.value)}
+                placeholder="Vehicle registration number"
+                style={inputStyle}
+              />
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <button onClick={() => setStep(2)} style={backBtnStyle}>
+                  Back
+                </button>
+                <button
+                  onClick={() => {
+                    if (!draft.vehicleType) return setError("Vehicle type is required");
+                    if (!draft.vehiclePlate?.trim()) return setError("Vehicle plate is required");
+                    if (!draft.drivingLicense?.trim())
+                      return setError("Driving license number is required");
+                    setError(null);
+                    setStep(4);
+                  }}
+                  style={nextBtnStyle()}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Step 4: Document Upload ── */}
+          {step === 4 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <p style={{ color: theme.textMuted, fontSize: 13, margin: "0 0 4px" }}>
+                Upload clear photos of each document. All 4 are required.
+              </p>
+              {(["vehiclePhoto", "licensePhoto", "cnicFrontPhoto", "cnicBackPhoto"] as const).map(
+                (field) => {
+                  const isUploading = uploading === field;
+                  const pct = uploadPct[field] ?? 0;
+                  const hasFile = !!(draft[field] as string);
+                  const errMsg = uploadError[field];
+                  const labels: Record<string, string> = {
+                    vehiclePhoto: "Vehicle Photo",
+                    licensePhoto: "Driving License Photo",
+                    cnicFrontPhoto: "CNIC Front",
+                    cnicBackPhoto: "CNIC Back",
+                  };
+                  return (
+                    <label
+                      key={field}
+                      style={{
+                        border: `1px solid ${errMsg ? "#f87171" : hasFile ? "#10b981" : theme.border}`,
+                        borderRadius: 14,
+                        padding: 14,
+                        background: theme.background,
+                        color: theme.text,
+                        cursor: isUploading ? "not-allowed" : "pointer",
+                        opacity: isUploading ? 0.8 : 1,
+                        display: "block",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 12,
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 700 }}>{labels[field]}</div>
+                          <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 2 }}>
+                            {isUploading
+                              ? `Uploading… ${pct}%`
+                              : hasFile
+                                ? "✓ Uploaded"
+                                : "Tap to upload image"}
+                          </div>
+                        </div>
+                        {hasFile ? (
+                          <CheckCircle size={18} color="#10b981" />
+                        ) : (
+                          <Upload size={18} color={theme.primary} />
+                        )}
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={isUploading}
+                        onChange={(e) => void uploadFile(field, e.target.files?.[0])}
+                        style={{ display: "none" }}
+                      />
+                      {isUploading && (
+                        <div
+                          style={{
+                            marginTop: 10,
+                            height: 4,
+                            borderRadius: 999,
+                            background: theme.border,
+                            overflow: "hidden",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: `${pct}%`,
+                              height: "100%",
+                              background: `linear-gradient(90deg, ${theme.primary}, ${theme.primaryDark})`,
+                              borderRadius: 999,
+                              transition: "width 0.15s ease",
+                            }}
+                          />
+                        </div>
+                      )}
+                      {errMsg && (
+                        <div style={{ marginTop: 6, fontSize: 11, color: "#f87171" }}>{errMsg}</div>
+                      )}
+                    </label>
+                  );
+                }
+              )}
               <button
                 onClick={() => void submit()}
+                disabled={submitting || !!uploading}
                 style={{
+                  ...nextBtnStyle(!submitting && !uploading),
+                  width: "100%",
                   height: 48,
-                  borderRadius: 12,
-                  border: "none",
-                  background: `linear-gradient(135deg, ${theme.primary}, ${theme.primaryDark})`,
-                  color: "#fff",
-                  fontWeight: 800,
-                  cursor: "pointer",
+                  fontSize: 15,
+                  marginTop: 4,
                 }}
               >
-                Create Rider Account
+                {submitting ? "Submitting…" : "Submit Application"}
               </button>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <button
-                  onClick={() => setStep(4)}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: theme.textMuted,
-                    cursor: "pointer",
-                  }}
-                >
+                <button onClick={() => setStep(3)} style={backBtnStyle}>
                   Back
                 </button>
                 <button
                   onClick={() => {
                     localStorage.removeItem(DRAFT_KEY);
                     setDraft({});
+                    setPhoneOtpSent(false);
+                    setStep(1);
                   }}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: theme.textMuted,
-                    cursor: "pointer",
-                  }}
+                  style={backBtnStyle}
                 >
                   Clear draft
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* ── Step 5: Success / Pending KYC ── */}
+          {step === 5 && (
+            <div
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}
+            >
+              <p
+                style={{
+                  color: theme.textMuted,
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                  textAlign: "center",
+                  margin: 0,
+                }}
+              >
+                Your rider account is pending KYC review. You&apos;ll be notified once an admin
+                approves your application.
+              </p>
+              <button
+                onClick={() => navigate("/login")}
+                style={{
+                  width: "100%",
+                  height: 48,
+                  borderRadius: 12,
+                  border: "none",
+                  background: `linear-gradient(135deg, ${theme.primary}, ${theme.primaryDark})`,
+                  color: "#fff",
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Back to Login
+              </button>
             </div>
           )}
         </div>
