@@ -1,0 +1,32 @@
+#13 - Performance Optimization
+What & Why
+Verify all performance optimizations: React Query stale times, Vite code splitting, GPS ping deduplication, socket reconnect backoff, image lazy loading, and bundle size targets.
+
+Done looks like
+Bundle stats show no page chunk > 500 KB gzipped
+Leaflet only loaded on /van and Home pages (MiniMap) — not in main bundle
+GPS queue has no duplicate entries after stationary 60 s period
+Socket reconnect shows exponential delay in browser DevTools Network tab
+Images on request cards load lazily (not eagerly on page load)
+ANALYZE=1 pnpm build generates bundle-stats.html via rollup-plugin-visualizer
+Out of scope
+Changes to artifacts/ajkmart
+Server-side performance (DB query optimization, caching)
+Steps
+React Query stale time audit — Verify stale times match the inventory: rider-requests 60s, rider-active 60s, rider-notif-settings 30s, popular-cities 300s, rider-wallet 30s, rider-cod-summary 60s, rider-earnings 30s, rider-my-reviews-full 60s, rider-penalty-history 60s.
+
+Code splitting — Verify App.tsx imports all 13 page components via React.lazy(). Confirm no page is eagerly imported at bundle root. If any eager imports exist, convert to lazy.
+
+Bundle analyzer setup — Verify rollup-plugin-visualizer is installed and ANALYZE=1 pnpm build generates bundle-stats.html. Run and check Leaflet and Firebase chunk sizes. Confirm Firebase only bundled when VITE_FIREBASE_API_KEY is set.
+
+GPS deduplication — Confirm gpsQueue.ts uses haversine 25 m check before enqueue. Verify no back-to-back identical lat/lng entries possible when rider is stationary.
+
+Socket reconnect backoff — Confirm reconnectionDelay: 2000, reconnectionDelayMax: 30000, reconnectionAttempts: 20 in socket.tsx. Verify no rapid reconnect storms by checking DevTools during offline→online toggle.
+
+Image lazy loading — Verify request card thumbnails use <img loading="lazy">. Verify delivery proof image only loaded when order status = delivered (conditional render).
+
+Relevant files
+artifacts/rider-app/src/App.tsx
+artifacts/rider-app/src/lib/socket.tsx
+artifacts/rider-app/src/lib/gpsQueue.ts
+artifacts/rider-app/vite.config.ts

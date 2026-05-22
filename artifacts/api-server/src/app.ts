@@ -264,7 +264,7 @@ function validateCORS(): string[] {
         return [
           `https://${replitDomain}`,
           // API server + external port variants mapped in .replit [[ports]] blocks
-          ...[3000, 3001, 3002, 5000, 8000].map((p) => `https://${replitDomain}:${p}`),
+          ...[3000, 3001, 3002, 5000, 8000, 8080].map((p) => `https://${replitDomain}:${p}`),
           // Expo web dev server ports
           ...[19006, 8081].map((p) => `https://${replitDomain}:${p}`),
           // Expo .expo. subdomain variant used by Expo Go / dev client
@@ -283,7 +283,7 @@ function validateCORS(): string[] {
   // so the server can still start; operators should set ALLOWED_ORIGINS for
   // tighter control.
   const replitPortVariants = replitDomain
-    ? [3000, 3001, 3002, 5000, 8000].map((p) => `https://${replitDomain}:${p}`)
+    ? [3000, 3001, 3002, 5000, 8000, 8080].map((p) => `https://${replitDomain}:${p}`)
     : [];
   const fallback = [
     "http://localhost:5000",

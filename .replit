@@ -24,42 +24,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "DB Migrate"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "All Services"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "AJKMart App"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "format"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Admin App"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Rider App"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Vendor App"
-
-  [[workflows.workflow]]
-name = "DB Migrate"
-author = "agent"
-
-  [workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd lib/db && DATABASE_URL=$(echo $DATABASE_URL | sed 's/-pooler//') node ../../node_modules/.bin/drizzle-kit push --force --config ./drizzle.config.ts"
 
   [[workflows.workflow]]
   name = "All Services"
@@ -86,76 +51,6 @@ args = "cd lib/db && DATABASE_URL=$(echo $DATABASE_URL | sed 's/-pooler//') node
   task = "workflow.run"
   args = "AJKMart App"
 
-  [[workflows.workflow]]
-  name = "API Server"
-  author = "agent"
-
-  [workflows.workflow.metadata]
-  outputType = "webview"
-
-  [[workflows.workflow.tasks]]
-  task = "shell.exec"
-  args = "cd artifacts/api-server && NODE_ENV=development node ./scripts/start-with-restart.mjs"
-  waitForPort = 5000
-
-  [[workflows.workflow]]
-name = "Rider App"
-author = "agent"
-
-  [workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd artifacts/rider-app && PORT=3002 BASE_PATH=/rider node ../../node_modules/.bin/vite --config vite.config.ts --host 0.0.0.0 --strictPort"
-waitForPort = 3002
-
-  [[workflows.workflow]]
-name = "Vendor App"
-author = "agent"
-
-  [workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd artifacts/vendor-app && PORT=3001 BASE_PATH=/vendor node ../../node_modules/.bin/vite --config vite.config.ts --host 0.0.0.0 --strictPort"
-waitForPort = 3001
-
-  [[workflows.workflow]]
-name = "Admin App"
-author = "agent"
-
-  [workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd artifacts/admin && PORT=3000 BASE_PATH=/admin node ../../node_modules/.bin/vite --config vite.config.ts --host 0.0.0.0 --strictPort"
-waitForPort = 3000
-
-  [[workflows.workflow]]
-name = "AJKMart App"
-author = "agent"
-
-  [workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd artifacts/ajkmart && CI=1 EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN EXPO_PUBLIC_REPL_ID=$REPL_ID REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN node /home/runner/workspace/node_modules/.pnpm/expo@54.0.33_@babel+core@7.29.0_@expo+metro-runtime@6.1.2_expo-router@6.0.23_graphql@16_5e7ed7cfca0f09772c259d84404ce721/node_modules/expo/bin/cli start --localhost --port 8081"
-
-[[workflows.workflow]]
-name = "format"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm format:check"
-
-[workflows.workflow.metadata]
-isValidation = true
-
   [agent]
 stack = "BEST_EFFORT_FALLBACK"
 expertMode = true
@@ -173,10 +68,10 @@ channel = "stable-25_05"
 [userenv.shared]
 NODE_ENV = "development"
 JWT_ISSUER = "ajkmart"
-VITE_API_PROXY_TARGET = "http://127.0.0.1:5000"
+VITE_API_PROXY_TARGET = "http://127.0.0.1:8080"
 VAPID_PUBLIC_KEY = "BEmlZZIGCb7ZhembOoH02qzZlnhkFrYkib27NwFgtXBFDcvtHhhWC2hfZEHU4JpDbfHIRgbrCiM_f9gEEc_JHLg"
 VAPID_CONTACT_EMAIL = "mailto:admin@ajkmart.app"
-ALLOWED_ORIGINS = "https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:3000,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:3001,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:3002,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:5000,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:8081,http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:5000,http://localhost:5173,http://localhost:8081"
+ALLOWED_ORIGINS = "https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:3000,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:3001,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:3002,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:5000,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:8080,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:8081,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:21463,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:22969,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:23744,https://e0d5eea3-8dc4-42f7-8902-4b3a3dfe3471-00-p6cfbcde9bmk.sisko.replit.dev:3000,https://e0d5eea3-8dc4-42f7-8902-4b3a3dfe3471-00-p6cfbcde9bmk.sisko.replit.dev:3001,https://e0d5eea3-8dc4-42f7-8902-4b3a3dfe3471-00-p6cfbcde9bmk.sisko.replit.dev:3002,https://e0d5eea3-8dc4-42f7-8902-4b3a3dfe3471-00-p6cfbcde9bmk.sisko.replit.dev:5000,https://e0d5eea3-8dc4-42f7-8902-4b3a3dfe3471-00-p6cfbcde9bmk.sisko.replit.dev:8080,https://e0d5eea3-8dc4-42f7-8902-4b3a3dfe3471-00-p6cfbcde9bmk.sisko.replit.dev:8081,https://e0d5eea3-8dc4-42f7-8902-4b3a3dfe3471-00-p6cfbcde9bmk.sisko.replit.dev:21463,https://e0d5eea3-8dc4-42f7-8902-4b3a3dfe3471-00-p6cfbcde9bmk.sisko.replit.dev:22969,https://e0d5eea3-8dc4-42f7-8902-4b3a3dfe3471-00-p6cfbcde9bmk.sisko.replit.dev:23744,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev,https://e0d5eea3-8dc4-42f7-8902-4b3a3dfe3471-00-p6cfbcde9bmk.sisko.replit.dev,http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:5000,http://localhost:5173,http://localhost:8080,http://localhost:8081"
 ADMIN_ACCESS_TOKEN_SECRET = "10mRt9cLqIiVbeOmkm6ILl4WTqQyV85PPmsG0JzUS5F"
 ADMIN_CSRF_SECRET = "-rWir8D_I-L%}x/u[d3c$#x9bSZ,lBf!.L2s9HuU1sD"
 ADMIN_REFRESH_TOKEN_SECRET = "m9Ptbb2|<Hm_]FuLZ#82rN4%z6S&KJ#}7E>4i:O4(25"
@@ -187,6 +82,10 @@ JWT_SECRET = "rOg5FUY&D5A3!G6Yus#$s$;|DGe[Y3X*PM[8otK=lUC"
 VAPID_PRIVATE_KEY = "QGC5hBbO?uth)8[+<Y,pqNI{+-8<t=XUvFWHZfz!=C%"
 ALLOW_DEV_OTP = "true"
 DATABASE_URL = "postgresql://neondb_owner:npg_8CZnNQxSivM4@ep-withered-pond-aod3mqmg-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+ADMIN_DEV_PORT = "23744"
+VENDOR_DEV_PORT = "21463"
+RIDER_DEV_PORT = "22969"
+MOCKUP_DEV_PORT = "8081"
 
 [userenv.development]
 

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "PORT=${PORT:-3002} BASE_PATH=/rider vite --config vite.config.ts --host 0.0.0.0 --strictPort",
+    "dev": "PORT=${PORT:-3002} BASE_PATH=/rider vite --config vite.config.ts --host 0.0.0.0",
     "build": "vite build --config vite.config.ts",
     "build:cap": "BASE_PATH=/ VITE_CAPACITOR=true vite build --config vite.config.ts",
     "cap:sync": "cap sync android",

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "{ [ -d ../../node_modules ] && [ ../../node_modules -nt ../../pnpm-lock.yaml ]; } || (cd ../.. && pnpm install --no-frozen-lockfile); PORT=5000 PORT_FALLBACK_ENABLE=false NODE_ENV=development node ./scripts/start-with-restart.mjs",
+    "dev": "{ [ -d ../../node_modules ] && [ ../../node_modules -nt ../../pnpm-lock.yaml ]; } || (cd ../.. && pnpm install --no-frozen-lockfile); PORT=${PORT:-5000} PORT_FALLBACK_ENABLE=false NODE_ENV=development node ./scripts/start-with-restart.mjs",
     "build": "node ./scripts/build.mjs",
     "start": "node dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
