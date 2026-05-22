@@ -1498,6 +1498,7 @@ export default function Wallet() {
             void refetch();
             void refetchCod();
             void refetchDeposits();
+            setShowDeposits(true);
             showToast(T("depositSubmittedMsg"));
           }}
         />
