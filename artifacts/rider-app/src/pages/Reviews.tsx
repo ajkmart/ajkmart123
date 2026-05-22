@@ -104,7 +104,7 @@ export default function Reviews() {
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded-2xl border border-white/[0.06] bg-white/[0.06] p-3 text-center backdrop-blur-sm">
               <p className="text-lg font-extrabold text-white">
-                {avgRating > 0 ? avgRating.toFixed(1) : "—"}
+                {avgRating > 0 ? `${avgRating.toFixed(1)} / 5.0` : "—"}
               </p>
               <p className="mt-0.5 text-[9px] font-semibold tracking-wider text-white/30 uppercase">
                 Avg Rating

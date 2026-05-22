@@ -5455,12 +5455,18 @@ router.get("/penalty-history", async (req, res) => {
       .where(eq(riderPenaltiesTable.riderId, riderId))
       .orderBy(desc(riderPenaltiesTable.createdAt))
       .limit(50);
+    const mapped = penalties.map((p) => ({
+      ...p,
+      amount: safeNum(p.amount),
+      createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : p.createdAt,
+    }));
+    const totalDeducted = mapped.reduce(
+      (s, p) => s + (typeof p.amount === "number" ? p.amount : safeNum(p.amount)),
+      0
+    );
     sendSuccess(res, {
-      penalties: penalties.map((p) => ({
-        ...p,
-        amount: safeNum(p.amount),
-        createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : p.createdAt,
-      })),
+      penalties: mapped,
+      total_deducted: parseFloat(totalDeducted.toFixed(2)),
     });
   } catch (err) {
     logger.error(

@@ -696,7 +696,8 @@ export default function Chat() {
 
       pc.onicecandidate = (e) => {
         if (e.candidate && trickleIce && socket) {
-          socket.emit("comm:call:ice-candidate", {
+          socket.emit("call:signal", {
+            type: "ice-candidate",
             callId: incomingCall.callId,
             targetUserId: incomingCall.callerId,
             candidate: e.candidate,

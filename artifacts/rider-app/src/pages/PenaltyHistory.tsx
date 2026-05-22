@@ -20,6 +20,10 @@ type Penalty = {
 
 function penaltyTypeLabel(type: string): string {
   const map: Record<string, string> = {
+    cancellation: "Cancellation",
+    late_delivery: "Late Delivery",
+    customer_complaint: "Customer Complaint",
+    misconduct: "Misconduct",
     ignore: "Ride Ignored",
     cancel: "Order Cancelled",
     late: "Late Delivery",
@@ -31,6 +35,10 @@ function penaltyTypeLabel(type: string): string {
 
 function penaltyColor(type: string): string {
   const map: Record<string, string> = {
+    cancellation: "bg-orange-50 text-orange-700 border-orange-200",
+    late_delivery: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    customer_complaint: "bg-red-50 text-red-700 border-red-200",
+    misconduct: "bg-red-100 text-red-800 border-red-300",
     ignore: "bg-amber-50 text-amber-700 border-amber-200",
     cancel: "bg-orange-50 text-orange-700 border-orange-200",
     late: "bg-yellow-50 text-yellow-700 border-yellow-200",
@@ -41,7 +49,12 @@ function penaltyColor(type: string): string {
 }
 
 function penaltyIcon(type: string) {
-  if (type === "conduct" || type === "fraud")
+  if (
+    type === "conduct" ||
+    type === "fraud" ||
+    type === "misconduct" ||
+    type === "customer_complaint"
+  )
     return <AlertTriangle size={16} className="shrink-0" />;
   return <ShieldAlert size={16} className="shrink-0" />;
 }
@@ -64,7 +77,10 @@ export default function PenaltyHistory() {
   });
 
   const penalties: Penalty[] = data?.penalties ?? [];
-  const totalDeducted = penalties.reduce((sum, p) => sum + parseFloat(String(p.amount) || "0"), 0);
+  const totalDeducted: number =
+    typeof data?.total_deducted === "number"
+      ? data.total_deducted
+      : penalties.reduce((sum, p) => sum + parseFloat(String(p.amount) || "0"), 0);
 
   const handlePullRefresh = useCallback(async () => {
     await qc.invalidateQueries({ queryKey: ["rider-penalty-history"] });
