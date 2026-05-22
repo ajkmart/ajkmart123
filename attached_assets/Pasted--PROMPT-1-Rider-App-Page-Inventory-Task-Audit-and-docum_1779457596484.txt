@@ -1,0 +1,103 @@
+═══ PROMPT 1 — Rider App Page Inventory ═══
+Task: Audit and document all 13 rider app pages with routes, components,
+      API calls, and admin controls.
+Pages:
+1. Home (/) — Main dashboard
+   Route: /
+   Components: OnlineToggleCard, StatsGrid, HomeRequestList, GoalSection,
+               ActiveTaskBanner, SilenceControls, MiniMap, AcceptCountdown
+   API calls:
+     - GET /riders/requests  (adaptive polling: 5/7.5/10 s by network tier)
+     - PATCH /riders/online  (toggle online/offline)
+     - POST /riders/rides/:id/accept  (rate-limited)
+     - POST /riders/orders/:id/accept (offline-queued)
+     - POST /riders/rides/:id/counter (counter-bid)
+     - POST /riders/rides/:id/ignore
+   Socket events received: ride:assigned, rider:new_request
+   Admin controls: /admin/riders (force offline), /admin/rides (cancel/reassign)
+2. Active (/active) — Active trip management
+   Route: /active
+   Components: ActiveOrderPanel, ActiveRidePanel, MiniMap
+   API calls:
+     - GET /riders/active    (polled every 5 s while in progress)
+     - PATCH /riders/orders/:id/status
+     - PATCH /riders/rides/:id/status
+     - POST /riders/rides/:id/verify-otp   (OTP brute-force limited: 5/min)
+     - POST /uploads/proof   (multipart delivery proof)
+   Socket events received: ride:otp, order:update
+   Admin controls: /admin/rides/:id (OTP status badge, event timeline)
+3. Wallet (/wallet) — Balance + transactions
+   Route: /wallet
+   Components: DepositModal, WithdrawModal, RemittanceModal
+   API calls:
+     - GET /riders/wallet/transactions (cursor pagination: limit=50)
+     - GET /riders/wallet/min-balance
+     - GET /riders/wallet/deposits
+     - POST /riders/wallet/withdraw
+     - POST /riders/wallet/deposit
+     - GET /riders/cod-summary
+     - POST /riders/cod/remit
+   Admin controls: /admin/finance/deposits (approve/reject), /admin/riders/:id
+4. Earnings (/earnings) — Earnings breakdown
+   Route: /earnings
+   API calls: GET /riders/earnings (today/week/month + breakdown by type)
+   Admin controls: /admin/finance/transactions (rider wallet), /admin/riders/:id
+5. History (/history) — Paginated job history
+   Route: /history
+   API calls: GET /riders/history?limit=20&offset= (infinite scroll)
+   Admin controls: /admin/orders, /admin/rides
+6. Profile (/profile) — Rider profile editor
+   Route: /profile
+   API calls:
+     - GET /riders/me?appRole=rider
+     - PATCH /riders/profile
+     - POST /uploads/register (XHR with progress for profile photo)
+     - POST /rider/kyc/request
+   Admin controls: /admin/riders/:id (KYC approve/reject, ban/unban)
+7. VanDriver (/van) — Pool ride / van route manager
+   Route: /van
+   API calls:
+     - GET /van/driver/today
+     - GET /van/driver/schedules/:id/passengers
+     - POST /van/driver/board
+   Offline queue actions: complete_trip, board_passenger
+   Admin controls: /admin/rides (van routes, schedule management)
+8. Chat (/chat) — Real-time chat + AI assistant
+   Route: /chat
+   Tabs: Chats | Requests | Search | AI
+   API calls: GET /riders/chat, POST /riders/chat/message, POST /riders/ai-chat
+   Socket events: admin:chat, comm:message, comm:typing
+9. Notifications (/notifications) — Notification inbox
+   Route: /notifications
+   API calls:
+     - GET /riders/notifications
+     - PATCH /riders/notifications/read-all
+     - PATCH /riders/notifications/:id/read
+   Admin controls: /admin/broadcasts (send rider notifications)
+10. PenaltyHistory (/penalty-history) — Penalty ledger
+    Route: /penalty-history
+    API calls: GET /riders/penalty-history
+    Admin controls: /admin/riders/:id (add/remove penalty)
+11. Reviews (/reviews) — Customer reviews received
+    Route: /reviews
+    API calls: GET /riders/reviews
+    Admin controls: /admin/rides/:id (hide review)
+12. SecuritySettings (/security) — 2FA + password + sessions
+    Route: /security
+    API calls:
+      - GET /auth/2fa/setup
+      - POST /auth/2fa/verify-setup
+      - POST /auth/2fa/disable
+      - POST /auth/set-password
+    Admin controls: /admin/users/:id/sessions (revoke sessions)
+13. GuestLanding (/guest) — Pre-auth landing
+    Route: /guest  (unauthenticated only)
+Auth Routes (unauthenticated):
+- /login       — Phone OTP / Email OTP / Username+Password
+- /register    — Multi-step onboarding with document upload
+- /forgot-password — Phone or email reset flow
+Acceptance:
+- Every page renders without blank screen or console error
+- BottomNav links work: / (Home), /wallet (Wallet), /earnings (Earnings), /profile (Profile)
+- Deep links from push: /active (ride/order tap), /wallet (wallet tap), /chat?tab=ai (AI tap)
+

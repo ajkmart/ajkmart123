@@ -38,6 +38,18 @@ args = "AJKMart App"
 task = "workflow.run"
 args = "format"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Admin App"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Rider App"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Vendor App"
+
   [[workflows.workflow]]
 name = "DB Migrate"
 author = "agent"
@@ -47,7 +59,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd lib/db && DATABASE_URL=$(echo $DATABASE_URL | sed 's/-pooler//') pnpm push-force"
+args = "cd lib/db && DATABASE_URL=$(echo $DATABASE_URL | sed 's/-pooler//') node ../../node_modules/.bin/drizzle-kit push --force --config ./drizzle.config.ts"
 
   [[workflows.workflow]]
   name = "All Services"
@@ -87,40 +99,40 @@ args = "cd lib/db && DATABASE_URL=$(echo $DATABASE_URL | sed 's/-pooler//') pnpm
   waitForPort = 5000
 
   [[workflows.workflow]]
-  name = "Rider App"
-  author = "agent"
+name = "Rider App"
+author = "agent"
 
   [workflows.workflow.metadata]
-  outputType = "console"
+outputType = "console"
 
-  [[workflows.workflow.tasks]]
-  task = "shell.exec"
-  args = "cd artifacts/rider-app && pnpm dev"
-  waitForPort = 3002
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/rider-app && PORT=3002 BASE_PATH=/rider node ../../node_modules/.bin/vite --config vite.config.ts --host 0.0.0.0 --strictPort"
+waitForPort = 3002
 
   [[workflows.workflow]]
-  name = "Vendor App"
-  author = "agent"
+name = "Vendor App"
+author = "agent"
 
   [workflows.workflow.metadata]
-  outputType = "console"
+outputType = "console"
 
-  [[workflows.workflow.tasks]]
-  task = "shell.exec"
-  args = "cd artifacts/vendor-app && PORT=3001 pnpm dev"
-  waitForPort = 3001
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/vendor-app && PORT=3001 BASE_PATH=/vendor node ../../node_modules/.bin/vite --config vite.config.ts --host 0.0.0.0 --strictPort"
+waitForPort = 3001
 
   [[workflows.workflow]]
-  name = "Admin App"
-  author = "agent"
+name = "Admin App"
+author = "agent"
 
   [workflows.workflow.metadata]
-  outputType = "console"
+outputType = "console"
 
-  [[workflows.workflow.tasks]]
-  task = "shell.exec"
-  args = "cd artifacts/admin && PORT=3000 pnpm dev"
-  waitForPort = 3000
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/admin && PORT=3000 BASE_PATH=/admin node ../../node_modules/.bin/vite --config vite.config.ts --host 0.0.0.0 --strictPort"
+waitForPort = 3000
 
   [[workflows.workflow]]
 name = "AJKMart App"
@@ -131,7 +143,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd artifacts/ajkmart && PORT=8081 pnpm dev"
+args = "cd artifacts/ajkmart && CI=1 EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN EXPO_PUBLIC_REPL_ID=$REPL_ID REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN node /home/runner/workspace/node_modules/.pnpm/expo@54.0.33_@babel+core@7.29.0_@expo+metro-runtime@6.1.2_expo-router@6.0.23_graphql@16_5e7ed7cfca0f09772c259d84404ce721/node_modules/expo/bin/cli start --localhost --port 8081"
 
 [[workflows.workflow]]
 name = "format"
@@ -181,21 +193,9 @@ localPort = 3000
 externalPort = 3000
 
 [[ports]]
-localPort = 3001
-externalPort = 3001
-
-[[ports]]
-localPort = 3002
-externalPort = 3002
-
-[[ports]]
-localPort = 3003
-externalPort = 3003
-
-[[ports]]
-localPort = 5000
-externalPort = 5000
-
-[[ports]]
 localPort = 5001
 externalPort = 4200
+
+[[ports]]
+localPort = 3001
+externalPort = 3001
