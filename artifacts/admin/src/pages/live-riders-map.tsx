@@ -1004,12 +1004,7 @@ export default function LiveRidersMap() {
 
     socket.on(
       "rider:offline",
-      (payload: {
-        userId: string;
-        isOnline: boolean;
-        reason?: string;
-        lastSeenAt: string;
-      }) => {
+      (payload: { userId: string; isOnline: boolean; reason?: string; lastSeenAt: string }) => {
         if (typeof payload.userId !== "string") return;
         setRiderStatusOverrides((prev) => ({
           ...prev,

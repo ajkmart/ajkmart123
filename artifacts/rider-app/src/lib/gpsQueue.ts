@@ -434,3 +434,27 @@ if (typeof window !== "undefined") {
 export function batchDrainGpsQueue(): void {
   void drainQueue();
 }
+
+/**
+ * Reset all module-level state.  ONLY for use in unit tests — never call
+ * this in production code.  Clears the cached IDB connection, the drain
+ * handler registration, the in-flight drain lock, the last-valid-ping
+ * sentinel used for speed-check continuity, and the backoff counter.
+ */
+export function _resetGpsQueueForTesting(): void {
+  if (_dbPromise !== null) {
+    /* Trigger the onclose path so the IDBDatabase object (if already
+       resolved) fires its own onclose callback — which sets _dbPromise=null
+       again harmlessly.  We force-null first so any concurrent open() call
+       that races this reset starts fresh. */
+    _dbPromise = null;
+  }
+  _drainFn = null;
+  _draining = false;
+  _lastValidPing = null;
+  _drainRetryCount = 0;
+  if (_drainBackoffTimer !== null) {
+    clearTimeout(_drainBackoffTimer);
+    _drainBackoffTimer = null;
+  }
+}
