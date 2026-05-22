@@ -340,7 +340,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       clearInterval(heartbeatInterval);
       s.off("connect", emitHeartbeat);
     };
-  }, [socket, user?.isOnline]);
+  }, [socket, user]);
 
   return (
     <SocketContext.Provider

@@ -371,9 +371,9 @@ export default function Chat() {
       callerId?: string;
       targetUserId?: string;
     }) => {
-      if (data.type === "offer") onCallOffer(data as CallSignal);
-      else if (data.type === "answer") onCallAnswer(data as CallSignal);
-      else if (data.type === "ice-candidate") onCallIce(data as CallSignal);
+      if (data.type === "offer") void onCallOffer(data as CallSignal);
+      else if (data.type === "answer") void onCallAnswer(data as CallSignal);
+      else if (data.type === "ice-candidate") void onCallIce(data as CallSignal);
     };
 
     /* Primary event names (match the server implementation).
