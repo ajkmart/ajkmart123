@@ -397,12 +397,16 @@ function AppRoutes() {
     if (!user) return;
     const routeByData = (data: Record<string, string>) => {
       const type = data.type ?? "";
-      if (type === "wallet" || type === "wallet_credit") {
+      if (type === "wallet" || type === "wallet_credit" || type === "wallet_debit") {
         navigate("/wallet");
         return;
       }
-      if (type === "ai_chat") {
+      if (type === "ai_chat" || type === "ai_response") {
         navigate("/chat?tab=ai");
+        return;
+      }
+      if (type === "chat" || type === "support" || type === "admin_message") {
+        navigate("/chat");
         return;
       }
       if (type === "penalty") {
@@ -417,6 +421,7 @@ function AppRoutes() {
         data.rideId ||
         data.orderId ||
         type === "ride_request" ||
+        type === "new_ride" ||
         type === "order_request" ||
         type === "new_order"
       ) {
@@ -493,12 +498,16 @@ function AppRoutes() {
        to the Active screen so they can accept the ride immediately. */
     const onNotificationTap = (data: Record<string, string>) => {
       const type = data.type ?? "";
-      if (type === "ai_chat") {
+      if (type === "ai_chat" || type === "ai_response") {
         navigate("/chat?tab=ai");
         return;
       }
-      if (type === "wallet" || type === "wallet_credit") {
+      if (type === "wallet" || type === "wallet_credit" || type === "wallet_debit") {
         navigate("/wallet");
+        return;
+      }
+      if (type === "chat" || type === "support" || type === "admin_message") {
+        navigate("/chat");
         return;
       }
       if (type === "penalty") {
@@ -513,6 +522,7 @@ function AppRoutes() {
         data.rideId ||
         data.orderId ||
         type === "ride_request" ||
+        type === "new_ride" ||
         type === "order_request" ||
         type === "new_order"
       ) {

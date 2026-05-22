@@ -5,6 +5,7 @@ import {
   notificationsTable,
   ordersTable,
   otpAttemptsTable,
+  pushSubscriptionsTable,
   reviewsTable,
   rideBidsTable,
   rideEventLogsTable,
@@ -4263,6 +4264,84 @@ router.patch("/notifications/:id/read", async (req, res) => {
     logger.error("Failed to mark notification read:", err);
     sendError(res, "Failed to mark notification as read", 500);
     return;
+  }
+});
+
+/* ── POST /riders/push-token — Register FCM or VAPID push token for this rider.
+   Mirrors the behaviour of POST /push/subscribe but scoped to rider auth and
+   always sets role="rider". Used by the rider app's push.ts when calling
+   /api/riders/push-token (the rider-scoped endpoint). */
+router.post("/push-token", async (req, res) => {
+  try {
+    const riderId = req.riderId!;
+    const body = req.body as Record<string, unknown>;
+    const tokenType = body["type"] as string | undefined;
+
+    if (tokenType === "fcm") {
+      const token = body["token"] as string | undefined;
+      if (!token) {
+        sendValidationError(res, "token required for FCM");
+        return;
+      }
+      await db
+        .delete(pushSubscriptionsTable)
+        .where(
+          and(
+            eq(pushSubscriptionsTable.userId, riderId),
+            eq(pushSubscriptionsTable.tokenType, "fcm"),
+            eq(pushSubscriptionsTable.role, "rider")
+          )
+        );
+      const id = generateId();
+      await db.insert(pushSubscriptionsTable).values({
+        id,
+        userId: riderId,
+        role: "rider",
+        tokenType: "fcm",
+        endpoint: token,
+        p256dh: null,
+        authKey: null,
+      });
+      sendSuccess(res, { id });
+      return;
+    }
+
+    /* VAPID subscription */
+    const endpoint = body["endpoint"] as string | undefined;
+    const p256dh = body["p256dh"] as string | undefined;
+    const auth = body["auth"] as string | undefined;
+    if (!endpoint) {
+      sendValidationError(res, "endpoint required for VAPID");
+      return;
+    }
+    await db
+      .delete(pushSubscriptionsTable)
+      .where(
+        and(
+          eq(pushSubscriptionsTable.userId, riderId),
+          eq(pushSubscriptionsTable.endpoint, endpoint)
+        )
+      );
+    const id = generateId();
+    await db.insert(pushSubscriptionsTable).values({
+      id,
+      userId: riderId,
+      role: "rider",
+      tokenType: "vapid",
+      endpoint,
+      p256dh: p256dh ?? null,
+      authKey: auth ?? null,
+    });
+    sendSuccess(res, { id });
+  } catch (err) {
+    logger.error(
+      {
+        error: err instanceof Error ? err.message : String(err),
+        timestamp: new Date().toISOString(),
+      },
+      "[rider] push-token registration failed"
+    );
+    sendError(res, "Internal server error", 500);
   }
 });
 

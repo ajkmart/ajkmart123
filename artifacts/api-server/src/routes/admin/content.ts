@@ -850,96 +850,120 @@ router.get("/broadcast/recipients/count", async (req, res) => {
   }
 });
 
+async function doBroadcast(
+  req: import("express").Request,
+  res: import("express").Response
+): Promise<void> {
+  const {
+    title,
+    body,
+    titleKey,
+    bodyKey,
+    type = "system",
+    icon = "notifications-outline",
+    targetRole,
+  } = req.body as Record<string, unknown>;
+  if (!title && !titleKey) {
+    sendValidationError(res, "title or titleKey required");
+    return;
+  }
+  if (!body && !bodyKey) {
+    sendValidationError(res, "body or bodyKey required");
+    return;
+  }
+
+  const { roles, error } = parseTargetRoles(targetRole);
+  if (error) {
+    sendValidationError(res, error);
+    return;
+  }
+
+  const conditions = buildRoleConditions(roles);
+  const users = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(and(...conditions, isNull(usersTable.deletedAt)));
+  let sent = 0;
+  for (const user of users) {
+    let localTitle = title as string;
+    let localBody = body as string;
+    if (titleKey || bodyKey) {
+      const lang = await getUserLanguage(user.id);
+      if (titleKey) localTitle = t(titleKey as TranslationKey, lang);
+      if (bodyKey) localBody = t(bodyKey as TranslationKey, lang);
+    }
+    await db
+      .insert(notificationsTable)
+      .values({
+        id: generateId(),
+        userId: user.id,
+        title: localTitle,
+        body: localBody,
+        type: type as string,
+        icon: icon as string,
+      })
+      .catch((err: unknown) => {
+        logger.warn(
+          { err: err instanceof Error ? err.message : String(err), userId: user.id },
+          "[content] broadcast notification insert failed (non-critical)"
+        );
+      });
+    sent++;
+  }
+  /* Persist broadcast in history table so the admin panel can show it */
+  try {
+    const broadcastId = generateId();
+    const adminId = (req as AdminRequest).adminId ?? null;
+    const resolvedTitle = (title as string) || (titleKey as string) || "";
+    const resolvedBody = (body as string) || (bodyKey as string) || "";
+    await db
+      .execute(
+        sql`
+    INSERT INTO broadcasts (id, title, body, type, target_role, sent_count, admin_id, sent_at, created_at)
+    VALUES (
+      ${broadcastId}, ${resolvedTitle}, ${resolvedBody}, ${type as string},
+      ${roles.length > 0 ? roles.join(",") : null},
+      ${sent}, ${adminId}, NOW(), NOW()
+    )
+  `
+      )
+      .catch((err: unknown) => {
+        logger.debug(
+          { err: err instanceof Error ? err.message : String(err) },
+          "[content] broadcast history insert failed — table may not exist yet"
+        );
+      });
+  } catch (err) {
+    logger.debug({ error: err instanceof Error ? err.message : String(err) }, `[fn] non-fatal`);
+  }
+
+  sendSuccess(res, {
+    success: true,
+    sent,
+    targetRoles: roles.length > 0 ? roles : ["all"],
+  });
+}
+
 router.post("/broadcast", async (req, res) => {
   try {
-    const {
-      title,
-      body,
-      titleKey,
-      bodyKey,
-      type = "system",
-      icon = "notifications-outline",
-      targetRole,
-    } = req.body;
-    if (!title && !titleKey) {
-      sendValidationError(res, "title or titleKey required");
-      return;
-    }
-    if (!body && !bodyKey) {
-      sendValidationError(res, "body or bodyKey required");
-      return;
-    }
+    await doBroadcast(req, res);
+  } catch (err) {
+    logger.error(
+      {
+        error: err instanceof Error ? err.message : String(err),
+        timestamp: new Date().toISOString(),
+      },
+      "[route] unhandled error"
+    );
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+});
 
-    const { roles, error } = parseTargetRoles(targetRole);
-    if (error) {
-      sendValidationError(res, error);
-      return;
-    }
-
-    const conditions = buildRoleConditions(roles);
-    const users = await db
-      .select({ id: usersTable.id })
-      .from(usersTable)
-      .where(and(...conditions, isNull(usersTable.deletedAt)));
-    let sent = 0;
-    for (const user of users) {
-      let localTitle = title as string;
-      let localBody = body as string;
-      if (titleKey || bodyKey) {
-        const lang = await getUserLanguage(user.id);
-        if (titleKey) localTitle = t(titleKey as TranslationKey, lang);
-        if (bodyKey) localBody = t(bodyKey as TranslationKey, lang);
-      }
-      await db
-        .insert(notificationsTable)
-        .values({
-          id: generateId(),
-          userId: user.id,
-          title: localTitle,
-          body: localBody,
-          type,
-          icon,
-        })
-        .catch((err: unknown) => {
-          logger.warn(
-            { err: err instanceof Error ? err.message : String(err), userId: user.id },
-            "[content] broadcast notification insert failed (non-critical)"
-          );
-        });
-      sent++;
-    }
-    /* Persist broadcast in history table so the admin panel can show it */
-    try {
-      const broadcastId = generateId();
-      const adminId = req.adminId ?? null;
-      const resolvedTitle = (title as string) || (titleKey as string) || "";
-      const resolvedBody = (body as string) || (bodyKey as string) || "";
-      await db
-        .execute(
-          sql`
-      INSERT INTO broadcasts (id, title, body, type, target_role, sent_count, admin_id, sent_at, created_at)
-      VALUES (
-        ${broadcastId}, ${resolvedTitle}, ${resolvedBody}, ${type as string},
-        ${roles.length > 0 ? roles.join(",") : null},
-        ${sent}, ${adminId}, NOW(), NOW()
-      )
-    `
-        )
-        .catch((err: unknown) => {
-          logger.debug(
-            { err: err instanceof Error ? err.message : String(err) },
-            "[content] broadcast history insert failed — table may not exist yet"
-          );
-        });
-    } catch (err) {
-      logger.debug({ error: err instanceof Error ? err.message : String(err) }, `[fn] non-fatal`);
-    }
-
-    sendSuccess(res, {
-      success: true,
-      sent,
-      targetRoles: roles.length > 0 ? roles : ["all"],
-    });
+/* Alias: POST /notifications/broadcast — identical contract to POST /broadcast above.
+   Exposed so the Admin UI can use the path /admin/notifications/broadcast. */
+router.post("/notifications/broadcast", async (req, res) => {
+  try {
+    await doBroadcast(req, res);
   } catch (err) {
     logger.error(
       {
