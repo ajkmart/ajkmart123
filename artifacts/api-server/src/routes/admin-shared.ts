@@ -271,6 +271,18 @@ export const DEFAULT_PLATFORM_SETTINGS: Array<{
   },
   { key: "loyalty_enabled", value: "off", category: "features", label: "loyalty_enabled" },
   {
+    key: "rider_heartbeat_interval_ms",
+    value: "5000",
+    category: "rides",
+    label: "rider_heartbeat_interval_ms",
+  },
+  {
+    key: "rider_heartbeat_min_distance_m",
+    value: "25",
+    category: "rides",
+    label: "rider_heartbeat_min_distance_m",
+  },
+  {
     key: "loyalty_points_per_rupee",
     value: "1",
     category: "loyalty",

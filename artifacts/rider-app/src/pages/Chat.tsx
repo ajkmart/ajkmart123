@@ -304,7 +304,8 @@ export default function Chat() {
           setTimeout(resolve, 5000);
         });
       }
-      socket.emit("comm:call:answer", {
+      socket.emit("call:signal", {
+        type: "answer",
         callId: data.callId,
         targetUserId: data.callerId,
         sdp: pcRef.current?.localDescription,
@@ -356,6 +357,29 @@ export default function Chat() {
       onMessagesReadAll,
     };
 
+    /* Alias handler: `comm:typing` with { isTyping } dispatches to start/stop */
+    const onTyping = (data: { isTyping: boolean; userId: string; conversationId: string }) => {
+      if (data.isTyping) onTypingStart();
+      else onTypingStop();
+    };
+    /* Alias handler: `call:signal` dispatches SDP offer/answer and ICE candidates */
+    const onCallSignal = (data: {
+      type: "offer" | "answer" | "ice-candidate";
+      callId: string;
+      sdp?: RTCSessionDescriptionInit;
+      candidate?: RTCIceCandidateInit;
+      callerId?: string;
+      targetUserId?: string;
+    }) => {
+      if (data.type === "offer") onCallOffer(data as CallSignal);
+      else if (data.type === "answer") onCallAnswer(data as CallSignal);
+      else if (data.type === "ice-candidate") onCallIce(data as CallSignal);
+    };
+
+    /* Primary event names (match the server implementation).
+       Note: comm:call:offer/answer/ice-candidate listeners are replaced by
+       the single call:signal listener below — outgoing signals now emit
+       call:signal so the server routes via its canonical call:signal handler. */
     socket.on("comm:message:new", onMessageNew);
     socket.on("comm:typing:start", onTypingStart);
     socket.on("comm:typing:stop", onTypingStop);
@@ -365,14 +389,17 @@ export default function Chat() {
     socket.on("comm:call:incoming", onCallIncoming);
     socket.on("comm:call:ended", onCallEnded);
     socket.on("comm:call:rejected", onCallRejected);
-    socket.on("comm:call:offer", onCallOffer);
-    socket.on("comm:call:answer", onCallAnswer);
-    socket.on("comm:call:ice-candidate", onCallIce);
     socket.on("comm:call:answered", onCallAnswered);
     socket.on("comm:request:cancelled", onRequestCancelled);
     socket.on("comm:request:rejected", onRequestRejected);
     socket.on("comm:message:sent", onMessageSent);
     socket.on("comm:messages:read-all", onMessagesReadAll);
+    /* Spec-mandated aliases — handled in parallel so either name works */
+    socket.on("comm:message", onMessageNew);
+    socket.on("comm:typing", onTyping);
+    socket.on("call:incoming", onCallIncoming);
+    /* call:signal is the canonical SDP/ICE signaling event (offer/answer/ice-candidate) */
+    socket.on("call:signal", onCallSignal);
 
     return () => {
       const h = handlersRef.current;
@@ -386,14 +413,15 @@ export default function Chat() {
       socket.off("comm:call:incoming", h.onCallIncoming);
       socket.off("comm:call:ended", h.onCallEnded);
       socket.off("comm:call:rejected", h.onCallRejected);
-      socket.off("comm:call:offer", h.onCallOffer);
-      socket.off("comm:call:answer", h.onCallAnswer);
-      socket.off("comm:call:ice-candidate", h.onCallIce);
       socket.off("comm:call:answered", h.onCallAnswered);
       socket.off("comm:request:cancelled", h.onRequestCancelled);
       socket.off("comm:request:rejected", h.onRequestRejected);
       socket.off("comm:message:sent", h.onMessageSent);
       socket.off("comm:messages:read-all", h.onMessagesReadAll);
+      socket.off("comm:message", h.onMessageNew);
+      socket.off("comm:typing", onTyping);
+      socket.off("call:incoming", h.onCallIncoming);
+      socket.off("call:signal", onCallSignal);
       handlersRef.current = null;
     };
   }, [socket, user?.id, loadConversations, loadRequests]);
@@ -586,7 +614,8 @@ export default function Chat() {
 
       pc.onicecandidate = (e) => {
         if (e.candidate && trickleIce && socket) {
-          socket.emit("comm:call:ice-candidate", {
+          socket.emit("call:signal", {
+            type: "ice-candidate",
             callId: data.callId,
             targetUserId: calleeId,
             candidate: e.candidate,
@@ -616,7 +645,8 @@ export default function Chat() {
           setTimeout(resolve, 5000);
         });
       }
-      socket?.emit("comm:call:offer", {
+      socket?.emit("call:signal", {
+        type: "offer",
         callId: data.callId,
         targetUserId: calleeId,
         sdp: pc.localDescription,
@@ -1162,13 +1192,23 @@ export default function Chat() {
                   conversationId: selectedConv.id,
                   userId: user?.id,
                 });
+                socket?.emit("rider:typing", {
+                  isTyping: true,
+                  conversationId: selectedConv.id,
+                  userId: user?.id,
+                });
               }}
-              onBlur={() =>
+              onBlur={() => {
                 socket?.emit("comm:typing:stop", {
                   conversationId: selectedConv.id,
                   userId: user?.id,
-                })
-              }
+                });
+                socket?.emit("rider:typing", {
+                  isTyping: false,
+                  conversationId: selectedConv.id,
+                  userId: user?.id,
+                });
+              }}
               placeholder="Type a message..."
               className="h-12 flex-1 rounded-xl border px-4 outline-none"
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}

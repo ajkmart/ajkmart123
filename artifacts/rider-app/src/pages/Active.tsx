@@ -57,7 +57,7 @@ export default function Active() {
   >([]);
   const [showAdminChat, setShowAdminChat] = useState(false);
   const [chatReply, setChatReply] = useState("");
-  const { socket: sharedSocket, setRiderPosition, setSlowGps } = useSocket();
+  const { socket: sharedSocket, setRiderPosition, setSlowGps, setCurrentTripId } = useSocket();
 
   const socketRef = useRef(sharedSocket);
   socketRef.current = sharedSocket;
@@ -290,6 +290,16 @@ export default function Active() {
     else if (data?.ride && !data?.order) setCancelTarget("ride");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!data?.order, !!data?.ride]);
+
+  /* Keep socket context aware of the current tripId so the heartbeat payload
+     always includes it — used by admin-fleet for vehicle tracking overlays. */
+  useEffect(() => {
+    const rideId = data?.ride?.id ?? null;
+    setCurrentTripId(rideId);
+    return () => {
+      setCurrentTripId(null);
+    };
+  }, [data?.ride?.id, setCurrentTripId]);
 
   useEffect(() => {
     if (!riderPos || !data?.order) {

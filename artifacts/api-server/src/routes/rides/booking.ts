@@ -1460,7 +1460,7 @@ router.patch("/:id/accept-bid", customerAuth, async (req, res) => {
           "[rides/accept-bid] tripOtp DB update failed"
         )
       );
-    emitRideOtp(rideUpdate!.userId, rideUpdate!.id, otp);
+    emitRideOtp(rideUpdate!.userId, rideUpdate!.id, otp, rideUpdate!.riderId);
 
     const bidLang = await getUserLanguage(bid.riderId);
     await db

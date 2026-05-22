@@ -11,7 +11,7 @@ import {
   vanBookingsTable,
   vanSchedulesTable,
 } from "@workspace/db/schema";
-import { and, eq, or, sql } from "drizzle-orm";
+import { and, eq, lt, or, sql } from "drizzle-orm";
 import type { Server as HttpServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { verifyUserJwt } from "../middleware/security.js";
@@ -317,6 +317,82 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
     path: "/api/socket.io",
     transports: ["polling", "websocket"],
   });
+
+  /* ── Ghost-rider cleanup: runs every 5 minutes ──────────────────────────
+     Riders whose live_locations row hasn't been updated in > 5 minutes are
+     considered offline. This interval:
+       1. Queries stale live_locations rows (updatedAt older than 5 min)
+       2. Emits rider:offline to admin-fleet for each stale rider
+       3. Sets users.is_online = false in the DB for all affected riders
+       4. Deletes the stale live_locations rows (removes ghost markers)
+  ─────────────────────────────────────────────────────────────────────── */
+  const GHOST_CLEANUP_MS = 5 * 60_000; // 5 minutes
+  const STALE_THRESHOLD_MS = 5 * 60_000; // 5 minutes without heartbeat = offline
+
+  setInterval(() => {
+    if (!_io) return;
+    const staleThreshold = new Date(Date.now() - STALE_THRESHOLD_MS);
+
+    db.select({
+      userId: liveLocationsTable.userId,
+      updatedAt: liveLocationsTable.updatedAt,
+    })
+      .from(liveLocationsTable)
+      .where(lt(liveLocationsTable.updatedAt, staleThreshold))
+      .then(async (staleRows) => {
+        if (staleRows.length === 0) return;
+        const staleUserIds = staleRows.map((r) => r.userId);
+
+        /* Emit rider:offline to admin-fleet for each stale rider */
+        for (const { userId } of staleRows) {
+          _io!.to("admin-fleet").emit("rider:offline", {
+            userId,
+            isOnline: false,
+            reason: "heartbeat_timeout",
+            updatedAt: new Date().toISOString(),
+          });
+        }
+
+        /* Mark riders offline in DB (batch) */
+        await Promise.all(
+          staleUserIds.map((userId) =>
+            db
+              .update(usersTable)
+              .set({ isOnline: false, updatedAt: new Date() })
+              .where(eq(usersTable.id, userId))
+              .catch((e: Error) =>
+                logger.warn(
+                  { userId, err: e.message },
+                  "[socketio/cleanup] failed to set is_online=false"
+                )
+              )
+          )
+        );
+
+        /* Delete stale live_locations rows */
+        await Promise.all(
+          staleUserIds.map((userId) =>
+            db
+              .delete(liveLocationsTable)
+              .where(eq(liveLocationsTable.userId, userId))
+              .catch((e: Error) =>
+                logger.warn(
+                  { userId, err: e.message },
+                  "[socketio/cleanup] failed to delete stale live_locations"
+                )
+              )
+          )
+        );
+
+        logger.info(
+          { count: staleUserIds.length },
+          "[socketio/cleanup] ghost riders removed from fleet map"
+        );
+      })
+      .catch((e: Error) =>
+        logger.warn({ err: e.message }, "[socketio/cleanup] stale query failed")
+      );
+  }, GHOST_CLEANUP_MS);
 
   _io.on("connection", (socket) => {
     const headers = socket.handshake.headers as Record<string, string | string[] | undefined>;
@@ -820,6 +896,100 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
       _io!.to(`user:${payload.targetUserId}`).emit("comm:call:end", { callId: payload.callId });
     });
 
+    /* ── Spec-canonical alias events ───────────────────────────────────────
+       These allow clients using the spec-mandated event names to interoperate
+       with the server without requiring a full protocol migration.          */
+
+    /** `rider:typing` → { isTyping, conversationId, userId }
+     *  Alias for `comm:typing:start` / `comm:typing:stop`. Forwards to the
+     *  conversation room as both the primary and the `comm:typing` alias so
+     *  all connected clients receive it regardless of which name they listen on. */
+    socket.on(
+      "rider:typing",
+      async (payload: { isTyping: boolean; conversationId: string; userId: string }) => {
+        if (
+          !cachedSession?.userId ||
+          cachedSession.userId !== payload?.userId ||
+          !payload?.conversationId
+        )
+          return;
+        const ok = await isAuthorizedForConversationRoom(
+          payload.conversationId,
+          cachedSession.userId
+        ).catch(() => false);
+        if (!ok) return;
+        const typingPayload = {
+          userId: payload.userId,
+          conversationId: payload.conversationId,
+          isTyping: payload.isTyping,
+        };
+        const primaryEvent = payload.isTyping ? "comm:typing:start" : "comm:typing:stop";
+        socket.to(`conversation:${payload.conversationId}`).emit(primaryEvent, typingPayload);
+        socket.to(`conversation:${payload.conversationId}`).emit("comm:typing", typingPayload);
+      }
+    );
+
+    /** `call:signal` → { type: "offer"|"answer"|"ice-candidate", callId, targetUserId, sdp?, candidate? }
+     *  Unified alias for `comm:call:offer`, `comm:call:answer`, and `comm:call:ice-candidate`.
+     *  Validates call ownership then forwards using both the primary and alias event names. */
+    socket.on(
+      "call:signal",
+      async (payload: {
+        type: "offer" | "answer" | "ice-candidate";
+        callId: string;
+        targetUserId: string;
+        sdp?: unknown;
+        candidate?: unknown;
+      }) => {
+        if (!cachedSession?.userId || !payload?.callId || !payload?.targetUserId) return;
+        try {
+          const [call] = await db
+            .select()
+            .from(callLogsTable)
+            .where(
+              and(
+                eq(callLogsTable.id, payload.callId),
+                or(
+                  eq(callLogsTable.callerId, cachedSession.userId),
+                  eq(callLogsTable.calleeId, cachedSession.userId)
+                )
+              )
+            )
+            .limit(1);
+          if (!call) return;
+        } catch (err) {
+          logger.debug(
+            { error: err instanceof Error ? err.message : String(err) },
+            "[socketio] call:signal auth check failed"
+          );
+          return;
+        }
+        /* Forward using ONLY the call:signal alias — avoids duplicating comm:call:*
+           events that the primary handlers already emit on their own code path.
+           `callerId` is included so the callee's offer handler knows the answer target. */
+        if (payload.type === "offer") {
+          _io!.to(`user:${payload.targetUserId}`).emit("call:signal", {
+            type: "offer",
+            callId: payload.callId,
+            sdp: payload.sdp,
+            callerId: cachedSession.userId,
+          });
+        } else if (payload.type === "answer") {
+          _io!.to(`user:${payload.targetUserId}`).emit("call:signal", {
+            type: "answer",
+            callId: payload.callId,
+            sdp: payload.sdp,
+          });
+        } else if (payload.type === "ice-candidate") {
+          _io!.to(`user:${payload.targetUserId}`).emit("call:signal", {
+            type: "ice-candidate",
+            callId: payload.callId,
+            candidate: payload.candidate,
+          });
+        }
+      }
+    );
+
     socket.on("disconnect", () => {
       _sessionCache.delete(socket.id);
       _pendingRideJoins.delete(socket.id); // cleanup all buffers for this socket
@@ -935,10 +1105,14 @@ export function emitRiderNewRequest(
   _io.to(`rider:${riderId}`).emit("rider:new_request", payload);
 }
 
-/** Broadcast chat message to the conversation room */
+/** Broadcast chat message to the conversation room.
+ *  Emits both the namespaced name (`comm:message:new`) used by the server
+ *  implementation and the spec-canonical alias (`comm:message`) so clients
+ *  listening to either name receive the payload. */
 export function emitChatMessage(conversationId: string, message: any) {
   if (!_io) return;
   _io.to(`conversation:${conversationId}`).emit("comm:message:new", message);
+  _io.to(`conversation:${conversationId}`).emit("comm:message", message);
 }
 
 /** Emit ride dispatch update to the relevant ride room and admin-fleet dashboard */
@@ -964,11 +1138,17 @@ export function emitRiderStatus(payload: {
   _io.to("admin-fleet").emit("rider:status", payload);
 }
 
-/** Emit trip OTP to the customer and the ride room */
-export function emitRideOtp(userId: string, rideId: string, otp: string) {
+/** Emit trip OTP to the customer, the rider, and the ride room.
+ *  riderId is optional for backward compat but should always be supplied
+ *  so the rider receives the OTP on their personal room immediately. */
+export function emitRideOtp(userId: string, rideId: string, otp: string, riderId?: string | null) {
   if (!_io) return;
-  _io.to(`user:${userId}`).emit("ride:otp", { rideId, otp });
-  _io.to(`ride:${rideId}`).emit("ride:otp", { rideId, otp });
+  const payload = { rideId, otp };
+  _io.to(`user:${userId}`).emit("ride:otp", payload);
+  _io.to(`ride:${rideId}`).emit("ride:otp", payload);
+  if (riderId) {
+    _io.to(`rider:${riderId}`).emit("ride:otp", payload);
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════

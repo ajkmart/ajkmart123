@@ -2499,7 +2499,7 @@ router.post("/rides/:id/accept", rideAcceptLimiter, async (req, res) => {
       .catch((e: Error) => {
         logger.error({ rideId: updated.id, err: e.message }, "[rider] tripOtp DB update failed");
       });
-    emitRideOtp(updated.userId, updated.id, tripOtp);
+    emitRideOtp(updated.userId, updated.id, tripOtp, updated.riderId);
 
     emitRideDispatchUpdate({ rideId: updated.id, action: "accepted", status: "accepted" });
     emitRideUpdate(updated.id);
@@ -3028,7 +3028,7 @@ router.patch("/rides/:id/status", rideStatusLimiter, async (req, res) => {
         /* Re-emit the OTP on arrived so that any customer who missed the
          original socket event (e.g. brief disconnect) gets the OTP now. */
         if (ride.tripOtp) {
-          emitRideOtp(ride.userId, ride.id, ride.tripOtp);
+          emitRideOtp(ride.userId, ride.id, ride.tripOtp, ride.riderId);
         }
       }
     }

@@ -12,9 +12,21 @@ import { api, registerTokenRefreshCallback } from "./api";
 
 import { createLogger } from "@/lib/logger";
 import { getRiderSocketOrigin } from "./envValidation";
+import { batchDrainGpsQueue } from "./gpsQueue";
 import { syncQueue } from "./offline/queueManager";
 import { useAuth } from "./rider-auth";
 const log = createLogger("[socket]");
+
+/** Haversine great-circle distance in metres between two WGS-84 coordinates. */
+function haversineMetres(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6_371_000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 type SocketContextType = {
   socket: Socket | null;
@@ -22,6 +34,7 @@ type SocketContextType = {
   setRiderPosition: (lat: number, lng: number) => void;
   batteryLevel: number | undefined;
   setSlowGps: (slow: boolean) => void;
+  setCurrentTripId: (tripId: string | null) => void;
 };
 
 const SocketContext = createContext<SocketContextType>({
@@ -30,6 +43,7 @@ const SocketContext = createContext<SocketContextType>({
   setRiderPosition: () => {},
   batteryLevel: undefined,
   setSlowGps: () => {},
+  setCurrentTripId: () => {},
 });
 
 export function useSocket() {
@@ -48,6 +62,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const slowGpsRef = useRef(false);
   const lastHeartbeatMsRef = useRef(0);
 
+  /* Active ride/trip ID — set by Active.tsx when a ride is in progress */
+  const currentTripIdRef = useRef<string | null>(null);
+
   /* Called from watchPosition callbacks in Home.tsx and Active.tsx */
   const setRiderPosition = useCallback((lat: number, lng: number) => {
     lastLatRef.current = lat;
@@ -57,6 +74,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   /* Called by Active.tsx to signal battery-aware slow-down mode */
   const setSlowGps = useCallback((slow: boolean) => {
     slowGpsRef.current = slow;
+  }, []);
+
+  /* Called by Active.tsx when an active ride starts/ends so the heartbeat
+     payload always includes the current tripId for admin-fleet tracking. */
+  const setCurrentTripId = useCallback((tripId: string | null) => {
+    currentTripIdRef.current = tripId;
   }, []);
 
   useEffect(() => {
@@ -86,6 +109,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       log.info({ socketId: s.id }, "Socket connected — draining offline action queue");
       setConnected(true);
       syncQueue().catch((err) => log.warn({ err }, "syncQueue failed after socket connect"));
+      batchDrainGpsQueue();
     });
     s.on("disconnect", (reason) => {
       log.warn({ reason }, "Socket disconnected");
@@ -188,6 +212,52 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  /* Platform-configurable heartbeat cadence and minimum movement distance.
+     Fetched once after the socket connects; defaults match the platform setting
+     defaults so the rider app works without a server round-trip at startup. */
+  const heartbeatIntervalMsRef = useRef(5_000);
+  const heartbeatMinDistanceMRef = useRef(25);
+
+  /* Last position at which we sent a heartbeat — used for 25 m deduplication. */
+  const lastHeartbeatLatRef = useRef<number | undefined>(undefined);
+  const lastHeartbeatLngRef = useRef<number | undefined>(undefined);
+
+  /* Fetch platform settings once when socket connects so the heartbeat cadence
+     and minimum movement distance are driven by admin-configurable values. */
+  useEffect(() => {
+    if (!connected) return;
+    api
+      .getSettings()
+      .then((settings: unknown) => {
+        if (!settings || typeof settings !== "object") return;
+        const rows = (settings as Record<string, unknown>).settings;
+        if (!Array.isArray(rows)) return;
+        for (const row of rows as Array<{ key: string; value: string }>) {
+          if (row.key === "rider_heartbeat_interval_ms") {
+            const v = parseInt(row.value, 10);
+            if (!isNaN(v) && v >= 1_000) heartbeatIntervalMsRef.current = v;
+          }
+          if (row.key === "rider_heartbeat_min_distance_m") {
+            const v = parseFloat(row.value);
+            if (!isNaN(v) && v >= 0) heartbeatMinDistanceMRef.current = v;
+          }
+        }
+        log.info(
+          {
+            intervalMs: heartbeatIntervalMsRef.current,
+            minDistanceM: heartbeatMinDistanceMRef.current,
+          },
+          "Heartbeat config loaded from platform settings"
+        );
+      })
+      .catch((err: unknown) => {
+        log.warn(
+          { err },
+          "Failed to fetch platform settings for heartbeat config — using defaults"
+        );
+      });
+  }, [connected]);
+
   /* Heartbeat effect - keyed on the socket instance so connect listeners rebind */
   useEffect(() => {
     const s = socket;
@@ -197,26 +267,74 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       if (!s?.connected) return;
       const now = Date.now();
       /* When slow-GPS mode is active, throttle heartbeats to 30 s.
-         Normal mode stays at 10 s (the setInterval cadence). */
-      const minHeartbeatMs = slowGpsRef.current ? 30_000 : 0;
+         Normal mode is governed by the platform-configurable interval. */
+      const minHeartbeatMs = slowGpsRef.current ? 30_000 : heartbeatIntervalMsRef.current;
       if (now - lastHeartbeatMsRef.current < minHeartbeatMs) return;
+
+      /* Heartbeat always fires on the interval for server-side liveness.
+         25 m gate only controls whether the cached coordinate is refreshed —
+         the emit happens regardless so ghost-rider cleanup never evicts an
+         online-but-stationary rider. */
+      const lat = lastLatRef.current;
+      const lng = lastLngRef.current;
+
+      /* Decide which coordinates to include in this heartbeat:
+         - First beat with GPS → use current position and cache it.
+         - Subsequent beats where rider moved ≥ minDistance → update cache, send fresh coords.
+         - Subsequent beats where rider moved < minDistance → re-send last cached position
+           (server still receives a heartbeat; no stale-marker false-positive). */
+      let coordsToSend: { latitude: number; longitude: number } | undefined;
+      if (lat !== undefined && lng !== undefined) {
+        if (
+          lastHeartbeatLatRef.current === undefined ||
+          lastHeartbeatLngRef.current === undefined
+        ) {
+          lastHeartbeatLatRef.current = lat;
+          lastHeartbeatLngRef.current = lng;
+          coordsToSend = { latitude: lat, longitude: lng };
+        } else {
+          const moved = haversineMetres(
+            lastHeartbeatLatRef.current,
+            lastHeartbeatLngRef.current,
+            lat,
+            lng
+          );
+          if (moved >= heartbeatMinDistanceMRef.current) {
+            lastHeartbeatLatRef.current = lat;
+            lastHeartbeatLngRef.current = lng;
+            coordsToSend = { latitude: lat, longitude: lng };
+          } else {
+            /* Re-use last-cached position so coord field is always present */
+            coordsToSend = {
+              latitude: lastHeartbeatLatRef.current,
+              longitude: lastHeartbeatLngRef.current,
+            };
+          }
+        }
+      }
+
       lastHeartbeatMsRef.current = now;
 
       s.emit("rider:heartbeat", {
         batteryLevel: batteryLevelRef.current,
         isOnline: true,
         timestamp: new Date().toISOString(),
-        /* Use position cached from the page-level watchPosition — no duplicate GPS listener */
-        ...(lastLatRef.current !== undefined && lastLngRef.current !== undefined
-          ? { latitude: lastLatRef.current, longitude: lastLngRef.current }
-          : {}),
+        /* vehicleType from user profile for admin-fleet vehicle icon rendering */
+        vehicleType: (user as unknown as Record<string, unknown> | null)?.vehicleType as
+          | string
+          | undefined,
+        /* currentTripId set by Active.tsx when a ride is in progress */
+        tripId: currentTripIdRef.current ?? undefined,
+        action: currentTripIdRef.current ? "in_trip" : "idle",
+        ...coordsToSend,
       });
     };
 
     s.off("connect", emitHeartbeat);
     s.on("connect", emitHeartbeat);
     emitHeartbeat();
-    const heartbeatInterval = setInterval(emitHeartbeat, 10_000);
+    /* Poll at 1 s — actual emit is gated by interval + distance checks above */
+    const heartbeatInterval = setInterval(emitHeartbeat, 1_000);
 
     return () => {
       clearInterval(heartbeatInterval);
@@ -226,7 +344,14 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
   return (
     <SocketContext.Provider
-      value={{ socket, connected, setRiderPosition, batteryLevel: batteryLevelState, setSlowGps }}
+      value={{
+        socket,
+        connected,
+        setRiderPosition,
+        batteryLevel: batteryLevelState,
+        setSlowGps,
+        setCurrentTripId,
+      }}
     >
       {children}
     </SocketContext.Provider>

@@ -428,3 +428,9 @@ async function drainQueue(): Promise<void> {
 if (typeof window !== "undefined") {
   window.addEventListener("online", () => drainQueue());
 }
+
+/** Trigger an immediate drain of all buffered GPS pings (e.g. on socket reconnect).
+ *  Safe to call multiple times — a concurrent drain is a no-op. */
+export function batchDrainGpsQueue(): void {
+  void drainQueue();
+}
