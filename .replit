@@ -186,6 +186,7 @@ ERROR_REPORT_HMAC_SECRET = "M7;B_bOKAYKZoktz>)}U]s6PFkt,U?p;w8G5*ITrrMw"
 JWT_SECRET = "rOg5FUY&D5A3!G6Yus#$s$;|DGe[Y3X*PM[8otK=lUC"
 VAPID_PRIVATE_KEY = "QGC5hBbO?uth)8[+<Y,pqNI{+-8<t=XUvFWHZfz!=C%"
 ALLOW_DEV_OTP = "true"
+DATABASE_URL = "postgresql://neondb_owner:npg_8CZnNQxSivM4@ep-withered-pond-aod3mqmg-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 [userenv.development]
 

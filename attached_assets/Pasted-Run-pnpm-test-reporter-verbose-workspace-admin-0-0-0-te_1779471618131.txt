@@ -1,0 +1,69 @@
+Run pnpm test --reporter=verbose
+
+> @workspace/admin@0.0.0 test /home/runner/work/ajkmart123/ajkmart123/artifacts/admin
+> vitest run --config vitest.config.ts --reporter=verbose
+
+5:38:53 PM [vite] warning: `esbuild` option was specified by "vite:react-babel" plugin. This option is deprecated, please use `oxc` instead.
+5:38:53 PM [vite] warning: `optimizeDeps.esbuildOptions` option was specified by "vite:react-babel" plugin. This option is deprecated, please use `optimizeDeps.rolldownOptions` instead.
+Both esbuild and oxc options were set. oxc options will be used and esbuild options will be ignored. The following esbuild options were set: `{ jsx: 'automatic', jsxImportSource: undefined }`
+
+ RUN  v4.1.6 /home/runner/work/ajkmart123/ajkmart123/artifacts/admin
+
+Cannot parse /home/runner/work/ajkmart123/ajkmart123/artifacts/admin/src/tests/PullToRefresh.test.tsx:
+Parse failed with 1 error:
+Unexpected JSX expression
+54:   it("renders children correctly", () => {
+55:     const onRefresh = vi.fn().mockResolvedValue(undefined);
+56:     render(<PullToRefresh onRefresh={onRefresh}>
+               ^
+57:         <div data-testid="child-content">Hello World</div>
+58:       </PullToRefresh>);.
+Cannot parse /home/runner/work/ajkmart123/ajkmart123/artifacts/admin/src/tests/categories.test.tsx:
+Parse failed with 1 error:
+Unexpected JSX expression
+33:   t: (key) => key
+34: }));
+35: vi.mock("@/components/shared", () => ({ PageHeader: ({ title, actions, children }) => <div data-testid="page-header">
+                                                                                          ^
+36:       <h1>{title}</h1>
+37:       {actions}.
+Cannot parse /home/runner/work/ajkmart123/ajkmart123/artifacts/admin/src/tests/dialog.test.tsx:
+Parse failed with 1 error:
+Unexpected JSX expression
+12: }));
+13: function TestDialog({ defaultOpen = false }) {
+14:   return <Dialog defaultOpen={defaultOpen}>
+             ^
+15:       <DialogTrigger asChild>
+16:         <button>Open Dialog</button>.
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/PullToRefresh.test.tsx [ src/tests/PullToRefresh.test.tsx ]
+
+ FAIL  src/tests/categories.test.tsx [ src/tests/categories.test.tsx ]
+ FAIL  src/tests/dialog.test.tsx [ src/tests/dialog.test.tsx ]
+Error: Failed to parse source for import analysis because the content contains invalid JS syntax. If you use tsconfig.json, make sure to not set jsx to preserve.
+  Plugin: vite:import-analysis
+  File: /home/runner/work/ajkmart123/ajkmart123/artifacts/admin/src/tests/PullToRefresh.test.tsx:56:58
+  55 |  		const onRefresh = vi.fn().mockResolvedValue(undefined);
+  56 |  		render(<PullToRefresh onRefresh={onRefresh}>
+  57 |          <div data-testid="child-content">Hello World</div>
+     |                                                            ^
+  58 |        </PullToRefresh>);
+  59 |  		expect(screen.getByTestId("child-content")).toBeInTheDocument();
+ ❯ TransformPluginContext._formatLog ../../node_modules/.pnpm/vite@8.0.14_@types+node@25.3.5_esbuild@0.27.3_jiti@2.6.1_terser@5.46.1_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/node.js:30488:39
+ ❯ TransformPluginContext.error ../../node_modules/.pnpm/vite@8.0.14_@types+node@25.3.5_esbuild@0.27.3_jiti@2.6.1_terser@5.46.1_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/node.js:30485:14
+ Test Files  3 failed (3)
+ ❯ TransformPluginContext.transform ../../node_modules/.pnpm/vite@8.0.14_@types+node@25.3.5_esbuild@0.27.3_jiti@2.6.1_terser@5.46.1_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/node.js:27692:10
+ ❯ EnvironmentPluginContainer.transform ../../node_modules/.pnpm/vite@8.0.14_@types+node@25.3.5_esbuild@0.27.3_jiti@2.6.1_terser@5.46.1_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/node.js:30273:14
+ ❯ loadAndTransform ../../node_modules/.pnpm/vite@8.0.14_@types+node@25.3.5_esbuild@0.27.3_jiti@2.6.1_terser@5.46.1_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/node.js:24532:26
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+      Tests  no tests
+   Start at  17:38:53
+   Duration  1.38s (transform 23ms, setup 211ms, import 0ms, tests 0ms, environment 2.90s)
+
+ ELIFECYCLE  Test failed. See above for more details.
+Error: Process completed with exit code 1.

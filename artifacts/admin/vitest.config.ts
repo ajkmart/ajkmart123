@@ -18,6 +18,14 @@ export default defineConfig({
     reporters: ["default"],
     testTimeout: 10_000,
     hookTimeout: 10_000,
+    server: {
+      deps: {
+        inline: [/\/lib\/ui\//, /\/lib\/i18n\//, /\/lib\/api-client-react\//],
+      },
+    },
+    typecheck: {
+      tsconfig: "./tsconfig.test.json",
+    },
     coverage: {
       provider: "v8",
       include: ["src/components/**", "src/pages/**"],
