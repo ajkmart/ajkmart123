@@ -20,7 +20,7 @@ import { enqueueAction, subscribeActionSuccess } from "../lib/offline/queueManag
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useEffect, useRef, useState } from "react";
-import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
+import { MapContainer, Marker, Polyline, TileLayer, useMap } from "react-leaflet";
 import { useAuth } from "../lib/rider-auth";
 import { usePlatformConfig } from "../lib/useConfig";
 
@@ -51,6 +51,10 @@ interface VanSchedule {
   routeName?: string;
   routeFrom?: string;
   routeTo?: string;
+  fromLat?: number | null;
+  fromLng?: number | null;
+  toLat?: number | null;
+  toLng?: number | null;
   totalSeats?: number;
   date: string;
   bookedCount: number;
@@ -399,6 +403,28 @@ export default function VanDriver() {
   const confirmedCount = passengers.filter((p) => p.status === "confirmed").length;
   const isTripInProgress = selectedSchedule?.tripStatus === "in_progress" || broadcasting;
 
+  /* Gate: vehicle-type must be van or bus.
+     Only block when vehicleType is explicitly set to a non-van/bus value.
+     If the field is absent (profile not yet populated) we allow through so new
+     approvals are never locked out while their profile is being filled in. */
+  const vehicleType = _user?.vehicleType;
+  const isVanOrBus = !vehicleType || vehicleType === "van" || vehicleType === "bus";
+  if (!isVanOrBus)
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-6">
+        <div className="max-w-xs space-y-3 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-200">
+            <Bus size={32} className="text-gray-400" />
+          </div>
+          <h2 className="text-lg font-black text-gray-800">Van Module Not Available</h2>
+          <p className="text-sm text-gray-500">
+            This module is for van and bus drivers only. Your registered vehicle type is{" "}
+            <strong>{vehicleType}</strong>.
+          </p>
+        </div>
+      </div>
+    );
+
   /* Gate: van service must be explicitly enabled by admin. */
   if (!vanEnabled)
     return (
@@ -644,31 +670,64 @@ export default function VanDriver() {
             )}
 
             {/* Live location map — shows rider's position while broadcasting */}
-            {isTripInProgress && riderPos && (
-              <div
-                className="relative overflow-hidden rounded-2xl border border-indigo-100 shadow-sm"
-                style={{ height: 180 }}
-              >
-                <MapContainer
-                  center={riderPos}
-                  zoom={15}
-                  style={{ width: "100%", height: "100%" }}
-                  zoomControl={false}
-                  dragging={false}
-                  scrollWheelZoom={false}
-                  doubleClickZoom={false}
-                  keyboard={false}
-                  attributionControl={false}
-                >
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  <Marker position={riderPos} icon={riderMarkerIcon} />
-                  <AutoPanMap lat={riderPos[0]} lng={riderPos[1]} />
-                </MapContainer>
-                <div className="pointer-events-none absolute bottom-1 left-1 z-[1000] rounded-full bg-indigo-600/80 px-2 py-0.5 text-[9px] font-bold text-white">
-                  Your Location
-                </div>
-              </div>
-            )}
+            {isTripInProgress &&
+              riderPos &&
+              (() => {
+                const hasRouteCoords =
+                  selectedSchedule.fromLat != null &&
+                  selectedSchedule.fromLng != null &&
+                  selectedSchedule.toLat != null &&
+                  selectedSchedule.toLng != null;
+                const routePolyline: [number, number][] = hasRouteCoords
+                  ? [
+                      [selectedSchedule.fromLat as number, selectedSchedule.fromLng as number],
+                      riderPos,
+                      [selectedSchedule.toLat as number, selectedSchedule.toLng as number],
+                    ]
+                  : [];
+                return (
+                  <div
+                    className="relative overflow-hidden rounded-2xl border border-indigo-100 shadow-sm"
+                    style={{ height: 180 }}
+                  >
+                    <MapContainer
+                      center={riderPos}
+                      zoom={14}
+                      style={{ width: "100%", height: "100%" }}
+                      zoomControl={false}
+                      dragging={false}
+                      scrollWheelZoom={false}
+                      doubleClickZoom={false}
+                      keyboard={false}
+                      attributionControl={false}
+                    >
+                      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                      {routePolyline.length > 0 && (
+                        <Polyline
+                          positions={routePolyline}
+                          pathOptions={{
+                            color: "#4f46e5",
+                            weight: 3,
+                            opacity: 0.7,
+                            dashArray: "6 4",
+                          }}
+                        />
+                      )}
+                      <Marker position={riderPos} icon={riderMarkerIcon} />
+                      <AutoPanMap lat={riderPos[0]} lng={riderPos[1]} />
+                    </MapContainer>
+                    <div className="pointer-events-none absolute bottom-1 left-1 z-[1000] rounded-full bg-indigo-600/80 px-2 py-0.5 text-[9px] font-bold text-white">
+                      Your Location
+                    </div>
+                    {hasRouteCoords && (
+                      <div className="pointer-events-none absolute right-1 bottom-1 z-[1000] rounded-full bg-indigo-600/80 px-2 py-0.5 text-[9px] font-bold text-white">
+                        {selectedSchedule.routeFrom?.split(",")[0]} →{" "}
+                        {selectedSchedule.routeTo?.split(",")[0]}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
             {/* Start Trip button */}
             {!isTripInProgress && passengers.length > 0 && (

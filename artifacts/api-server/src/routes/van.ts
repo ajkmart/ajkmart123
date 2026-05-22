@@ -3,6 +3,7 @@ import {
   accountConditionsTable,
   liveLocationsTable,
   notificationsTable,
+  riderProfilesTable,
   usersTable,
   vanBookingsTable,
   vanDriversTable,
@@ -25,7 +26,7 @@ import {
   sendSuccess,
 } from "../lib/response.js";
 import { emitVanLocation, emitVanTripUpdate } from "../lib/socketio.js";
-import { sendPushToUser } from "../lib/webpush.js";
+import { sendPushToRole, sendPushToUser } from "../lib/webpush.js";
 import { paymentLimiter } from "../middleware/rate-limit.js";
 import { customerAuth, riderAuth } from "../middleware/security.js";
 import { getCachedSettings } from "./admin-shared.js";
@@ -122,6 +123,20 @@ async function vanDriverAuth(req: Request, res: Response, next: NextFunction) {
         sendForbidden(res, "Authentication required.");
         return;
       }
+      /* Vehicle-type guard: only van/bus riders may access driver endpoints.
+         We check the rider_profiles table (source of truth for vehicleType).
+         If no profile row exists yet (new driver, not yet filled) we allow
+         through — the vanDrivers approval check below is the hard gate. */
+      const [profile] = await db
+        .select({ vehicleType: riderProfilesTable.vehicleType })
+        .from(riderProfilesTable)
+        .where(eq(riderProfilesTable.userId, driverId))
+        .limit(1);
+      if (profile?.vehicleType && profile.vehicleType !== "van" && profile.vehicleType !== "bus") {
+        sendForbidden(res, "Van service is only available to van or bus drivers.");
+        return;
+      }
+
       const [driver] = await db
         .select({
           id: vanDriversTable.id,
@@ -920,6 +935,10 @@ router.get("/driver/today", vanDriverAuth, async (req, res, _next) => {
         routeName: vanRoutesTable.name,
         routeFrom: vanRoutesTable.fromAddress,
         routeTo: vanRoutesTable.toAddress,
+        fromLat: vanRoutesTable.fromLat,
+        fromLng: vanRoutesTable.fromLng,
+        toLat: vanRoutesTable.toLat,
+        toLng: vanRoutesTable.toLng,
         totalSeats: vanVehiclesTable.totalSeats,
         vehiclePlate: vanVehiclesTable.plateNumber,
         seatLayout: vanVehiclesTable.seatLayout,
@@ -1327,6 +1346,25 @@ router.patch(
       }
 
       emitVanTripUpdate(scheduleId, date, { event: "trip_completed" });
+
+      /* Notify admin panel — fire-and-forget, never block the driver response */
+      sendPushToRole("admin", {
+        title: "Van Trip Completed",
+        body: `Schedule ${scheduleId} (date: ${date}) has been completed by the driver.`,
+        data: { type: "van_trip_completed", scheduleId, date },
+      }).catch((err: unknown) => {
+        logger.warn(
+          {
+            message: "[van] admin push on trip completion failed",
+            error: err instanceof Error ? err.message : String(err),
+            code: "VAN_PUSH_ADMIN_COMPLETED_FAILED",
+            correlationId: null,
+            timestamp: new Date().toISOString(),
+            scheduleId,
+          },
+          "[van] admin push on trip completion failed"
+        );
+      });
 
       sendSuccess(res, { message: "Trip completed." });
     } catch (e) {
