@@ -16,8 +16,10 @@ import {
 } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import {
+  useAddRiderPenalty,
   useApproveUser,
   useBulkBanUsers,
+  useDeleteRiderPenalty,
   useOverrideSuspension,
   useRejectUser,
   useRestrictRider,
@@ -46,11 +48,13 @@ import {
   Eye,
   Gavel,
   Phone,
+  Plus,
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
   SkipForward,
   Star,
+  Trash2,
   Wallet,
   Wifi,
   WifiOff,
@@ -175,10 +179,18 @@ function RiderSuspendModal({ rider, onClose }: { rider: any; onClose: () => void
 
 function RiderDetailDrawer({ rider, onClose }: { rider: any; onClose: () => void }) {
   const { toast } = useToast();
-  const { data: penData } = useRiderPenalties(rider.id);
+  const { data: penData, refetch: refetchPenalties } = useRiderPenalties(rider.id);
   const { data: ratData } = useRiderRatings(rider.id);
   const restrictMut = useRestrictRider();
   const unrestrictMut = useUnrestrictRider();
+  const addPenaltyMut = useAddRiderPenalty();
+  const deletePenaltyMut = useDeleteRiderPenalty();
+
+  const [showAddPenalty, setShowAddPenalty] = useState(false);
+  const [penType, setPenType] = useState("manual");
+  const [penAmount, setPenAmount] = useState("");
+  const [penReason, setPenReason] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const penalties: any[] = penData?.penalties || [];
   const ratings: any[] = ratData?.ratings || [];
@@ -202,6 +214,43 @@ function RiderDetailDrawer({ rider, onClose }: { rider: any; onClose: () => void
       onError: (e: any) =>
         toast({ title: "Failed", description: e.message, variant: "destructive" }),
     });
+  };
+
+  const handleAddPenalty = () => {
+    const amt = parseFloat(penAmount) || 0;
+    addPenaltyMut.mutate(
+      { riderId: rider.id, type: penType, amount: amt, reason: penReason || undefined },
+      {
+        onSuccess: () => {
+          toast({ title: "Penalty added" });
+          setPenAmount("");
+          setPenReason("");
+          setPenType("manual");
+          setShowAddPenalty(false);
+          void refetchPenalties();
+        },
+        onError: (e: any) =>
+          toast({ title: "Failed", description: e.message, variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleDeletePenalty = (penaltyId: string) => {
+    setDeletingId(penaltyId);
+    deletePenaltyMut.mutate(
+      { riderId: rider.id, penaltyId },
+      {
+        onSuccess: () => {
+          toast({ title: "Penalty removed" });
+          setDeletingId(null);
+          void refetchPenalties();
+        },
+        onError: (e: any) => {
+          toast({ title: "Failed", description: e.message, variant: "destructive" });
+          setDeletingId(null);
+        },
+      }
+    );
   };
 
   const isBusy = restrictMut.isPending || unrestrictMut.isPending;
@@ -260,34 +309,117 @@ function RiderDetailDrawer({ rider, onClose }: { rider: any; onClose: () => void
           </div>
         </div>
 
-        {penalties.length > 0 && (
-          <div>
-            <p className="text-foreground mb-2 text-sm font-bold">Penalty History</p>
+        {/* Penalty Management */}
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-foreground text-sm font-bold">Penalties</p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowAddPenalty((v) => !v)}
+              className="h-7 gap-1 rounded-lg border-red-200 px-2 text-[11px] text-red-700 hover:bg-red-50"
+            >
+              <Plus className="h-3 w-3" /> Add Penalty
+            </Button>
+          </div>
+
+          {showAddPenalty && (
+            <div className="mb-3 space-y-2 rounded-xl border border-red-100 bg-red-50/50 p-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold text-red-700 uppercase">
+                    Type
+                  </label>
+                  <select
+                    value={penType}
+                    onChange={(e) => setPenType(e.target.value)}
+                    className="h-8 w-full rounded-lg border border-red-200 bg-white px-2 text-xs"
+                  >
+                    <option value="manual">Manual</option>
+                    <option value="cancel">Cancellation</option>
+                    <option value="ignore">Ignored Request</option>
+                    <option value="complaint">Customer Complaint</option>
+                    <option value="lateness">Lateness</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold text-red-700 uppercase">
+                    Amount (Rs.)
+                  </label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="0"
+                    value={penAmount}
+                    onChange={(e) => setPenAmount(e.target.value)}
+                    className="h-8 rounded-lg border-red-200 text-xs"
+                  />
+                </div>
+              </div>
+              <Input
+                placeholder="Reason (optional)"
+                value={penReason}
+                onChange={(e) => setPenReason(e.target.value)}
+                className="h-8 rounded-lg border-red-200 text-xs"
+              />
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowAddPenalty(false)}
+                  className="flex-1 h-8 rounded-lg text-xs"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleAddPenalty}
+                  disabled={addPenaltyMut.isPending}
+                  className="flex-1 h-8 rounded-lg bg-red-600 text-xs text-white hover:bg-red-700"
+                >
+                  {addPenaltyMut.isPending ? "Adding..." : "Apply Penalty"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {penalties.length > 0 ? (
             <div className="space-y-1.5">
               {penalties.map((p: any) => (
                 <div
                   key={p.id}
                   className="bg-muted/30 flex items-center justify-between rounded-lg px-3 py-2 text-xs"
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     {p.type === "cancel" ? (
-                      <XCircle className="h-3.5 w-3.5 text-red-500" />
+                      <XCircle className="h-3.5 w-3.5 shrink-0 text-red-500" />
                     ) : (
-                      <SkipForward className="h-3.5 w-3.5 text-amber-500" />
+                      <SkipForward className="h-3.5 w-3.5 shrink-0 text-amber-500" />
                     )}
-                    <span className="text-muted-foreground">{p.reason || p.type}</span>
+                    <span className="text-muted-foreground truncate">{p.reason || p.type}</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-2">
                     {p.amount > 0 && (
                       <span className="font-bold text-red-600">-{formatCurrency(p.amount)}</span>
                     )}
                     <span className="text-muted-foreground">{formatDate(p.createdAt)}</span>
+                    <button
+                      onClick={() => handleDeletePenalty(p.id)}
+                      disabled={deletingId === p.id}
+                      title="Remove penalty"
+                      className="ml-1 rounded p-0.5 text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <p className="text-muted-foreground py-2 text-center text-xs">No penalties on record</p>
+          )}
+        </div>
 
         {ratings.length > 0 && (
           <div>

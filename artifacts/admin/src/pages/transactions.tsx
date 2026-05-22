@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useTransactions } from "@/hooks/use-admin";
+import { useSearch } from "wouter";
 import { parseApiError } from "@/lib/errorParser";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useLanguage } from "@/lib/useLanguage";
@@ -37,7 +38,10 @@ import { useEffect, useMemo, useState } from "react";
 export default function Transactions() {
   const { language } = useLanguage();
   const T = (key: TranslationKey) => tDual(key, language);
-  const { data, isLoading, isError, error, refetch, isFetching } = useTransactions();
+  const search_ = useSearch();
+  const urlParams = new URLSearchParams(search_);
+  const userIdFilter = urlParams.get("userId") ?? undefined;
+  const { data, isLoading, isError, error, refetch, isFetching } = useTransactions(userIdFilter);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");

@@ -1120,10 +1120,14 @@ export const useBroadcastRecipientCount = (targetRole: string | string[] | undef
 };
 
 // Transactions (enriched with user names)
-export const useTransactions = () => {
+export const useTransactions = (userId?: string) => {
   return useQuery({
-    queryKey: ["admin-transactions"],
-    queryFn: () => adminFetch("/transactions-enriched"),
+    queryKey: ["admin-transactions", userId ?? "all"],
+    queryFn: () => {
+      const params = new URLSearchParams({ limit: "200" });
+      if (userId) params.set("userId", userId);
+      return adminFetch(`/transactions-enriched?${params.toString()}`);
+    },
     refetchInterval: REFETCH_INTERVAL,
   });
 };
@@ -1491,6 +1495,45 @@ export const useRiderPenalties = (riderId: string | null) =>
     queryFn: () => adminFetch(`/riders/${riderId}/penalties`),
     enabled: !!riderId,
   });
+
+export const useAddRiderPenalty = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      riderId,
+      type,
+      amount,
+      reason,
+    }: {
+      riderId: string;
+      type: string;
+      amount: number;
+      reason?: string;
+    }) =>
+      adminFetch(`/riders/${riderId}/penalties`, {
+        method: "POST",
+        body: JSON.stringify({ type, amount, reason }),
+      }),
+    onSuccess: (_data, { riderId }) => {
+      void qc.invalidateQueries({ queryKey: ["admin-rider-penalties", riderId] });
+      void qc.invalidateQueries({ queryKey: ["admin-riders"] });
+      void qc.invalidateQueries({ queryKey: ["admin-transactions"] });
+    },
+  });
+};
+
+export const useDeleteRiderPenalty = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ riderId, penaltyId }: { riderId: string; penaltyId: string }) =>
+      adminFetch(`/riders/${riderId}/penalties/${penaltyId}`, { method: "DELETE" }),
+    onSuccess: (_data, { riderId }) => {
+      void qc.invalidateQueries({ queryKey: ["admin-rider-penalties", riderId] });
+      void qc.invalidateQueries({ queryKey: ["admin-riders"] });
+      void qc.invalidateQueries({ queryKey: ["admin-transactions"] });
+    },
+  });
+};
 
 export const useRiderRatings = (riderId: string | null) =>
   useQuery({

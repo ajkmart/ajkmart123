@@ -179,8 +179,11 @@ router.get(
     const search = String(req.query["search"] ?? "").trim();
     const typeFilter = req.query["type"] as string | undefined;
 
+    const userIdFilter = req.query["userId"] as string | undefined;
+
     const whereClause = and(
       typeFilter ? eq(walletTransactionsTable.type, typeFilter) : undefined,
+      userIdFilter ? eq(walletTransactionsTable.userId, userIdFilter) : undefined,
       search
         ? or(
             ilike(walletTransactionsTable.description, `%${search}%`),
@@ -696,6 +699,39 @@ router.post("/riders/:id/bonus", requirePermission("finance.payouts.release"), a
   });
 });
 
+router.get("/riders/:id", requirePermission("fleet.rides.view"), async (req, res) => {
+  const riderId = req.params["id"] as string;
+  const [rider] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, riderId))
+    .limit(1);
+  if (!rider) {
+    res.status(404).json({ error: "Rider not found" });
+    return;
+  }
+  const [penaltySum] = await db
+    .select({ total: sum(riderPenaltiesTable.amount) })
+    .from(riderPenaltiesTable)
+    .where(eq(riderPenaltiesTable.riderId, riderId));
+  const [ratingRow] = await db
+    .select({
+      avgRating: sql<string>`ROUND(AVG(${rideRatingsTable.stars})::numeric, 1)`,
+      ratingCount: count(),
+    })
+    .from(rideRatingsTable)
+    .where(eq(rideRatingsTable.riderId, riderId));
+  res.json({
+    rider: {
+      ...stripUser(rider),
+      walletBalance: parseFloat(rider.walletBalance ?? "0"),
+      penaltyTotal: parseFloat(String(penaltySum?.total ?? "0")),
+      avgRating: parseFloat(String(ratingRow?.avgRating ?? "0")),
+      ratingCount: Number(ratingRow?.ratingCount ?? 0),
+    },
+  });
+});
+
 router.get(
   "/riders/:id/penalties",
   requirePermission("finance.payouts.release"),
@@ -708,6 +744,109 @@ router.get(
       .orderBy(desc(riderPenaltiesTable.createdAt))
       .limit(100);
     res.json({ penalties: penalties.map((p) => ({ ...p, amount: parseFloat(String(p.amount)) })) });
+  }
+);
+
+router.post(
+  "/riders/:id/penalties",
+  requirePermission("finance.payouts.release"),
+  async (req, res) => {
+    const riderId = req.params["id"] as string;
+    const { type = "manual", amount = 0, reason } = req.body as Record<string, unknown>;
+    const [rider] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.id, riderId))
+      .limit(1);
+    if (!rider) {
+      res.status(404).json({ error: "Rider not found" });
+      return;
+    }
+    const amt = parseFloat(String(amount));
+    if (isNaN(amt) || amt < 0) {
+      res.status(400).json({ error: "Invalid amount" });
+      return;
+    }
+    const [penalty] = await db
+      .insert(riderPenaltiesTable)
+      .values({
+        id: generateId(),
+        riderId,
+        type: String(type),
+        amount: String(amt),
+        reason: reason ? String(reason) : null,
+      })
+      .returning();
+    if (amt > 0) {
+      await db
+        .update(usersTable)
+        .set({ walletBalance: sql`GREATEST(CAST(wallet_balance AS NUMERIC) - ${amt}, 0)`, updatedAt: new Date() })
+        .where(eq(usersTable.id, riderId));
+      await db.insert(walletTransactionsTable).values({
+        id: generateId(),
+        userId: riderId,
+        type: "debit",
+        amount: String(amt),
+        description: `Penalty — ${reason ?? type}`,
+        reference: `penalty_${penalty!.id}`,
+      });
+    }
+    await sendUserNotification(
+      riderId,
+      "Penalty Applied ⚠️",
+      reason
+        ? `A penalty of Rs. ${amt} has been applied: ${reason}`
+        : `A penalty of Rs. ${amt} has been applied to your account.`,
+      "warning",
+      "alert-circle-outline"
+    );
+    res.status(201).json({
+      success: true,
+      penalty: { ...penalty!, amount: amt },
+    });
+  }
+);
+
+router.delete(
+  "/riders/:id/penalties/:pid",
+  requirePermission("finance.payouts.release"),
+  async (req, res) => {
+    const { id: riderId, pid } = req.params as { id: string; pid: string };
+    const [penalty] = await db
+      .select()
+      .from(riderPenaltiesTable)
+      .where(and(eq(riderPenaltiesTable.id, pid), eq(riderPenaltiesTable.riderId, riderId)))
+      .limit(1);
+    if (!penalty) {
+      res.status(404).json({ error: "Penalty not found" });
+      return;
+    }
+    await db
+      .delete(riderPenaltiesTable)
+      .where(and(eq(riderPenaltiesTable.id, pid), eq(riderPenaltiesTable.riderId, riderId)));
+    const amt = parseFloat(String(penalty.amount));
+    if (amt > 0) {
+      await db
+        .update(usersTable)
+        .set({ walletBalance: sql`CAST(wallet_balance AS NUMERIC) + ${amt}`, updatedAt: new Date() })
+        .where(eq(usersTable.id, riderId));
+      await db.insert(walletTransactionsTable).values({
+        id: generateId(),
+        userId: riderId,
+        type: "credit",
+        amount: String(amt),
+        description: `Penalty reversed — ${penalty.reason ?? penalty.type}`,
+        reference: `penalty_reversal_${pid}`,
+      });
+      await sendUserNotification(
+        riderId,
+        "Penalty Reversed ✅",
+        `A penalty of Rs. ${amt} has been reversed and credited back to your account.`,
+        "system",
+        "checkmark-circle-outline"
+      );
+    }
+    res.json({ success: true });
   }
 );
 
