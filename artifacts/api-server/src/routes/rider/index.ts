@@ -1510,6 +1510,7 @@ router.post("/orders/:id/accept", async (req, res) => {
    for future broadcasts of the same order. No penalty is applied. */
 router.post("/orders/:id/reject", async (req, res) => {
   try {
+    if (checkIdempotency(req, res)) return;
     const paramParsed = idParamSchema.safeParse(req.params);
     if (!paramParsed.success) {
       sendValidationError(res, "Invalid order ID");
@@ -1546,6 +1547,7 @@ router.post("/orders/:id/reject", async (req, res) => {
         );
       });
 
+    storeIdempotency(req, 200, { success: true, data: { orderId, reason } });
     sendSuccess(res, { orderId, reason });
   } catch (err) {
     logger.error(
@@ -2524,6 +2526,7 @@ router.post("/rides/:id/accept", rideAcceptLimiter, async (req, res) => {
 /* ── POST /rider/rides/:id/verify-otp — Verify customer OTP before starting trip ── */
 router.post("/rides/:id/verify-otp", otpLimiter, async (req, res) => {
   try {
+    if (checkIdempotency(req, res)) return;
     const riderId = req.riderId!;
     const rideId = req.params["id"] as string;
     const parsed = otpVerifySchema.safeParse(req.body ?? {});
@@ -2638,6 +2641,10 @@ router.post("/rides/:id/verify-otp", otpLimiter, async (req, res) => {
       .where(eq(ridesTable.id, rideId));
     emitRideDispatchUpdate({ rideId, action: "otp-verified", status: ride.status });
     emitRideUpdate(rideId);
+    storeIdempotency(req, 200, {
+      success: true,
+      message: "OTP verified. You may now start the trip.",
+    });
     sendSuccess(res, undefined, "OTP verified. You may now start the trip.");
   } catch (err) {
     logger.error(
@@ -3050,6 +3057,7 @@ router.patch("/rides/:id/status", rideStatusLimiter, async (req, res) => {
 /* ── POST /rider/rides/:id/counter — Rider submits a bid on a bargaining ride (InDrive multi-bid) ── */
 router.post("/rides/:id/counter", rideBidLimiter, async (req, res) => {
   try {
+    if (checkIdempotency(req, res)) return;
     const parsed = counterSchema.safeParse(req.body);
     if (!parsed.success) {
       sendValidationError(res, parsed.error.issues[0]?.message || "counterFare required");
@@ -3221,7 +3229,9 @@ router.post("/rides/:id/counter", rideBidLimiter, async (req, res) => {
 
     emitRideDispatchUpdate({ rideId, action: "bid", status: "bargaining" });
     emitRideUpdate(rideId);
-    sendSuccess(res, { bid: { ...bid, fare: safeNum(bid!.fare) } });
+    const counterBody = { bid: { ...bid, fare: safeNum(bid!.fare) } };
+    storeIdempotency(req, 200, { success: true, data: counterBody });
+    sendSuccess(res, counterBody);
   } catch (err) {
     logger.error(
       {
@@ -3237,6 +3247,7 @@ router.post("/rides/:id/counter", rideBidLimiter, async (req, res) => {
 /* ── POST /rider/rides/:id/reject-offer — Rider dismisses a bargaining ride (local dismiss, no DB lock) ── */
 router.post("/rides/:id/reject-offer", async (req, res) => {
   try {
+    if (checkIdempotency(req, res)) return;
     /* InDrive model: riders don't lock the ride anymore, so "rejection" is purely a local dismiss.
      If this rider had submitted a pending bid, we cancel it. */
     const riderId = req.riderId!;
@@ -3254,6 +3265,7 @@ router.post("/rides/:id/reject-offer", async (req, res) => {
         )
       );
 
+    storeIdempotency(req, 200, { success: true, message: "Ride dismissed" });
     sendSuccess(res, undefined, "Ride dismissed");
   } catch (err) {
     logger.error(
@@ -3280,6 +3292,7 @@ const rideEventLogSchema = z.object({
 
 router.post("/rides/:id/event-log", async (req, res) => {
   try {
+    if (checkIdempotency(req, res)) return;
     const riderId = req.riderId!;
     const rideId = req.params["id"] as string;
 
@@ -3315,6 +3328,7 @@ router.post("/rides/:id/event-log", async (req, res) => {
       lng: lng != null ? String(lng) : null,
     });
 
+    storeIdempotency(req, 200, { success: true, data: { id: logId, rideId, event } });
     sendSuccess(res, { id: logId, rideId, event }, "Event logged");
   } catch (err) {
     logger.error(
@@ -3914,6 +3928,7 @@ router.get("/wallet/transactions", async (req, res) => {
 /* ── POST /rider/wallet/withdraw — Atomic withdrawal (prevents race condition) ── */
 router.post("/wallet/withdraw", async (req, res) => {
   try {
+    if (checkIdempotency(req, res)) return;
     const parsed = withdrawSchema.safeParse(req.body);
     if (!parsed.success) {
       sendValidationError(res, parsed.error.issues[0]?.message || "Invalid input");
@@ -3996,7 +4011,9 @@ router.post("/wallet/withdraw", async (req, res) => {
           logger.error("[rider] background op failed:", err.message);
         });
 
-      sendSuccess(res, { newBalance: parseFloat(result.toFixed(2)), amount: amt, txId });
+      const withdrawBody = { newBalance: parseFloat(result.toFixed(2)), amount: amt, txId };
+      storeIdempotency(req, 200, { success: true, data: withdrawBody });
+      sendSuccess(res, withdrawBody);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Withdrawal failed";
       sendValidationError(res, msg);
@@ -4082,6 +4099,7 @@ const remitSchema = z.object({
 /* ── POST /rider/cod/remit — submit COD cash remittance ── */
 router.post("/cod/remit", async (req, res) => {
   try {
+    if (checkIdempotency(req, res)) return;
     const riderId = req.riderId!;
     const parsed = remitSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -4158,10 +4176,12 @@ router.post("/cod/remit", async (req, res) => {
       return;
     }
 
-    sendSuccess(res, {
+    const remitBody = {
       transactionId: txId,
       message: "Remittance submitted for admin verification",
-    });
+    };
+    storeIdempotency(req, 200, { success: true, data: remitBody });
+    sendSuccess(res, remitBody);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Failed to submit remittance";
     sendError(res, msg, 500);
@@ -4281,6 +4301,7 @@ router.get("/wallet/min-balance", async (req, res) => {
 /* ── POST /rider/wallet/deposit — Submit a manual deposit request ── */
 router.post("/wallet/deposit", async (req, res) => {
   try {
+    if (checkIdempotency(req, res)) return;
     const parsed = depositSchema.safeParse(req.body);
     if (!parsed.success) {
       sendValidationError(res, parsed.error.issues[0]?.message || "Invalid input");
@@ -4368,7 +4389,9 @@ router.post("/wallet/deposit", async (req, res) => {
         )
       );
 
-    sendSuccess(res, { txId, amount: amt });
+    const depositBody = { txId, amount: amt };
+    storeIdempotency(req, 200, { success: true, data: depositBody });
+    sendSuccess(res, depositBody);
   } catch (err) {
     logger.error(
       {
@@ -4456,7 +4479,7 @@ router.patch("/location", locationRateLimiter, gpsAntiSpoofMiddleware, async (re
      handled upstream by gpsAntiSpoofMiddleware — no need to repeat them here. */
 
     /* GPS Spoof Detection — spoofed pings are rejected immediately on detection.
-     Minimum threshold is always 300 km/h (physically impossible for ground transport),
+     Minimum threshold is always 200 km/h (physically impossible for standard ground transport),
      or the admin-configured max if it's higher. Mock GPS provider flag is also checked. */
     if (accuracy !== undefined) {
       const minAccuracyMeters = parseInt(settings["security_gps_accuracy"] ?? "50", 10);
@@ -4488,7 +4511,7 @@ router.patch("/location", locationRateLimiter, gpsAntiSpoofMiddleware, async (re
 
     if (settings["security_spoof_detection"] === "on") {
       const configMaxSpeed = parseInt(settings["security_max_speed_kmh"] ?? "150", 10);
-      let MAX_ALLOWED_KMH = Math.max(configMaxSpeed, 300); /* never below 300 km/h */
+      let MAX_ALLOWED_KMH = Math.max(configMaxSpeed, 200); /* never below 200 km/h */
 
       /* Accuracy-proportional speed tolerance: moderate GPS accuracy (20–50m) at
        startup can produce legitimate jumps. Apply a 1.5× multiplier so a 50m
@@ -4746,6 +4769,29 @@ router.patch("/location", locationRateLimiter, gpsAntiSpoofMiddleware, async (re
   }
 });
 
+/* ── validateGpsPing — stateless per-ping GPS sanity check ──────────────────
+   Performs coordinate-range, mock-provider (accuracy===0), and GPS accuracy
+   threshold checks without requiring any DB context.  Speed-based detection
+   (which needs the previous location) is handled separately in the batch loop.
+
+   Returns { valid: true } on success, or { valid: false, reason } on failure.
+   ─────────────────────────────────────────────────────────────────────────── */
+function validateGpsPing(
+  ping: { latitude: number; longitude: number; accuracy?: number },
+  minAccuracyMeters: number
+): { valid: boolean; reason?: string } {
+  /* accuracy === 0 is a physical impossibility from real GPS hardware and a
+     reliable emulator / mock-provider signature */
+  if (ping.accuracy === 0) {
+    return { valid: false, reason: "accuracy_zero" };
+  }
+  /* accuracy exceeds the platform-configured threshold */
+  if (ping.accuracy !== undefined && ping.accuracy > minAccuracyMeters) {
+    return { valid: false, reason: "accuracy_low" };
+  }
+  return { valid: true };
+}
+
 /* ── POST /rider/location/batch — Replay queued offline GPS pings ── */
 const batchLocationSchema = z.object({
   locations: z
@@ -4780,7 +4826,7 @@ router.post("/location/batch", async (req, res) => {
 
     /* Speed-spoof threshold — same floor as single-ping endpoint */
     const configMaxSpeed = parseInt(settings["security_max_speed_kmh"] ?? "150", 10);
-    const BASE_MAX_ALLOWED_KMH = Math.max(configMaxSpeed, 300);
+    const BASE_MAX_ALLOWED_KMH = Math.max(configMaxSpeed, 200); /* never below 200 km/h */
 
     /* Stale grace period — configurable, same key as single-ping endpoint */
     const batchStaleGraceMinutes = parseInt(
@@ -4827,15 +4873,10 @@ router.post("/location/batch", async (req, res) => {
         continue;
       }
 
-      /* ── Mock GPS explicit rejection (accuracy=0 is an emulator/mock provider signature) ── */
-      if (loc.accuracy === 0) {
-        rejectedMock++;
-        skipped++;
-        continue;
-      }
-
-      /* ── GPS accuracy filter ── */
-      if (loc.accuracy !== undefined && loc.accuracy > minAccuracyMeters) {
+      /* ── Per-ping static validation (mock provider + accuracy threshold) ── */
+      const pingCheck = validateGpsPing(loc, minAccuracyMeters);
+      if (!pingCheck.valid) {
+        if (pingCheck.reason === "accuracy_zero") rejectedMock++;
         skipped++;
         continue;
       }
@@ -5236,6 +5277,7 @@ async function handleIgnorePenalty(
 /* ── POST /rider/rides/:id/ignore — Rider ignores a ride request ── */
 router.post("/rides/:id/ignore", async (req, res) => {
   try {
+    if (checkIdempotency(req, res)) return;
     const riderId = req.riderId!;
     const rideId = req.params["id"] as string;
 
@@ -5251,10 +5293,9 @@ router.post("/rides/:id/ignore", async (req, res) => {
 
     const penalty = await handleIgnorePenalty(riderId);
 
-    sendSuccess(res, {
-      rideId,
-      ignorePenalty: penalty,
-    });
+    const ignoreBody = { rideId, ignorePenalty: penalty };
+    storeIdempotency(req, 200, { success: true, data: ignoreBody });
+    sendSuccess(res, ignoreBody);
   } catch (err) {
     logger.error(
       {
@@ -5344,6 +5385,7 @@ const sosSchema = z.object({
 /* ── POST /rider/sos — Rider SOS alert ── */
 router.post("/sos", async (req, res) => {
   try {
+    if (checkIdempotency(req, res)) return;
     const settings = await getCachedSettings();
     if ((settings["feature_sos"] ?? "on") !== "on") {
       sendError(res, "SOS feature is currently disabled", 503);
@@ -5431,7 +5473,9 @@ router.post("/sos", async (req, res) => {
       createdAt: now.toISOString(),
     });
 
-    sendSuccess(res, { alertId, sentAt: now.toISOString() });
+    const sosResponseBody = { alertId, sentAt: now.toISOString() };
+    storeIdempotency(req, 200, { success: true, data: sosResponseBody });
+    sendSuccess(res, sosResponseBody);
   } catch (err) {
     logger.error(
       {
