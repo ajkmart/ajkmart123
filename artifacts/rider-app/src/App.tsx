@@ -397,12 +397,20 @@ function AppRoutes() {
     if (!user) return;
     const routeByData = (data: Record<string, string>) => {
       const type = data.type ?? "";
-      if (type === "wallet") {
+      if (type === "wallet" || type === "wallet_credit") {
         navigate("/wallet");
         return;
       }
       if (type === "ai_chat") {
         navigate("/chat?tab=ai");
+        return;
+      }
+      if (type === "penalty") {
+        navigate("/penalty-history");
+        return;
+      }
+      if (type === "review") {
+        navigate("/reviews");
         return;
       }
       if (
@@ -489,8 +497,16 @@ function AppRoutes() {
         navigate("/chat?tab=ai");
         return;
       }
-      if (type === "wallet") {
+      if (type === "wallet" || type === "wallet_credit") {
         navigate("/wallet");
+        return;
+      }
+      if (type === "penalty") {
+        navigate("/penalty-history");
+        return;
+      }
+      if (type === "review") {
+        navigate("/reviews");
         return;
       }
       if (
