@@ -1,0 +1,34 @@
+Mera CI pipeline fail ho raha hai with:
+- lint: failure (rider-app mein missing dependency aur floating promises)
+- unit-tests: failure (saare tests 503/500 de rahe because database connection nahi hai)
+
+Please fix ALL issues automatically. Follow these steps exactly:
+
+## 1. Database Setup (Neon.tech PostgreSQL)
+- Check if `DATABASE_URL` secret is set in Replit Secrets. Agar nahi hai, toh mujhe pucho ya aise assume karo ki maine pehle se set kar diya hai (Neon PostgreSQL connection string).
+- Verify database connection by running a test query using Drizzle. Example: `pnpm exec drizzle-kit introspect` ya koi simple `SELECT 1` query.
+- Run database migrations to create all tables. Pehle check karo package.json mein `db:push` script hai toh `pnpm db:push` chalao. Agar nahi hai toh `pnpm drizzle-kit push` use karo.
+- Ensure tables like `users`, `categories`, `platform_settings`, `search_logs`, etc. exist.
+
+## 2. Fix Linting Errors (rider-app)
+- File: `artifacts/rider-app/src/lib/socket.tsx` line 343: `useEffect` dependency array mein `user` add karo. Agar `user` frequently change hota hai toh infinite re-render nahi hona chahiye – simple add kar do.
+- File: `artifacts/rider-app/src/pages/Chat.tsx` lines 374-376: Har floating promise ko handle karo. Best practice: `await` use karo (function ko async banao) ya `.catch(error => console.error(...))` add karo. Agar fire-and-forget hai toh `void` operator use karo but error handling zaroori hai.
+- After fixing, run `pnpm lint:ci` again – should exit with 0 errors and 0 warnings.
+
+## 3. Fix Unit Tests (api-server)
+- Current tests fail because `/api/health` returns 503 (DB unreachable). DB connect hone ke baad yeh 200 return karega.
+- Ensure that test environment also uses the same `DATABASE_URL`. Agar test environment ke liye alag database chahiye toh `.env.test` mein set karo, but abhi production URL bhi chalega.
+- Run `pnpm test --reporter=verbose --coverage` after DB setup.
+- Agar tests still fail due to missing data (e.g., empty categories, banners tables), toh seed data run karo – already `ensureSeedCategories` function hai, par DB connection issue ki wajah se fail ho raha tha. DB connect hone ke baad automatically seed ho jayega.
+- Special attention: `wallet.test.ts`, `rides.test.ts`, `admin-approval.test.ts` cleanup code (`db.delete`) ko bhi DB connection chahiye – wo ab fail nahi hoga.
+
+## 4. Verify All Fixes
+Run the following commands and ensure they all exit with code 0:
+- `pnpm lint:ci`
+- `pnpm test`
+- (Optional) `pnpm typecheck` (already passing)
+
+## 5. Report Summary
+After everything is green, mujhe batao ki tumne kaun kaun se changes kiye aur ab sab tests pass ho rahe hain.
+
+Agar koi step ambiguous ho toh best judgement use karo. Main chahta hoon ki bina kisi manual intervention ke saari failures fix ho jayein.

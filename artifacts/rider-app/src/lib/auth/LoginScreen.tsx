@@ -183,7 +183,7 @@ export default function LoginScreen({ onSuccess }: LoginScreenProps) {
         setBiometricEnrollPrompt({ token, refreshToken, profile });
         return;
       }
-    } catch {
+    } catch (_e) {
       /* biometric module unavailable — proceed normally */
     }
     await handleLoginSuccess(token, profile, refreshToken || undefined);
@@ -198,7 +198,7 @@ export default function LoginScreen({ onSuccess }: LoginScreenProps) {
       const { storeBiometricToken, setBiometricEnabled } = await import("../biometric");
       await storeBiometricToken(rt);
       await setBiometricEnabled(true);
-    } catch {
+    } catch (_e) {
       /* non-fatal — proceed with normal login even if enrolment fails */
     }
     setBiometricEnrolling(false);
