@@ -597,7 +597,7 @@ router.delete(
 );
 
 router.get(
-  "/stats",
+  "/loyalty/stats",
   wrapAsync(async (req, res) => {
     const rows = await db
       .select({

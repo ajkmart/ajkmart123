@@ -13,3 +13,6 @@ lib/db/migrations/
 pnpm-lock.yaml
 .cache/
 artifacts/mockup-sandbox/src/.generated/
+e2e/artifacts/
+e2e/reports/
+**/*.html

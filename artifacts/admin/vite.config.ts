@@ -108,7 +108,13 @@ export default defineConfig(async ({ command }) => {
       port,
       host: "0.0.0.0",
       allowedHosts: true,
-      hmr: process.env.REPL_ID ? { clientPort: 443, protocol: "wss" } : undefined,
+      hmr: process.env.REPL_ID
+        ? {
+            clientPort: 443,
+            protocol: "wss",
+            host: process.env.REPLIT_DEV_DOMAIN,
+          }
+        : undefined,
       fs: {
         strict: true,
         deny: ["**/.*"],

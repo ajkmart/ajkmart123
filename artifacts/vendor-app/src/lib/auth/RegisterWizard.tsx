@@ -1156,6 +1156,7 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
 
       <div style={{ maxWidth: 448, margin: "0 auto", padding: "0 16px 40px" }}>
         <RegisterScreen
+          bare
           role="vendor"
           steps={STEPS}
           initialData={draft}

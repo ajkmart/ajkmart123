@@ -176,7 +176,7 @@ JWT_ISSUER = "ajkmart"
 VITE_API_PROXY_TARGET = "http://127.0.0.1:5000"
 VAPID_PUBLIC_KEY = "BEmlZZIGCb7ZhembOoH02qzZlnhkFrYkib27NwFgtXBFDcvtHhhWC2hfZEHU4JpDbfHIRgbrCiM_f9gEEc_JHLg"
 VAPID_CONTACT_EMAIL = "mailto:admin@ajkmart.app"
-ALLOWED_ORIGINS = "https://362bf047-f82e-4da4-ad92-9b873e6baa76-00-2o2ux24myevw5.sisko.replit.dev,https://362bf047-f82e-4da4-ad92-9b873e6baa76-00-2o2ux24myevw5.sisko.replit.dev:3000,https://362bf047-f82e-4da4-ad92-9b873e6baa76-00-2o2ux24myevw5.sisko.replit.dev:3001,https://362bf047-f82e-4da4-ad92-9b873e6baa76-00-2o2ux24myevw5.sisko.replit.dev:3002,https://362bf047-f82e-4da4-ad92-9b873e6baa76-00-2o2ux24myevw5.sisko.replit.dev:5000,https://362bf047-f82e-4da4-ad92-9b873e6baa76-00-2o2ux24myevw5.sisko.replit.dev:8081,https://362bf047-f82e-4da4-ad92-9b873e6baa76-00-2o2ux24myevw5.sisko.replit.dev:19006,http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:5000,http://localhost:5173,http://localhost:8081,http://localhost:19006"
+ALLOWED_ORIGINS = "https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:3000,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:3001,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:3002,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:5000,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:8081,http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:5000,http://localhost:5173,http://localhost:8081"
 ADMIN_ACCESS_TOKEN_SECRET = "10mRt9cLqIiVbeOmkm6ILl4WTqQyV85PPmsG0JzUS5F"
 ADMIN_CSRF_SECRET = "-rWir8D_I-L%}x/u[d3c$#x9bSZ,lBf!.L2s9HuU1sD"
 ADMIN_REFRESH_TOKEN_SECRET = "m9Ptbb2|<Hm_]FuLZ#82rN4%z6S&KJ#}7E>4i:O4(25"
@@ -185,6 +185,7 @@ ENCRYPTION_MASTER_KEY = "PL}4kyr74D>BI>5(,*zS#_$yS-{fm[.?h8%XmdOng<6"
 ERROR_REPORT_HMAC_SECRET = "M7;B_bOKAYKZoktz>)}U]s6PFkt,U?p;w8G5*ITrrMw"
 JWT_SECRET = "rOg5FUY&D5A3!G6Yus#$s$;|DGe[Y3X*PM[8otK=lUC"
 VAPID_PRIVATE_KEY = "QGC5hBbO?uth)8[+<Y,pqNI{+-8<t=XUvFWHZfz!=C%"
+ALLOW_DEV_OTP = "true"
 
 [userenv.development]
 
@@ -193,9 +194,21 @@ localPort = 3000
 externalPort = 3000
 
 [[ports]]
-localPort = 5001
-externalPort = 4200
-
-[[ports]]
 localPort = 3001
 externalPort = 3001
+
+[[ports]]
+localPort = 3002
+externalPort = 3002
+
+[[ports]]
+localPort = 3003
+externalPort = 3003
+
+[[ports]]
+localPort = 5000
+externalPort = 5000
+
+[[ports]]
+localPort = 5001
+externalPort = 4200

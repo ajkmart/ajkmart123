@@ -194,8 +194,7 @@ export async function doRefresh(refreshToken: string, ip: string, req: Request, 
     /* ── Token family replay detection ── */
     let rt: typeof import("@workspace/db/schema").refreshTokensTable.$inferSelect;
     try {
-      const { detectAndInvalidateFamily } =
-        await import("../../services/auth/tokenRotation.js");
+      const { detectAndInvalidateFamily } = await import("../../services/auth/tokenRotation.js");
       rt = await detectAndInvalidateFamily(tokenHash);
     } catch (err: unknown) {
       if ((err as { name?: string })?.name === "TokenFamilyBreachError") {
@@ -519,8 +518,9 @@ export async function handleUnifiedLogin(req: Request, res: Response) {
       .update(_otpTbl)
       .set({ usedAt: new Date() })
       .where(_and2(eq(usersTable.id, user.id), _isNull2(_otpTbl.usedAt)));
-    const { hashOtpCode: hashOtpNew, generateOtpCode: _gen } =
-      await import("../../modules/otp/otp.generate.js");
+    const { hashOtpCode: hashOtpNew, generateOtpCode: _gen } = await import(
+      "../../modules/otp/otp.generate.js"
+    );
     const { saveOtpToken } = await import("../../modules/otp/otp.store.js");
     const identifier = user.phone ?? user.email ?? user.id;
     const identifierType = user.phone ? ("phone" as const) : ("email" as const);

@@ -448,7 +448,7 @@ export function GuestLanding() {
             style={{
               fontSize: "clamp(2rem, 6vw, 3.5rem)",
               fontWeight: 900,
-              color: "var(--color-foreground)",
+              color: "#ffffff",
               lineHeight: 1.1,
               marginBottom: 20,
               whiteSpace: "pre-line",

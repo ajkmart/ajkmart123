@@ -2,8 +2,11 @@ import { db, pool } from "@workspace/db";
 import {
   liveLocationsTable,
   notificationsTable,
+  ordersTable,
   otpAttemptsTable,
+  ridesTable,
   usersTable,
+  walletTransactionsTable,
 } from "@workspace/db/schema";
 import { exec } from "child_process";
 import { and, count, eq, gte, sql } from "drizzle-orm";
@@ -504,6 +507,59 @@ router.get("/stats/performance", adminAuth, async (_req, res, next) => {
       socketConnections: getIO()?.engine.clientsCount ?? 0,
       dbPool: dbPoolStats,
       thresholds: { p95Ms: p95Alert, dbMs: dbMsAlert, memoryPct: memAlert, diskPct: diskAlert },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* ─── GET /stats — platform overview (used by admin dashboard) ──────────── */
+router.get("/stats", adminAuth, async (_req, res, next) => {
+  try {
+    const [pendingOrdersRow] = await db
+      .select({ c: count() })
+      .from(ordersTable)
+      .where(and(eq(ordersTable.status, "pending")));
+
+    const [activeRidesRow] = await db
+      .select({ c: count() })
+      .from(ridesTable)
+      .where(
+        sql`${ridesTable.status} IN ('accepted','arrived','in_transit','searching','requested')`
+      );
+
+    const [totalRidersRow] = await db
+      .select({ c: count() })
+      .from(usersTable)
+      .where(and(sql`${usersTable.roles} ILIKE '%rider%'`, sql`${usersTable.deletedAt} IS NULL`));
+
+    const [totalVendorsRow] = await db
+      .select({ c: count() })
+      .from(usersTable)
+      .where(and(sql`${usersTable.roles} ILIKE '%vendor%'`, sql`${usersTable.deletedAt} IS NULL`));
+
+    const [revenueRow] = await db
+      .select({
+        total: sql<string>`COALESCE(sum(${walletTransactionsTable.amount}), 0)`,
+      })
+      .from(walletTransactionsTable)
+      .where(
+        and(
+          eq(walletTransactionsTable.type, "credit"),
+          sql`${walletTransactionsTable.reference} LIKE 'order_%'`
+        )
+      );
+
+    sendSuccess(res, {
+      pendingOrders: Number(pendingOrdersRow?.c ?? 0),
+      activeRides: Number(activeRidesRow?.c ?? 0),
+      totalRiders: Number(totalRidersRow?.c ?? 0),
+      totalVendors: Number(totalVendorsRow?.c ?? 0),
+      activeSos: 0,
+      failedPayments: 0,
+      revenue: {
+        total: parseFloat(revenueRow?.total ?? "0"),
+      },
     });
   } catch (err) {
     next(err);

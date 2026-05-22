@@ -3098,7 +3098,13 @@ export default function Rides() {
     return () => clearTimeout(t);
   }, [riderFilter]);
 
-  const { data, isLoading: _isLoading, dataUpdatedAt, refetch, isFetching } = useRidesEnriched({
+  const {
+    data,
+    isLoading: _isLoading,
+    dataUpdatedAt,
+    refetch,
+    isFetching,
+  } = useRidesEnriched({
     page,
     limit: PAGE_SIZE,
     status: statusFilter,
