@@ -76,6 +76,43 @@ export async function runStartupTasks(): Promise<void> {
     logger.info("[startup] ERROR_REPORT_HMAC_SECRET is configured.");
   }
 
+  /* ── OTP cryptographic secrets presence check ────────────────────────────
+     Three independent cryptographic operations (HMAC OTP, TOTP encryption, OTP HMAC)
+     must each use their own dedicated secret to prevent key reuse attacks:
+     - HMAC_OTP_SECRET: used to HMAC-hash OTP codes for storage
+     - TOTP_ENCRYPTION_KEY: used to encrypt TOTP secrets (AES-256-GCM)
+     - OTP_HMAC_SECRET: used to hash OTP codes for verification
+     A single key compromise must not defeat all three security layers.
+     In production, fallback to JWT_SECRET is forbidden — each must be explicitly set. */
+  const otpSecrets = [
+    { name: "HMAC_OTP_SECRET", description: "HMAC-hash OTP codes for storage" },
+    { name: "TOTP_ENCRYPTION_KEY", description: "encrypt TOTP secrets (AES-256-GCM)" },
+    { name: "OTP_HMAC_SECRET", description: "hash OTP codes for verification" },
+  ];
+
+  for (const secret of otpSecrets) {
+    if (!process.env[secret.name]) {
+      if (process.env.NODE_ENV === "production") {
+        logger.fatal(
+          `[startup] FATAL CONFIG ERROR: ${secret.name} is not set. ` +
+            `This secret is used to ${secret.description} and must not fall back to JWT_SECRET. ` +
+            "Set this secret in your environment before deploying. " +
+            "Generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
+        );
+        throw new Error(`${secret.name} must be set in production`);
+      } else {
+        logger.warn(
+          `[startup] WARNING: ${secret.name} is not set. ` +
+            `This secret will fall back to JWT_SECRET, which is NOT safe for production. ` +
+            `Set a dedicated ${secret.name} before deploying to production. ` +
+            "Generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
+        );
+      }
+    } else {
+      logger.info(`[startup] ${secret.name} is configured.`);
+    }
+  }
+
   await runSqlMigrations();
   try {
     await checkMigrationGuard();

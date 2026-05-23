@@ -3,18 +3,28 @@ import { logger } from "../../lib/logger.js";
 import { OTP_CONFIG } from "./otp.config.js";
 
 function resolveHmacSecret(): string {
-  const secret = process.env["HMAC_OTP_SECRET"] ?? process.env["JWT_SECRET"];
+  const secret = process.env["HMAC_OTP_SECRET"];
   if (!secret) {
-    throw new Error(
-      "HMAC_OTP_SECRET (or JWT_SECRET fallback) is not set. " +
-        "Set HMAC_OTP_SECRET in Replit Secrets."
-    );
-  }
-  if (!process.env["HMAC_OTP_SECRET"] && process.env["JWT_SECRET"]) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "[FATAL] HMAC_OTP_SECRET must be set in production. " +
+          "This secret is used to HMAC-hash OTP codes and must not fall back to JWT_SECRET. " +
+          "Generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
+      );
+    }
     logger.warn(
-      "HMAC_OTP_SECRET not set — using JWT_SECRET as fallback. " +
-        "Set a dedicated HMAC_OTP_SECRET in production."
+      "[otp] HMAC_OTP_SECRET not set — using JWT_SECRET as fallback. " +
+        "This is NOT safe for production. " +
+        "Set a dedicated HMAC_OTP_SECRET before deploying."
     );
+    const fallback = process.env["JWT_SECRET"];
+    if (!fallback) {
+      throw new Error(
+        "HMAC_OTP_SECRET (or JWT_SECRET fallback) is not set. " +
+          "Set HMAC_OTP_SECRET in Replit Secrets."
+      );
+    }
+    return fallback;
   }
   return secret;
 }

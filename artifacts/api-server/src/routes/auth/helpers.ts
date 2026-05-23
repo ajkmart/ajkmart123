@@ -42,9 +42,31 @@ import { CNIC_REGEX, PHONE_REGEX, isValidCnic, isValidPhone } from "@workspace/p
 export { CNIC_REGEX, PHONE_REGEX, isValidCnic, isValidPhone };
 
 export function hashOtp(otp: string, key?: string): string {
-  const secret = key ?? process.env["OTP_HMAC_SECRET"] ?? process.env["JWT_SECRET"];
-  if (!secret)
-    throw new Error("[FATAL] OTP_HMAC_SECRET (or JWT_SECRET) is not set — cannot hash OTP");
+  if (key) {
+    return createHmac("sha256", key).update(otp).digest("hex");
+  }
+  const secret = process.env["OTP_HMAC_SECRET"];
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "[FATAL] OTP_HMAC_SECRET must be set in production. " +
+          "This secret is used to hash OTP codes for verification and must not fall back to JWT_SECRET. " +
+          "Generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
+      );
+    }
+    logger.warn(
+      "[auth] OTP_HMAC_SECRET not set — using JWT_SECRET as fallback. " +
+        "This is NOT safe for production. " +
+        "Set a dedicated OTP_HMAC_SECRET before deploying."
+    );
+    const fallback = process.env["JWT_SECRET"];
+    if (!fallback) {
+      throw new Error(
+        "[FATAL] OTP_HMAC_SECRET (or JWT_SECRET fallback) is not set — cannot hash OTP"
+      );
+    }
+    return createHmac("sha256", fallback).update(otp).digest("hex");
+  }
   return createHmac("sha256", secret).update(otp).digest("hex");
 }
 

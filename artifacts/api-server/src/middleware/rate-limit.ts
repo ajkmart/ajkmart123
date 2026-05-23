@@ -123,10 +123,7 @@ const TIER_MESSAGES: Record<NonNullable<RateLimiterOptions["tier"]>, string> = {
 };
 
 /* ── IP helper (shared by key generators) ───────────────────────────────── */
-const ipKey = (req: Request): string =>
-  (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
-  req.socket?.remoteAddress ||
-  "unknown";
+const ipKey = (req: Request): string => req.ip || req.socket?.remoteAddress || "unknown";
 
 const userOrIpKey = (req: Request): string => {
   const uid = req.userId ?? req.customerId ?? req.riderId ?? req.vendorId;

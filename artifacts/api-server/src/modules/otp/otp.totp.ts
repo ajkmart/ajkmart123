@@ -23,18 +23,28 @@ const RECOVERY_CODE_COUNT = 8;
 // ─── Encryption Key ─────────────────────────────────────────────────────────────
 
 function getEncryptionKey(): Buffer {
-  const raw = process.env["TOTP_ENCRYPTION_KEY"] ?? process.env["JWT_SECRET"];
+  const raw = process.env["TOTP_ENCRYPTION_KEY"];
   if (!raw) {
-    throw new Error(
-      "TOTP_ENCRYPTION_KEY is not set. Set it in Replit Secrets. " +
-        "Generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
-    );
-  }
-  if (!process.env["TOTP_ENCRYPTION_KEY"] && process.env["JWT_SECRET"]) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "[FATAL] TOTP_ENCRYPTION_KEY must be set in production. " +
+          "This secret is used to encrypt TOTP secrets and must not fall back to JWT_SECRET. " +
+          "Generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
+      );
+    }
     logger.warn(
-      "TOTP_ENCRYPTION_KEY not set — using JWT_SECRET as fallback. " +
-        "Set a dedicated TOTP_ENCRYPTION_KEY in production."
+      "[totp] TOTP_ENCRYPTION_KEY not set — using JWT_SECRET as fallback. " +
+        "This is NOT safe for production. " +
+        "Set a dedicated TOTP_ENCRYPTION_KEY before deploying."
     );
+    const fallback = process.env["JWT_SECRET"];
+    if (!fallback) {
+      throw new Error(
+        "TOTP_ENCRYPTION_KEY is not set. Set it in Replit Secrets. " +
+          "Generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
+      );
+    }
+    return crypto.createHash("sha256").update(fallback).digest();
   }
   return crypto.createHash("sha256").update(raw).digest();
 }

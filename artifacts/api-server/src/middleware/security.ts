@@ -542,11 +542,7 @@ export const securityEvents: SecurityEvent[] = [];
    IP HELPERS
    ══════════════════════════════════════════════════════════════ */
 export function getClientIp(req: Request): string {
-  return (
-    (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
-    req.socket?.remoteAddress ||
-    "unknown"
-  );
+  return req.ip || req.socket?.remoteAddress || "unknown";
 }
 
 /* ══════════════════════════════════════════════════════════════
