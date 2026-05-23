@@ -163,7 +163,10 @@ function makeFallbackLimiter(options: RateLimiterOptions): RequestHandler {
 }
 
 /* ── Redis sliding-window middleware ────────────────────────────────────── */
-function makeRedisSlidingLimiter(options: RateLimiterOptions): RequestHandler {
+function makeRedisSlidingLimiter(
+  options: RateLimiterOptions,
+  fallbackLimiter: RequestHandler
+): RequestHandler {
   const {
     prefix,
     max,
@@ -176,7 +179,7 @@ function makeRedisSlidingLimiter(options: RateLimiterOptions): RequestHandler {
 
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     if (!redisClient) {
-      next();
+      await fallbackLimiter(req, res, next);
       return;
     }
 
@@ -234,9 +237,12 @@ function makeRedisSlidingLimiter(options: RateLimiterOptions): RequestHandler {
 
       next();
     } catch (err) {
-      /* Redis error — fail open (let the request through) and log */
-      logger.error({ prefix, redisKey, err }, "[rate-limit] Redis eval failed — failing open");
-      next();
+      /* Redis error — delegate to in-memory fallback instead of failing open */
+      logger.error(
+        { prefix, redisKey, err },
+        "[rate-limit] Redis eval failed — using in-memory fallback"
+      );
+      await fallbackLimiter(req, res, next);
     }
   };
 }
@@ -272,7 +278,8 @@ export function createRateLimiter(options: RateLimiterOptions): RequestHandler {
       { prefix, store: "Redis (sliding-window)", tier },
       "[rate-limit] limiter configured"
     );
-    return makeRedisSlidingLimiter(options);
+    const fallback = makeFallbackLimiter(options);
+    return makeRedisSlidingLimiter(options, fallback);
   }
 
   logger.info(
