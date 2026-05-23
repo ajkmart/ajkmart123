@@ -26,6 +26,22 @@ author = "agent"
 task = "workflow.run"
 args = "All Services"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "API Server"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Admin App"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Vendor App"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Rider App"
+
   [[workflows.workflow]]
   name = "All Services"
   mode = "parallel"
@@ -51,6 +67,54 @@ args = "All Services"
   task = "workflow.run"
   args = "AJKMart App"
 
+[[workflows.workflow]]
+name = "API Server"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm install --no-frozen-lockfile && pnpm --filter @workspace/api-server run dev"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Admin App"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/admin run dev"
+waitForPort = 3000
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Vendor App"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/vendor-app run dev"
+waitForPort = 3001
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Rider App"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/rider-app run dev"
+waitForPort = 3002
+
+[workflows.workflow.metadata]
+outputType = "console"
+
   [agent]
 stack = "BEST_EFFORT_FALLBACK"
 expertMode = true
@@ -71,7 +135,7 @@ JWT_ISSUER = "ajkmart"
 VITE_API_PROXY_TARGET = "http://127.0.0.1:8080"
 VAPID_PUBLIC_KEY = "BEmlZZIGCb7ZhembOoH02qzZlnhkFrYkib27NwFgtXBFDcvtHhhWC2hfZEHU4JpDbfHIRgbrCiM_f9gEEc_JHLg"
 VAPID_CONTACT_EMAIL = "mailto:admin@ajkmart.app"
-ALLOWED_ORIGINS = "https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:3000,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:3001,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:3002,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:5000,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:8080,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:8081,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:21463,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:22969,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev:23744,https://e0d5eea3-8dc4-42f7-8902-4b3a3dfe3471-00-p6cfbcde9bmk.sisko.replit.dev:3000,https://e0d5eea3-8dc4-42f7-8902-4b3a3dfe3471-00-p6cfbcde9bmk.sisko.replit.dev:3001,https://e0d5eea3-8dc4-42f7-8902-4b3a3dfe3471-00-p6cfbcde9bmk.sisko.replit.dev:3002,https://e0d5eea3-8dc4-42f7-8902-4b3a3dfe3471-00-p6cfbcde9bmk.sisko.replit.dev:5000,https://e0d5eea3-8dc4-42f7-8902-4b3a3dfe3471-00-p6cfbcde9bmk.sisko.replit.dev:8080,https://e0d5eea3-8dc4-42f7-8902-4b3a3dfe3471-00-p6cfbcde9bmk.sisko.replit.dev:8081,https://e0d5eea3-8dc4-42f7-8902-4b3a3dfe3471-00-p6cfbcde9bmk.sisko.replit.dev:21463,https://e0d5eea3-8dc4-42f7-8902-4b3a3dfe3471-00-p6cfbcde9bmk.sisko.replit.dev:22969,https://e0d5eea3-8dc4-42f7-8902-4b3a3dfe3471-00-p6cfbcde9bmk.sisko.replit.dev:23744,https://5e7e6652-f7e5-41df-a55b-643de1c61706-00-wnepbopenil7.pike.replit.dev,https://e0d5eea3-8dc4-42f7-8902-4b3a3dfe3471-00-p6cfbcde9bmk.sisko.replit.dev,http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:5000,http://localhost:5173,http://localhost:8080,http://localhost:8081"
+ALLOWED_ORIGINS = "https://1f338734-0cf6-474d-b091-a761ca5ab916-00-3d2hp8ldbb97i.pike.replit.dev:3000,https://1f338734-0cf6-474d-b091-a761ca5ab916-00-3d2hp8ldbb97i.pike.replit.dev:3001,https://1f338734-0cf6-474d-b091-a761ca5ab916-00-3d2hp8ldbb97i.pike.replit.dev:3002,https://1f338734-0cf6-474d-b091-a761ca5ab916-00-3d2hp8ldbb97i.pike.replit.dev:5000,https://1f338734-0cf6-474d-b091-a761ca5ab916-00-3d2hp8ldbb97i.pike.replit.dev:8080,https://1f338734-0cf6-474d-b091-a761ca5ab916-00-3d2hp8ldbb97i.pike.replit.dev:8081,https://1f338734-0cf6-474d-b091-a761ca5ab916-00-3d2hp8ldbb97i.pike.replit.dev:21463,https://1f338734-0cf6-474d-b091-a761ca5ab916-00-3d2hp8ldbb97i.pike.replit.dev:22969,https://1f338734-0cf6-474d-b091-a761ca5ab916-00-3d2hp8ldbb97i.pike.replit.dev:23744,https://1f338734-0cf6-474d-b091-a761ca5ab916-00-3d2hp8ldbb97i.pike.replit.dev,http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:5000,http://localhost:5173,http://localhost:8080,http://localhost:8081"
 ADMIN_ACCESS_TOKEN_SECRET = "10mRt9cLqIiVbeOmkm6ILl4WTqQyV85PPmsG0JzUS5F"
 ADMIN_CSRF_SECRET = "-rWir8D_I-L%}x/u[d3c$#x9bSZ,lBf!.L2s9HuU1sD"
 ADMIN_REFRESH_TOKEN_SECRET = "m9Ptbb2|<Hm_]FuLZ#82rN4%z6S&KJ#}7E>4i:O4(25"
@@ -94,16 +158,16 @@ localPort = 3000
 externalPort = 3000
 
 [[ports]]
-localPort = 3001
-externalPort = 3001
-
-[[ports]]
 localPort = 3002
 externalPort = 3002
 
 [[ports]]
 localPort = 3003
 externalPort = 3003
+
+[[ports]]
+localPort = 5000
+externalPort = 80
 
 [[ports]]
 localPort = 5001
