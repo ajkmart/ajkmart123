@@ -122,7 +122,7 @@ export default defineConfig(async ({ command }) => {
       proxy: {
         "/api": {
           target:
-            process.env.VITE_API_PROXY_TARGET ?? `http://127.0.0.1:${process.env.API_PORT ?? 5000}`,
+            process.env.VITE_API_PROXY_TARGET ?? `http://127.0.0.1:${process.env.API_PORT ?? 8080}`,
           changeOrigin: true,
           ws: false,
         },
