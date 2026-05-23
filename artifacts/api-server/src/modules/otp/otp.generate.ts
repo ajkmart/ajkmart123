@@ -32,6 +32,9 @@ function resolveHmacSecret(): string {
 export function generateOtpCode(length: number = OTP_CONFIG.CODE_LENGTH): string {
   const min = Math.pow(10, length - 1);
   const max = Math.pow(10, length) - 1;
+  // randomInt(min, max) is exclusive of max, so +1 is required to make the
+  // largest value (e.g. 999999 for a 6-digit code) reachable. Without +1 the
+  // distribution would be biased and the maximum value could never be generated.
   return String(randomInt(min, max + 1)).padStart(length, "0");
 }
 

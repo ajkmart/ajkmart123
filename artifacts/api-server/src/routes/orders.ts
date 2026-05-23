@@ -863,6 +863,26 @@ router.post(
 
         /* track promo/offer usage */
         if (offerId) {
+          /* Re-fetch offer row with a pessimistic lock to prevent TOCTOU race.
+             Two concurrent requests both passed the pre-transaction usageLimit
+             check — this lock ensures only one can proceed when the limit is
+             tight, and the second will see the updated usedCount and abort. */
+          const lockedOfferRows = await tx.execute(
+            sql`SELECT used_count, usage_limit FROM offers WHERE id = ${offerId} FOR UPDATE`
+          );
+          const lockedOffer = (lockedOfferRows.rows ?? [])[0] as
+            | { used_count: number; usage_limit: number | null }
+            | undefined;
+          if (
+            lockedOffer &&
+            lockedOffer.usage_limit != null &&
+            lockedOffer.used_count >= lockedOffer.usage_limit
+          ) {
+            throw Object.assign(
+              new Error("This offer has reached its usage limit."),
+              { code: "OFFER_LIMIT_EXCEEDED" }
+            );
+          }
           await tx
             .insert(offerRedemptionsTable)
             .values({
@@ -879,6 +899,24 @@ router.post(
             .where(eq(offersTable.id, offerId));
         }
         if (promoId) {
+          /* Same pessimistic lock for legacy promo codes to prevent concurrent
+             over-redemption when a promo has a usageLimit configured. */
+          const lockedPromoRows = await tx.execute(
+            sql`SELECT used_count, usage_limit FROM promo_codes WHERE id = ${promoId} FOR UPDATE`
+          );
+          const lockedPromo = (lockedPromoRows.rows ?? [])[0] as
+            | { used_count: number; usage_limit: number | null }
+            | undefined;
+          if (
+            lockedPromo &&
+            lockedPromo.usage_limit != null &&
+            lockedPromo.used_count >= lockedPromo.usage_limit
+          ) {
+            throw Object.assign(
+              new Error("This promo code has reached its usage limit."),
+              { code: "PROMO_LIMIT_EXCEEDED" }
+            );
+          }
           await tx
             .update(promoCodesTable)
             .set({ usedCount: sql`${promoCodesTable.usedCount} + 1` })
