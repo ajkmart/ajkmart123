@@ -413,7 +413,11 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
                 </div>
                 <input
                   value={draft.phone ?? ""}
-                  onChange={(e) => update("phone", e.target.value)}
+                  onChange={(e) => {
+                    let v = e.target.value.replace(/\D/g, "");
+                    if (v.startsWith("92")) v = v.slice(2);
+                    update("phone", v.slice(0, 11));
+                  }}
                   placeholder="03XXXXXXXXX *"
                   style={{ ...inputStyle, flex: 1 }}
                 />
