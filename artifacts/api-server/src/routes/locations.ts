@@ -708,7 +708,15 @@ router.post("/batch", async (req, res, next: NextFunction) => {
         continue;
       }
 
-      const now = ping.timestamp ? new Date(ping.timestamp) : new Date();
+      /* B-020: Clamp client-supplied timestamps — no future pings, skip stale pings >24h */
+      const rawTs = ping.timestamp ? new Date(ping.timestamp).getTime() : Date.now();
+      const nowMs = Date.now();
+      const clampedTs = Math.min(rawTs, nowMs);
+      if (nowMs - clampedTs > 24 * 60 * 60 * 1000) {
+        skipped++;
+        continue;
+      }
+      const now = new Date(clampedTs);
 
       const result = await processLocationUpdate({
         userId,

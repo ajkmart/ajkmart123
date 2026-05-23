@@ -95,6 +95,15 @@ router.put("/platform-settings", async (req, res, next) => {
       return sendError(res, "All settings entries must have a non-empty key", 400);
     }
 
+    /* B-019: Reject unsafe regex patterns for regional_phone_format at write time */
+    const phoneFormatEntry = entries.find((e) => e.key === "regional_phone_format");
+    if (phoneFormatEntry) {
+      const { default: safeRegex } = await import("safe-regex2");
+      if (!safeRegex(phoneFormatEntry.value)) {
+        return sendError(res, "regional_phone_format contains an unsafe regex pattern that could hang the server (ReDoS). Provide a safe pattern.", 400);
+      }
+    }
+
     const allCurrentRows = await db
       .select({
         key: platformSettingsTable.key,

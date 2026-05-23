@@ -80,11 +80,22 @@ export function hashVerificationToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
+const SAFE_PHONE_REGEX_DEFAULT = /^0?3\d{9}$/;
+
 export async function isValidCanonicalPhone(phone: string): Promise<boolean> {
   try {
     const s = await getCachedSettings();
-    const pattern = s["regional_phone_format"] ?? "^0?3\\d{9}$";
-    return new RegExp(pattern).test(phone);
+    const raw = s["regional_phone_format"] ?? "^0?3\\d{9}$";
+    // Guard against ReDoS: validate the DB-stored pattern before compiling it
+    const { default: safeRegex } = await import("safe-regex2");
+    if (!safeRegex(raw)) {
+      logger.warn(
+        { pattern: raw },
+        "[isValidCanonicalPhone] unsafe regex in regional_phone_format — falling back to default"
+      );
+      return SAFE_PHONE_REGEX_DEFAULT.test(phone);
+    }
+    return new RegExp(raw).test(phone);
   } catch (err) {
     logger.error(
       {
@@ -93,7 +104,7 @@ export async function isValidCanonicalPhone(phone: string): Promise<boolean> {
       },
       "[route] unhandled error"
     );
-    return /^0?3\d{9}$/.test(phone);
+    return SAFE_PHONE_REGEX_DEFAULT.test(phone);
   }
 }
 

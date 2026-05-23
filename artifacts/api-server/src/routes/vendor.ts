@@ -1675,13 +1675,22 @@ router.post("/wallet/withdraw", async (req, res, next) => {
       return;
     }
     const amt = parseFloat(String(amount));
-    const balance = safeNum(user.walletBalance);
-    if (amt > balance) {
-      sendError(res, `Insufficient balance. Available: ${balance.toFixed(2)}`, 400);
-      return;
-    }
     const id = generateId();
     await db.transaction(async (tx) => {
+      /* Lock the vendor row so concurrent withdrawals cannot both pass the balance check */
+      const [locked] = await tx
+        .select({ walletBalance: usersTable.walletBalance })
+        .from(usersTable)
+        .where(eq(usersTable.id, vendorId))
+        .limit(1)
+        .for("update");
+      const liveBalance = safeNum(locked?.walletBalance);
+      if (amt > liveBalance) {
+        throw Object.assign(
+          new Error(`Insufficient balance. Available: ${liveBalance.toFixed(2)}`),
+          { code: "INSUFFICIENT", httpStatus: 400 }
+        );
+      }
       await tx
         .update(usersTable)
         .set({ walletBalance: sql`wallet_balance - ${amt}`, updatedAt: new Date() })
@@ -1703,6 +1712,10 @@ router.post("/wallet/withdraw", async (req, res, next) => {
       reference: `WD-${id.slice(-8).toUpperCase()}`,
     });
   } catch (err) {
+    if (err instanceof Error && (err as NodeJS.ErrnoException & { code?: string }).code === "INSUFFICIENT") {
+      sendError(res, err.message, 400);
+      return;
+    }
     next(err);
   }
 });
