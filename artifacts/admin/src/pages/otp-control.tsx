@@ -29,11 +29,13 @@ import {
   Info,
   KeyRound,
   ListChecks,
+  LockKeyhole,
   Loader2,
   Plus,
   RefreshCw,
   Search,
   Shield,
+  ShieldCheck,
   ShieldOff,
   Trash2,
   Unlock,
@@ -1232,7 +1234,10 @@ export default function OtpControl() {
           </div>
         </ProCard>
 
-        {/* ── 4. OTP RATE LIMITING ── */}
+        {/* ── 4. RATE-LIMITED USERS ── */}
+        <LockedUsersPanel />
+
+        {/* ── 5. OTP RATE LIMITING ── */}
         <ProCard>
           <CardHeader
             icon={Gauge}
@@ -1432,6 +1437,240 @@ export default function OtpControl() {
         <WhitelistSection />
       </div>
     </ErrorBoundary>
+  );
+}
+
+/* ── Rate-limited / locked users panel ──────────────────────────────────── */
+
+type ThrottledEntry = {
+  key: string;
+  count: number;
+  firstAt: string;
+  expiresAt: string;
+  userId: string | null;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+};
+
+function maskIdentifier(id: string): string {
+  if (id.includes("@")) {
+    const [local, domain] = id.split("@");
+    return `${local.slice(0, 2)}***@${domain}`;
+  }
+  if (id.length > 6) return `${id.slice(0, 4)}***${id.slice(-2)}`;
+  return `${id.slice(0, 2)}***`;
+}
+
+function ExpiresIn({ iso }: { iso: string }) {
+  const [label, setLabel] = useState("");
+  useEffect(() => {
+    const tick = () => {
+      const ms = new Date(iso).getTime() - Date.now();
+      if (ms <= 0) { setLabel("Expired"); return; }
+      const m = Math.floor(ms / 60000);
+      const s = Math.floor((ms % 60000) / 1000);
+      setLabel(m > 0 ? `${m}m ${s}s` : `${s}s`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [iso]);
+  return <span>{label}</span>;
+}
+
+function LockedUsersPanel() {
+  const { toast } = useToast();
+  const [throttled, setThrottled] = useState<ThrottledEntry[]>([]);
+  const [maxAttempts, setMaxAttempts] = useState(5);
+  const [loading, setLoading] = useState(false);
+  const [unlocking, setUnlocking] = useState<Set<string>>(new Set());
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const d = await api("GET", "/otp/rate-limited");
+      if (d) {
+        setThrottled((d.throttled as ThrottledEntry[]) ?? []);
+        setMaxAttempts((d.maxAttempts as number) ?? 5);
+      }
+    } catch {
+      /* silent — don't spam toasts on background poll */
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+    intervalRef.current = setInterval(() => void load(), 30_000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [load]);
+
+  async function unlock(entry: ThrottledEntry) {
+    setUnlocking((prev) => new Set(prev).add(entry.key));
+    try {
+      await api("DELETE", "/otp/attempts/by-key", { key: entry.key });
+      toast({
+        title: "User Unlocked",
+        description: `Rate-limit cleared for ${maskIdentifier(entry.key)}.`,
+      });
+      setThrottled((prev) => prev.filter((e) => e.key !== entry.key));
+    } catch (e: unknown) {
+      toast({
+        title: "Error",
+        description: errorMessage(e, "Failed to clear rate-limit."),
+        variant: "destructive",
+      });
+    } finally {
+      setUnlocking((prev) => {
+        const next = new Set(prev);
+        next.delete(entry.key);
+        return next;
+      });
+    }
+  }
+
+  const count = throttled.length;
+
+  return (
+    <ProCard>
+      <div className="border-b border-border/60 bg-gradient-to-r from-rose-50/80 to-slate-50 px-5 py-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/60 text-rose-600 backdrop-blur-sm">
+              <LockKeyhole className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="font-display text-sm font-bold leading-none text-gray-900">
+                Rate-Limited Users
+              </h3>
+              <p className="mt-0.5 text-[11px] text-gray-500">
+                Identifiers currently throttled after {maxAttempts}+ failed OTP attempts
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {count > 0 && (
+              <span className="inline-flex items-center rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-700 border border-rose-200">
+                {count} throttled
+              </span>
+            )}
+            <button
+              onClick={() => void load()}
+              disabled={loading}
+              className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs font-medium transition-colors"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-5">
+        {loading && throttled.length === 0 ? (
+          <div className="text-muted-foreground flex items-center gap-2 py-4 text-sm">
+            <Loader2 className="h-4 w-4 animate-spin" /> Checking for throttled users…
+          </div>
+        ) : throttled.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-green-200 bg-green-50/40 py-8 text-center">
+            <ShieldCheck className="mx-auto mb-2 h-8 w-8 text-green-300" />
+            <p className="text-sm font-medium text-green-700">No throttled users right now</p>
+            <p className="mt-0.5 text-[11px] text-green-600">
+              Auto-refreshes every 30 s · last checked {new Date().toLocaleTimeString()}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {throttled.map((entry) => {
+              const isUnlocking = unlocking.has(entry.key);
+              const displayName = entry.name ?? null;
+              const displayId = entry.phone ?? entry.email ?? entry.key;
+              const isKnownUser = !!entry.userId;
+
+              return (
+                <div
+                  key={entry.key}
+                  className="flex items-center gap-3 rounded-xl border border-rose-200 bg-rose-50/40 px-4 py-3"
+                >
+                  {/* Avatar */}
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-rose-100 text-xs font-bold text-rose-600">
+                    {isKnownUser
+                      ? (displayName ?? "?")
+                          .split(" ")
+                          .map((w) => w[0])
+                          .slice(0, 2)
+                          .join("")
+                          .toUpperCase()
+                      : "?"}
+                  </div>
+
+                  {/* Info */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {displayName && (
+                        <span className="text-sm font-semibold text-gray-900 truncate">
+                          {displayName}
+                        </span>
+                      )}
+                      {!isKnownUser && (
+                        <span className="rounded-full border border-gray-200 bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">
+                          Unregistered
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
+                      <span className="font-mono">{maskIdentifier(displayId)}</span>
+                      <span className="h-1 w-1 rounded-full bg-gray-300" />
+                      <span>
+                        <span className="font-semibold text-rose-600">{entry.count}</span> attempts
+                      </span>
+                      <span className="h-1 w-1 rounded-full bg-gray-300" />
+                      <span className="flex items-center gap-0.5">
+                        <Clock className="h-3 w-3" />
+                        <ExpiresIn iso={entry.expiresAt} />
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Attempt count badge */}
+                  <div className="hidden shrink-0 sm:flex flex-col items-center">
+                    <span className="rounded-lg bg-rose-100 border border-rose-200 px-2 py-1 text-xs font-bold text-rose-700 tabular-nums">
+                      {entry.count}/{maxAttempts}
+                    </span>
+                    <span className="mt-0.5 text-[9px] text-rose-400 uppercase tracking-wide">
+                      attempts
+                    </span>
+                  </div>
+
+                  {/* Unlock button */}
+                  <button
+                    onClick={() => void unlock(entry)}
+                    disabled={isUnlocking}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-green-200 bg-white px-3 py-1.5 text-xs font-semibold text-green-700 transition-colors hover:bg-green-50 disabled:opacity-60"
+                  >
+                    {isUnlocking ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Unlock className="h-3 w-3" />
+                    )}
+                    Unlock
+                  </button>
+                </div>
+              );
+            })}
+
+            <p className="pt-1 text-[11px] text-muted-foreground">
+              Showing identifiers with ≥{maxAttempts} failed OTP attempts in the current window.
+              Unlocking clears the counter immediately.
+            </p>
+          </div>
+        )}
+      </div>
+    </ProCard>
   );
 }
 

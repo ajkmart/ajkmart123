@@ -7,7 +7,7 @@ import {
   whitelistUsersTable,
 } from "@workspace/db/schema";
 import { randomBytes } from "crypto";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, gt, gte, or } from "drizzle-orm";
 import { Router } from "express";
 import { generateId } from "../../lib/id.js";
 import { logger } from "../../lib/logger.js";
@@ -510,6 +510,129 @@ router.delete("/users/:id/otp/attempts", async (req, res) => {
     });
   } catch (error) {
     sendServerError(res, error, "clear OTP attempts");
+  }
+});
+
+/* ─── GET /admin/otp/rate-limited ─────────────────────────────────────────────
+   Returns all identifiers (phone/email) currently throttled because their
+   otp_attempts count has reached the platform's `security_otp_max_per_phone`
+   threshold and the window has not yet expired.  Includes matched user info
+   from the users table when the identifier is a known phone/email.
+─────────────────────────────────────────────────────────────────────────────*/
+router.get("/otp/rate-limited", async (_req, res) => {
+  try {
+    const s = await getPlatformSettings();
+    const maxAttempts = Math.max(1, parseInt(s["security_otp_max_per_phone"] ?? "5", 10));
+    const now = new Date();
+
+    const rows = await db
+      .select({
+        key: otpAttemptsTable.key,
+        count: otpAttemptsTable.count,
+        firstAt: otpAttemptsTable.firstAt,
+        expiresAt: otpAttemptsTable.expiresAt,
+        userId: usersTable.id,
+        userName: usersTable.name,
+        userEmail: usersTable.email,
+        userPhone: usersTable.phone,
+      })
+      .from(otpAttemptsTable)
+      /* Left-join users on phone first; email-keyed entries may not match
+         but are still returned with null user fields so the admin can see
+         and unlock them. */
+      .leftJoin(
+        usersTable,
+        or(
+          eq(otpAttemptsTable.key, usersTable.phone),
+          eq(otpAttemptsTable.key, usersTable.email)
+        )
+      )
+      .where(
+        and(
+          gt(otpAttemptsTable.expiresAt, now),
+          gte(otpAttemptsTable.count, maxAttempts)
+        )
+      )
+      .orderBy(desc(otpAttemptsTable.count));
+
+    sendSuccess(res, {
+      throttled: rows.map((r) => ({
+        key: r.key,
+        count: r.count,
+        firstAt: r.firstAt.toISOString(),
+        expiresAt: r.expiresAt.toISOString(),
+        userId: r.userId ?? null,
+        name: r.userName ?? null,
+        email: r.userEmail ?? null,
+        phone: r.userPhone ?? null,
+      })),
+      maxAttempts,
+      total: rows.length,
+    });
+  } catch (error) {
+    sendServerError(res, error, "fetch rate-limited users");
+  }
+});
+
+/* ─── DELETE /admin/otp/attempts/by-key ───────────────────────────────────────
+   Unlocks a throttled identifier (phone or email string) directly — without
+   needing to resolve a userId first.  Used by the Rate-Limited Users panel
+   where some entries may belong to unregistered numbers.
+─────────────────────────────────────────────────────────────────────────────*/
+router.delete("/otp/attempts/by-key", async (req, res) => {
+  const rawKey = typeof req.body?.key === "string" ? req.body.key.trim() : "";
+  const adminReq = req as AdminRequest;
+
+  if (!rawKey) {
+    return sendValidationError(res, "key (phone or email) is required");
+  }
+
+  try {
+    const deleted = await db
+      .delete(otpAttemptsTable)
+      .where(eq(otpAttemptsTable.key, rawKey))
+      .returning({ key: otpAttemptsTable.key });
+
+    if (deleted.length === 0) {
+      return sendNotFound(res, "No throttle record found for this identifier");
+    }
+
+    const ip = getClientIp(req);
+
+    /* Best-effort user lookup for richer audit trail. */
+    const user = await db.query.usersTable.findFirst({
+      where: or(eq(usersTable.phone, rawKey), eq(usersTable.email, rawKey)),
+      columns: { id: true, name: true },
+    });
+
+    await AuditService.executeWithAudit(
+      {
+        adminId: adminReq.adminId,
+        adminName: adminReq.adminName,
+        adminIp: ip,
+        action: "admin_clear_otp_attempts",
+        resourceType: "otp_rate_limit",
+        resource: rawKey,
+        details: `Cleared OTP rate-limit throttle for ${rawKey}${user ? ` (user: ${user.name ?? user.id})` : " (unregistered)"}`,
+      },
+      async () => ({ success: true })
+    );
+
+    void writeAuthAuditLog("admin_clear_otp_attempts", {
+      userId: user?.id,
+      ip,
+      userAgent: req.headers["user-agent"] ?? undefined,
+      metadata: { adminId: adminReq.adminId, identifier: rawKey },
+    });
+
+    logger.info(
+      { adminId: adminReq.adminId, key: rawKey, hasUser: !!user },
+      "[admin/otp] Rate-limit throttle cleared by admin"
+    );
+
+    sendSuccess(res, { message: `Rate-limit cleared for ${rawKey}`, key: rawKey });
+  } catch (error) {
+    sendServerError(res, error, "clear OTP rate-limit by key");
   }
 });
 
