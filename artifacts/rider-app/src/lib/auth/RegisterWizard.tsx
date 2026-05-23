@@ -145,7 +145,10 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
     setOtpVerifying(true);
     setError(null);
     try {
-      await api.verifyOtp(draft.phone ?? "", otp);
+      const res = (await api.verifyOtp(draft.phone ?? "", otp)) as Record<string, unknown>;
+      const token = (res.accessToken ?? res.token) as string | undefined;
+      const refreshToken = res.refreshToken as string | undefined;
+      if (token) api.storeTokens(token, refreshToken);
       setStep(2);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Invalid OTP. Please try again.");

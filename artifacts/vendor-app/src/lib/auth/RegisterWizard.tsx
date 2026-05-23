@@ -371,6 +371,17 @@ function OtpPasswordStep({ data, onChange, onError }: StepComponentProps) {
     return () => clearTimeout(t);
   }, [resendCooldown]);
 
+  /* Auto-send OTP when the step first mounts (if not already verified) */
+  useEffect(() => {
+    if (data.otpVerified === true) return;
+    const phone = (data.phone as string) ?? "";
+    if (!phone) return;
+    void sendOtp(phone).then((result) => {
+      if (!result.success) onError(result.error ?? "Failed to send OTP. Use Resend to try again.");
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /* Auto-verify OTP the moment all 6 digits are entered */
   const autoVerifyOtp = useCallback(
     async (code: string) => {

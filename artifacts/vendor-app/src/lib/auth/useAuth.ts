@@ -75,7 +75,7 @@ export function useAuth() {
   async function verifyOtp(phone: string, otp: string): Promise<AuthResult<TokenPair>> {
     return wrap(async () => {
       try {
-        const res = (await api.verifyOtp(phone, otp)) as Record<string, unknown>;
+        const res = (await api.verifyOtp(phone, otp, undefined, "vendor")) as Record<string, unknown>;
         return {
           success: true,
           data: {
