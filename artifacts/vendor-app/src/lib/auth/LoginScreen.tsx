@@ -879,7 +879,9 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
                   type="tel"
                   value={localPhone}
                   onChange={(e) => {
-                    setLocalPhone(e.target.value);
+                    let v = e.target.value.replace(/\D/g, "");
+                    if (v.startsWith("92")) v = v.slice(2);
+                    setLocalPhone(v.slice(0, 11));
                     setLoginError(null);
                   }}
                   onKeyDown={(e) => e.key === "Enter" && void handleSendOtp()}
