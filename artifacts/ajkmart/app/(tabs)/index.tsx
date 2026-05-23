@@ -253,7 +253,7 @@ const tr = StyleSheet.create({
   ctaTxt: { fontFamily: Font.semiBold, fontSize: 12, color: "#000" },
 });
 
-function WalletStrip({ balance, onPress, appName = T("appName") }: { balance: number; onPress: () => void; appName?: string }) {
+function WalletStrip({ balance, onPress, appName = "AJKMart" }: { balance: number; onPress: () => void; appName?: string }) {
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${appName} Wallet, Rs. ${balance.toLocaleString()}, tap to open`} style={ws.wrap}>
       <LinearGradient colors={["#0047B3", "#0066FF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={ws.card}>

@@ -56,7 +56,7 @@ const RIDE_STATUS: Record<string, { color: string; bg: string; icon: string; lab
   arrived:    { color: C.purple, bg: C.purpleSoft, icon: "location-outline",          labelKey: "arrived" },
   in_transit: { color: C.emerald, bg: C.emeraldSoft, icon: "car-outline",               labelKey: "inTransit" },
   ongoing:    { color: C.emerald, bg: C.emeraldSoft, icon: "car-outline",               labelKey: "inTransit" },
-  completed:  { color: C.gray, bg: C.graySoft, icon: "checkmark-done-outline",    labelKey: T("completedLabel") },
+  completed:  { color: C.gray, bg: C.graySoft, icon: "checkmark-done-outline",    labelKey: "completedLabel" },
   cancelled:  { color: C.red, bg: C.redSoft, icon: "close-circle-outline",      labelKey: "cancelled" },
 };
 
