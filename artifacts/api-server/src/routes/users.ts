@@ -49,6 +49,23 @@ const _stripHtml = (s: string) => s.replace(/<[^>]*>/g, "").trim();
 
 const UPLOADS_DIR = path.resolve(process.cwd(), "uploads");
 const ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
+
+/* Magic-byte signatures used to verify the actual content of uploaded images.
+   Rejects payloads where the declared Content-Type / mimeType doesn't match
+   the actual bytes, preventing polyglot-file and MIME-confusion attacks. */
+const AVATAR_MIME_MAGIC: Record<string, number[][]> = {
+  "image/jpeg": [[0xff, 0xd8, 0xff]],
+  "image/png": [[0x89, 0x50, 0x4e, 0x47]],
+  "image/webp": [[0x52, 0x49, 0x46, 0x46]], // RIFF header — WEBP
+};
+function detectAvatarMime(buf: Buffer): string | null {
+  for (const [mime, signatures] of Object.entries(AVATAR_MIME_MAGIC)) {
+    for (const sig of signatures) {
+      if (sig.every((byte, i) => buf[i] === byte)) return mime;
+    }
+  }
+  return null;
+}
 const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
 
 const avatarUpload = multer({
@@ -321,7 +338,9 @@ router.post(
           email: user.email,
           city: user.city,
           address: user.address,
-          cnic: user.cnic,
+          cnic: user.cnic
+            ? user.cnic.replace(/^(\d{5})\d{7}(\d{1})$/, "$1*******$2")
+            : null,
           walletBalance: parseFloat(user.walletBalance ?? "0"),
           createdAt: user.createdAt.toISOString(),
         },
@@ -510,14 +529,25 @@ router.post(
       if (req.file) {
         buffer = req.file.buffer;
         mime = req.file.mimetype;
+        /* Magic-byte verification for multipart uploads */
+        const actualMime = detectAvatarMime(buffer);
+        if (!actualMime) {
+          sendValidationError(res, "File appears corrupted or is not a valid image");
+          return;
+        }
+        if (!ALLOWED_AVATAR_TYPES.includes(actualMime)) {
+          sendValidationError(res, "Only JPEG, PNG, and WebP images are allowed");
+          return;
+        }
+        mime = actualMime;
       } else {
         const { file, mimeType } = req.body;
         if (!file) {
           sendValidationError(res, "No image data provided");
           return;
         }
-        mime = mimeType || "image/jpeg";
-        if (!ALLOWED_AVATAR_TYPES.includes(mime)) {
+        const claimedMime = (mimeType as string | undefined) || "image/jpeg";
+        if (!ALLOWED_AVATAR_TYPES.includes(claimedMime)) {
           sendValidationError(res, "Only JPEG, PNG, and WebP images are allowed");
           return;
         }
@@ -527,6 +557,17 @@ router.post(
           sendValidationError(res, "File too large. Maximum 5MB allowed");
           return;
         }
+        /* Magic-byte verification — reject if actual bytes don't match declared type */
+        const actualMime = detectAvatarMime(buffer);
+        if (!actualMime) {
+          sendValidationError(res, "File appears corrupted or is not a valid image");
+          return;
+        }
+        if (actualMime !== claimedMime && !(actualMime === "image/jpeg" && claimedMime === "image/jpg")) {
+          sendValidationError(res, "Image content does not match its declared type");
+          return;
+        }
+        mime = claimedMime;
       }
 
       const avatarUrl = await saveAvatarBuffer(userId, buffer, mime);

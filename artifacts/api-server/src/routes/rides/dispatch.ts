@@ -1,5 +1,6 @@
 import { rideNotifiedRidersTable } from "@workspace/db/schema";
 import { Router } from "express";
+import { redisClient } from "../../lib/redis.js";
 import {
   and,
   asc,
@@ -337,12 +338,43 @@ async function runDispatchCycle() {
   }
 }
 
+/* ── Distributed lock for the dispatch cycle ─────────────────────────────────
+   Acquires a Redis SET NX PX lock so only one instance runs the dispatch cycle
+   at a time in a multi-instance deployment.  When Redis is unavailable the
+   lock is skipped and the cycle runs normally (graceful degradation). */
+const DISPATCH_INTERVAL_MS = 10_000;
+const DISPATCH_LOCK_KEY = "scheduler:lock:dispatch-engine";
+const DISPATCH_LOCK_TTL_MS = 8_000; // shorter than interval so lock always expires
+
+async function runDispatchCycleWithLock(): Promise<void> {
+  if (!redisClient) {
+    await runDispatchCycle();
+    return;
+  }
+  let acquired = false;
+  try {
+    const result = await redisClient.set(DISPATCH_LOCK_KEY, "1", "NX", "PX", DISPATCH_LOCK_TTL_MS);
+    acquired = result === "OK";
+    if (!acquired) {
+      logger.debug("[dispatch-engine] lock held by another instance — skipping cycle");
+      return;
+    }
+    await runDispatchCycle();
+  } finally {
+    if (acquired) {
+      redisClient.del(DISPATCH_LOCK_KEY).catch((e: Error) =>
+        logger.warn({ err: e.message }, "[dispatch-engine] lock release failed")
+      );
+    }
+  }
+}
+
 let dispatchInterval: ReturnType<typeof setInterval> | null = null;
 export function startDispatchEngine() {
   if (dispatchInterval) return;
-  dispatchInterval = setInterval(runDispatchCycle, 10_000);
+  dispatchInterval = setInterval(runDispatchCycleWithLock, DISPATCH_INTERVAL_MS);
   logger.info("[dispatch-engine] started (every 10s)");
-  void runDispatchCycle();
+  void runDispatchCycleWithLock();
 }
 
 export function stopDispatchEngine() {

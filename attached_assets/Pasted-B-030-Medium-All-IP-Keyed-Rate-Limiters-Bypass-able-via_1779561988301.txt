@@ -1,0 +1,188 @@
+B-030 — Medium — All IP-Keyed Rate Limiters Bypass-able via Spoofed X-Forwarded-For Header
+Severity: Medium
+Category: Rate Limiting / Access Control
+App: api-server → artifacts/api-server/src/middleware/rate-limit.ts (line 127–130), artifacts/api-server/src/middleware/security.ts (line 544–547)
+
+Description:
+Every IP-based rate limiter and the central getClientIp() audit helper derive the client IP by reading the leftmost value from the X-Forwarded-For header:
+
+// rate-limit.ts  line 127–130
+const ipKey = (req: Request): string =>
+  (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+  req.socket?.remoteAddress || "unknown";
+// security.ts  line 544–547  (used in audit log & addAuditEntry)
+export function getClientIp(req: Request): string {
+  return (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+    req.socket?.remoteAddress || "unknown";
+}
+
+app.set("trust proxy", 1) (app.ts line 318) tells Express to trust one upstream proxy, but this setting only affects req.ip — it does not prevent a client from prepending arbitrary IPs to the raw X-Forwarded-For header before the request reaches the proxy.
+
+Attack scenario:
+
+A reverse proxy (Nginx / Replit ingress) sits in front of the API and appends the real client IP:
+X-Forwarded-For: <real-client-ip>.
+The attacker prefixes a fake IP before the request reaches the proxy:
+X-Forwarded-For: 1.2.3.4, <real-client-ip>.
+ipKey() and getClientIp() return 1.2.3.4.
+The attacker rotates spoofed prefixes per request, giving each request a different rate-limit key → all OTP, login, registration, and password-reset rate limits are bypassed.
+18 ipKey / userOrIpKey / getClientIp call-sites are affected, including the critical OTP send/verify, phone-login brute-force, and admin-login limiters.
+
+Affected Files:
+
+artifacts/api-server/src/middleware/rate-limit.ts — ipKey() (line 127), userOrIpKey() (line 131), 18 call-sites
+artifacts/api-server/src/middleware/security.ts — getClientIp() (line 544)
+Suggested Fix:
+Replace the manual header split with req.ip, which Express already normalises correctly under the trust proxy setting:
+
+const ipKey = (req: Request): string =>
+  req.ip || req.socket?.remoteAddress || "unknown";
+export function getClientIp(req: Request): string {
+  return req.ip || req.socket?.remoteAddress || "unknown";
+}
+
+Or, if the environment sits behind more than one proxy, set trust proxy to the exact number of hops or to the known proxy CIDR, and keep using req.ip.
+
+B-031 — Medium — Promo Code / Offer Usage Limit Check Is a TOCTOU Race Condition
+Severity: Medium
+Category: Business Logic / Race Condition
+App: api-server → artifacts/api-server/src/routes/orders.ts
+
+Description:
+The promo-code and offer usage-limit check (validatePromoCode) runs outside the DB transaction that later increments usedCount. This is a classic Time-Of-Check / Time-Of-Use (TOCTOU) race condition.
+
+Attack scenario (two concurrent requests):
+
+Admin sets a promo code to maxUses = 1, usedCount = 0.
+Attacker sends two simultaneous POST /orders requests with the same promo code.
+Both requests call validatePromoCode() before the transaction — both see usedCount (0) < maxUses (1) → both pass.
+Both transactions commit usedCount + 1 → usedCount ends up at 2, promo used twice.
+// orders.ts line 779 — check is OUTSIDE the transaction
+const promo = await validatePromoCode(promoCode.trim(), subtotal, orderType, customerId);
+// ...
+await db.transaction(async (tx) => {
+  // ...
+  await tx.update(promoCodesTable)           // ← increment INSIDE transaction
+    .set({ usedCount: sql`${promoCodesTable.usedCount} + 1` })
+    .where(eq(promoCodesTable.id, promoId));
+});
+
+For offers (offersTable), an offerRedemptionsTable insert with .onConflictDoNothing() prevents one user from redeeming the same offer twice, but it does NOT prevent the global usageLimit from being exceeded by concurrent different-user requests.
+
+For legacy promo codes (promoCodesTable), there is no per-user uniqueness guard at all — even one user can exploit this race.
+
+Affected Files:
+
+artifacts/api-server/src/routes/orders.ts — validatePromoCode call (line 779), usedCount increments (lines 878–886)
+Suggested Fix:
+Move the usage-limit check inside the transaction with a SELECT ... FOR UPDATE lock on the promo row, or use an atomic conditional update:
+
+UPDATE promo_codes
+SET used_count = used_count + 1
+WHERE id = $1 AND (usage_limit IS NULL OR used_count < usage_limit)
+RETURNING id
+-- If no row returned → usage limit already hit → abort transaction
+
+B-032 — Low — GET /api/health Is Unauthenticated and Leaks Server Environment Details
+Severity: Low
+Category: Information Disclosure
+App: api-server → artifacts/api-server/src/routes/health.ts
+
+Description:
+The main health endpoint (router.get("/"), mounted at GET /api/health) has no authentication middleware and returns a detailed JSON payload visible to any unauthenticated caller:
+
+{
+  "status": "ok",
+  "environment": "production",          // ← NODE_ENV
+  "nodeVersion": "v20.11.0",            // ← exact Node.js version
+  "version": "2.1.4",
+  "smtp": { "status": "ok", "provider": "smtp.mailgun.org" },  // ← SMTP host!
+  "memoryPct": 42,
+  "diskPct": 31,
+  "dbPoolSize": 10, "dbIdleCount": 8, "dbWaitingCount": 0,
+  "uptime": 87234.5,
+  "p95Ms": 112
+}
+
+An attacker gains:
+
+Node.js version → look up CVEs for that exact runtime
+SMTP provider hostname (process.env["SMTP_HOST"]) → phishing/spoofing target intelligence
+Infrastructure metrics (memory, disk, DB pool) → capacity-planning information for a targeted DoS
+Uptime → infer restart schedule / patch windows
+The sibling endpoint GET /api/health/schema-drift is correctly protected with adminAuth (line 218), but the base GET /api/health has no protection.
+
+Affected Files:
+
+artifacts/api-server/src/routes/health.ts — router.get("/", ...) (line 16, no auth middleware)
+Suggested Fix:
+Strip sensitive fields from the public response and/or guard the full payload behind adminAuth:
+
+// Public response (no auth):
+res.json({ status: overallStatus, db: db2, redis: redis2 });
+// Full response only for authenticated admins:
+router.get("/details", adminAuth, async (_req, res) => { /* full payload */ });
+
+B-033 — High — Sub-Admin Can Self-Escalate to Super-Admin via Unconstrained Role String
+Severity: High
+Category: Privilege Escalation / Broken Access Control
+App: api-server → artifacts/api-server/src/routes/admin/admin-accounts.ts, artifacts/api-server/src/middleware/require-permission.ts
+
+Description:
+Any sub-admin that holds the system.roles.manage permission can escalate their own role to "super" by patching their own account record. Once the DB row is updated and the admin re-authenticates, their JWT carries role: "super" — which causes isSuper() to return true in requirePermission, bypassing all fine-grained permission checks across every admin route.
+
+Step-by-step exploit:
+
+1. Sub-admin Alice is granted "system.roles.manage" by a real super-admin.
+2. Alice sends:
+     PATCH /api/admin/admin-accounts/{Alice's own adminId}
+     Authorization: Bearer <Alice's valid token>
+     { "role": "super" }
+3. patchSchema accepts any z.string().min(1).max(64) — no role whitelist.
+4. Alice's DB row now has role = "super".
+5. Alice logs out, logs in again → JWT payload: { ..., "role": "super" }
+6. requirePermission("any.permission") → isSuper(req) === true → next() → BYPASSED.
+
+Root cause — two cooperating gaps:
+
+// admin-accounts.ts — no role whitelist
+const patchSchema = z.object({
+  role: z.string().min(1).max(64).optional(),  // ← any string, including "super"
+  isActive: z.boolean().optional(),
+});
+// One guard: prevents self-deactivation. NO guard against self-role-escalation:
+if (body.isActive === false && id === aReq.adminId) {
+  return sendError(res, "You cannot deactivate your own account", 400);
+}
+
+// require-permission.ts
+function isSuper(req: Request): boolean {
+  return req.adminRole === "super";  // ← simple string comparison, forgeable via role update
+}
+export function requirePermission(permission: string) {
+  return async (req, res, next) => {
+    if (isSuper(req)) return next();  // ← bypasses ALL permission checks
+    ...
+  };
+}
+
+Affected Files:
+
+artifacts/api-server/src/routes/admin/admin-accounts.ts — patchSchema (line ~62), missing self-role guard
+artifacts/api-server/src/middleware/require-permission.ts — isSuper() string comparison (line 20)
+Suggested Fix:
+
+// admin-accounts.ts — add role whitelist and block self-escalation:
+const ALLOWED_ROLES = ["admin", "manager", "support", "analyst", "finance"];
+const patchSchema = z.object({
+  role: z.enum(ALLOWED_ROLES as [string, ...string[]]).optional(),
+  isActive: z.boolean().optional(),
+});
+// AND block self-role-change:
+if (body.role !== undefined && id === aReq.adminId) {
+  return sendError(res, "You cannot change your own role", 400);
+}
+// AND prevent assigning "super" regardless of who requests it:
+if (body.role === "super") {
+  return sendForbidden(res, "The super role cannot be assigned via this endpoint");
+}
