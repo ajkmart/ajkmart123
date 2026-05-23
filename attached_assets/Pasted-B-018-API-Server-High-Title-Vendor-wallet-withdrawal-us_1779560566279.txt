@@ -1,0 +1,101 @@
+B-018 — API Server | High
+Title: Vendor wallet withdrawal uses stale cached balance — no pessimistic lock
+
+Description:
+The vendor withdrawal route (POST /vendors/wallet/withdraw) reads the vendor's wallet balance from req.vendorUser.walletBalance, which is populated by a middleware that runs once per request — not inside the withdrawal transaction.
+
+// ── Middleware loads user once at request start ──
+const [user] = await db.select().from(usersTable).where(eq(usersTable.id, vendorId)).limit(1);
+req.vendorUser = user;
+// ── Withdrawal handler uses the cached value ──
+const balance = safeNum(user.walletBalance);   // stale — may be 200ms+ old
+if (amt > balance) { sendError(res, "Insufficient balance"); return; }
+await db.transaction(async (tx) => {
+  await tx.update(usersTable)
+    .set({ walletBalance: sql`wallet_balance - ${amt}` })
+    .where(eq(usersTable.id, vendorId));  // ← no FOR UPDATE, no live balance check
+});
+
+Compare with the customer wallet withdrawal, which correctly does:
+
+const [user] = await tx.select(...).from(usersTable).where(...).for("update");
+const bal = parseFloat(user.walletBalance ?? "0");
+if (bal < amount) throw new Error("Insufficient wallet balance");
+
+A vendor can fire two simultaneous withdrawal requests. Both read the same walletBalance, both pass the check, and both execute the deduction — overdrafting the account.
+
+Expected: Withdrawal reads a fresh balance with SELECT ... FOR UPDATE inside the transaction (identical to customer wallet withdraw).
+Actual: Stale cached balance is used; concurrent requests can overdraft the vendor wallet.
+
+Affected Files:
+
+artifacts/api-server/src/routes/vendor.ts — POST /wallet/withdraw (~line 1661)
+Suggested Fix:
+Mirror the customer wallet withdrawal pattern: inside db.transaction(), do a SELECT ... FOR UPDATE on the user row, re-check balance live, then deduct.
+
+B-019 — API Server | High
+Title: Admin-configurable phone number regex processed without ReDoS validation
+
+Description:
+isValidCanonicalPhone() in artifacts/api-server/src/routes/auth/helpers.ts creates a RegExp directly from a DB-stored admin setting with no safety validation:
+
+export async function isValidCanonicalPhone(phone: string): Promise<boolean> {
+  const s = await getCachedSettings();
+  const pattern = s["regional_phone_format"] ?? "^0?3\\d{9}$";
+  return new RegExp(pattern).test(phone);   // ← unchecked user-controlled regex
+}
+
+A malicious admin (or an attacker who has compromised the settings DB) can set regional_phone_format to a catastrophic backtracking pattern such as ^(a+)+$. Every subsequent OTP-send, registration, or phone-validation call will then hang the event loop for seconds per request, causing a Denial of Service across all API endpoints that call isValidCanonicalPhone.
+
+The 5-minute settings cache (getCachedSettings) means a single settings write affects all pods for up to 5 minutes before expiry.
+
+Expected: The regex pattern is validated with a safe-regex check (e.g., safe-regex2 library) before being stored or before being compiled.
+Actual: The pattern is compiled and executed unchecked; catastrophic backtracking is possible.
+
+Affected Files:
+
+artifacts/api-server/src/routes/auth/helpers.ts — isValidCanonicalPhone() (~line 63–70)
+Suggested Fix:
+
+import safeRegex from "safe-regex2";
+const pattern = s["regional_phone_format"] ?? "^0?3\\d{9}$";
+if (!safeRegex(pattern)) {
+  logger.warn("[phone] unsafe regex pattern ignored, using default");
+  return /^0?3\d{9}$/.test(phone);
+}
+return new RegExp(pattern).test(phone);
+
+Additionally, validate the pattern at admin settings-save time and reject unsafe patterns.
+
+Medium Severity Bugs (Second-Pass)
+B-020 — API Server | Medium
+Title: GPS batch endpoint accepts arbitrary historical timestamps (location history spoofing)
+
+Description:
+POST /locations/batch in artifacts/api-server/src/routes/locations.ts replays queued GPS pings using the client-supplied timestamp directly:
+
+const now = ping.timestamp ? new Date(ping.timestamp) : new Date();
+// `now` is then passed into processLocationUpdate and written to location_history
+const result = await processLocationUpdate({ ..., now });
+
+There is no validation that:
+
+The timestamp is not in the distant past (e.g., a rider submitting a ping from 3 days ago)
+The timestamp is not in the future
+The batch contains timestamps within a reasonable offline window (e.g., max 24h old)
+A rider can submit fabricated pings with any timestamp to manipulate their stored location history, reconstruct an alibi for their whereabouts, or bypass time-based rules.
+
+Expected: The batch endpoint rejects pings older than a configurable maximum (e.g., 24h) and clamps future timestamps to now.
+Actual: Any client-supplied timestamp is accepted and written to location_history without bounds checking.
+
+Affected Files:
+
+artifacts/api-server/src/routes/locations.ts — POST /locations/batch (~line 656–760)
+Suggested Fix:
+
+const MAX_PING_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+const serverNow = Date.now();
+const rawTs = ping.timestamp ? new Date(ping.timestamp).getTime() : serverNow;
+const clampedTs = Math.min(rawTs, serverNow);          // no future timestamps
+if (serverNow - clampedTs > MAX_PING_AGE_MS) { skipped++; continue; }
+const now = new Date(clampedTs);

@@ -1,0 +1,69 @@
+B-015 — API Server | Low
+Title: devCode exposure depends on two env vars being set correctly — no startup validation
+
+Description:
+The OTP devCode field (which returns the plaintext OTP code in the API response) is gated by:
+
+function isDevMode(): boolean {
+  return process.env["NODE_ENV"] !== "production" && process.env["ALLOW_DEV_OTP"] === "true";
+}
+
+This is correctly implemented. However, there is no startup check that validates ALLOW_DEV_OTP is NOT set in production. If a deployment accidentally sets ALLOW_DEV_OTP=true with NODE_ENV=staging (common in staging environments), OTP codes are leaked in API responses.
+
+Suggested Fix:
+
+if (process.env["ALLOW_DEV_OTP"] === "true" && process.env["NODE_ENV"] === "production") {
+  logger.fatal("ALLOW_DEV_OTP must not be set in production!");
+  process.exit(1);
+}
+
+B-016 — API Server | Low
+Title: generateOtpCode using randomInt — verify upper bound is inclusive
+
+Description:
+In artifacts/api-server/src/modules/otp/otp.generate.ts:
+
+const min = Math.pow(10, length - 1); // 100000 for 6-digit
+const max = Math.pow(10, length) - 1; // 999999
+return String(randomInt(min, max + 1)).padStart(length, "0");
+
+Node's crypto.randomInt(min, max) is exclusive of max, so the code correctly passes max + 1 = 1000000. However, this is non-obvious and a future refactor could easily drop the + 1, making 999999 unreachable and creating a subtle bias. The range is correct now, but a comment is missing.
+
+Suggested Fix: Add a clear comment: // randomInt(min, max) is exclusive of max, so +1 ensures 999999 is included.
+
+B-017 — API Server | High
+Title: Promo/offer usageLimit TOCTOU race condition
+
+Description:
+validatePromoCode() in artifacts/api-server/src/routes/orders.ts checks offer.usedCount >= offer.usageLimit outside any database transaction and without a row-level lock on the offer row. The usedCount increment only happens later, inside the order-placement transaction — but there is no SELECT ... FOR UPDATE on the offer row at that point either.
+
+// ── validatePromoCode() — runs BEFORE the order transaction ──
+if (offer.usageLimit != null && offer.usedCount >= offer.usageLimit) {
+  return { valid: false, error: "This offer has reached its usage limit." };
+}
+// ... 200ms later, inside db.transaction():
+await tx.update(offersTable)
+  .set({ usedCount: sql`${offersTable.usedCount} + 1` })
+  .where(eq(offersTable.id, offerId));   // ← no FOR UPDATE, no re-check
+
+Two concurrent requests both read usedCount = 4 against usageLimit = 5, both pass the check, and both increment — final usedCount becomes 6, exceeding the limit by 1 per concurrent pair. With high traffic this can be multiplied.
+
+Expected: The offer row is locked with SELECT ... FOR UPDATE inside the transaction, and usedCount < usageLimit is re-verified after acquiring the lock.
+Actual: Check is done pre-transaction without a lock; concurrent orders can exceed the configured usage limit.
+
+Affected Files:
+
+artifacts/api-server/src/routes/orders.ts — validatePromoCode() (line ~459) and order placement transaction (line ~867–884)
+Suggested Fix:
+Inside the order-placement db.transaction(), add a locked re-fetch before incrementing:
+
+const [lockedOffer] = await tx.execute(
+  sql`SELECT id, used_count, usage_limit FROM offers WHERE id = ${offerId} FOR UPDATE`
+);
+if (lockedOffer.usage_limit != null && lockedOffer.used_count >= lockedOffer.usage_limit) {
+  throw new Error("Offer usage limit reached");
+}
+await tx.update(offersTable)
+  .set({ usedCount: sql`${offersTable.usedCount} + 1` })
+  .where(eq(offersTable.id, offerId));
+
