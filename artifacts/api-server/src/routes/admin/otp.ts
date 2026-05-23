@@ -579,8 +579,20 @@ router.get("/otp/rate-limited", async (_req, res) => {
       )
       .orderBy(desc(otpAttemptsTable.count));
 
+    /* Deduplicate by key — the OR join (`key = phone OR key = email`) can
+       produce multiple rows for a single otp_attempts key when one identifier
+       happens to match both the phone of one user and the email of another.
+       Phone uniqueness is enforced by schema so this is rare, but we must
+       guard against it to avoid duplicate React keys and a wrong total count.
+       We keep the first row per key (highest count first after ORDER BY). */
+    const deduped = new Map<string, (typeof rows)[0]>();
+    for (const row of rows) {
+      if (!deduped.has(row.key)) deduped.set(row.key, row);
+    }
+    const unique = [...deduped.values()];
+
     sendSuccess(res, {
-      throttled: rows.map((r) => ({
+      throttled: unique.map((r) => ({
         key: r.key,
         count: r.count,
         firstAt: r.firstAt.toISOString(),
@@ -591,7 +603,7 @@ router.get("/otp/rate-limited", async (_req, res) => {
         phone: r.userPhone ?? null,
       })),
       maxAttempts,
-      total: rows.length,
+      total: unique.length,
     });
   } catch (error) {
     sendServerError(res, error, "fetch rate-limited users");
