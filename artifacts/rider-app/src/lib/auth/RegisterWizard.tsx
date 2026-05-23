@@ -418,6 +418,9 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
                   style={{ ...inputStyle, flex: 1 }}
                 />
               </div>
+              <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 4 }}>
+                Format: 03XX-XXXXXXX or +923XX-XXXXXXX
+              </div>
               <input
                 value={draft.username ?? ""}
                 onChange={(e) => {
