@@ -116,6 +116,16 @@ function checkEnv(): void {
       }
     }
 
+    // Block known dev placeholder for ENCRYPTION_MASTER_KEY in production
+    if (process.env.ENCRYPTION_MASTER_KEY === "dev-placeholder-master-key-0000000") {
+      logger.fatal(
+        "[env:check] FATAL — dev placeholder ENCRYPTION_MASTER_KEY detected in production. " +
+          "Generate a real key: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\" " +
+          "and update it in the Replit Secrets panel before deploying."
+      );
+      process.exit(1);
+    }
+
     // Validate encryption key
     const encKey = process.env.ENCRYPTION_MASTER_KEY;
     if (encKey) {

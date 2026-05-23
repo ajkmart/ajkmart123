@@ -113,6 +113,33 @@ export async function runStartupTasks(): Promise<void> {
     }
   }
 
+  /* ── ENCRYPTION_MASTER_KEY presence check ────────────────────────────────
+     All PII fields (phone numbers, emails) are encrypted with AES-256-GCM
+     using ENCRYPTION_MASTER_KEY. If this key is absent in production, every
+     PII write silently falls back to plaintext — a database breach would
+     expose all user PII unencrypted. Hard-fail in production; warn loudly in
+     development so the gap is never silently ignored. */
+  if (!process.env.ENCRYPTION_MASTER_KEY) {
+    if (process.env.NODE_ENV === "production") {
+      logger.fatal(
+        "[startup] FATAL CONFIG ERROR: ENCRYPTION_MASTER_KEY is not set. " +
+          "All PII (phone numbers, emails) would be stored as plaintext. " +
+          "Set this secret in your environment before deploying. " +
+          "Generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
+      );
+      throw new Error("ENCRYPTION_MASTER_KEY must be set in production");
+    } else {
+      logger.warn(
+        "[startup] WARNING: ENCRYPTION_MASTER_KEY is not set. " +
+          "PII fields will be stored as plaintext (development only). " +
+          "Set this secret before deploying to production. " +
+          "Generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
+      );
+    }
+  } else {
+    logger.info("[startup] ENCRYPTION_MASTER_KEY is configured.");
+  }
+
   await runSqlMigrations();
   try {
     await checkMigrationGuard();

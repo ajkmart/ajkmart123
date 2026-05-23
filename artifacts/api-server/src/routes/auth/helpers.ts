@@ -566,20 +566,28 @@ export function isDeviceTrusted(
   }
 }
 
-/** Encrypt a PII string when ENCRYPTION_MASTER_KEY is available; returns null (plaintext fallback) if not. */
+/** Encrypt a PII string when ENCRYPTION_MASTER_KEY is available.
+ *  In production, throws a hard error if encryption is unavailable (no plaintext fallback).
+ *  In development, logs a warning and returns null to avoid blocking local work. */
 export function tryEncrypt(value: string | null | undefined): string | null {
   if (!value) return null;
   try {
     if (!isEncryptionAvailable()) {
       if (process.env["NODE_ENV"] === "production") {
-        logger.warn(
-          "[crypto] ENCRYPTION_MASTER_KEY is not set — PII stored as plaintext. Set this secret to enable encryption."
+        throw new Error(
+          "FATAL: ENCRYPTION_MASTER_KEY is not set — cannot store PII. Set this secret before deploying."
         );
       }
+      logger.warn(
+        "[crypto] ENCRYPTION_MASTER_KEY is not set — PII stored as plaintext (development only). Set this secret before deploying to production."
+      );
       return null;
     }
     return encrypt(value);
   } catch (err) {
+    if (process.env["NODE_ENV"] === "production") {
+      throw err;
+    }
     logger.error(
       {
         error: err instanceof Error ? err.message : String(err),
