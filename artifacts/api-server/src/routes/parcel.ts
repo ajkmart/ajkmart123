@@ -24,7 +24,7 @@ import {
 } from "../lib/response.js";
 import { gpsAntiSpoofMiddleware } from "../middleware/gpsSpoof.js";
 import { publicLimiter } from "../middleware/rate-limit.js";
-import { addSecurityEvent, customerAuth, riderAuth } from "../middleware/security.js";
+import { addSecurityEvent, customerAuth, getClientIp, riderAuth } from "../middleware/security.js";
 import { verifyOwnership } from "../middleware/verifyOwnership.js";
 import { getCachedSettings } from "./admin.js";
 
@@ -287,10 +287,7 @@ router.post("/", customerAuth, async (req, res, next) => {
     }
 
     /* ── Fraud detection (mirrors orders.ts pattern) ── */
-    const ip =
-      (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
-      req.socket.remoteAddress ||
-      "unknown";
+    const ip = getClientIp(req);
     {
       const [userRecord] = await db
         .select({
