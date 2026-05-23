@@ -135,9 +135,7 @@ function authDelete(path: string) {
 }
 
 function authGet(path: string) {
-  return request(app)
-    .get(path)
-    .set("Authorization", `Bearer ${adminToken}`);
+  return request(app).get(path).set("Authorization", `Bearer ${adminToken}`);
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
@@ -146,8 +144,11 @@ describe("POST /api/admin/riders/:id/penalties", () => {
   it("debits the rider wallet and creates a debit transaction", async () => {
     await setWalletBalance(riderId, 500);
 
-    const res = await authPost(`/api/admin/riders/${riderId}/penalties`)
-      .send({ type: "manual", amount: 200, reason: "Test deduction" });
+    const res = await authPost(`/api/admin/riders/${riderId}/penalties`).send({
+      type: "manual",
+      amount: 200,
+      reason: "Test deduction",
+    });
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
@@ -195,8 +196,11 @@ describe("POST /api/admin/riders/:id/penalties", () => {
   it("does not go below zero when penalty exceeds balance", async () => {
     await setWalletBalance(riderId, 50);
 
-    const res = await authPost(`/api/admin/riders/${riderId}/penalties`)
-      .send({ type: "cancel", amount: 200, reason: "Cancellation penalty" });
+    const res = await authPost(`/api/admin/riders/${riderId}/penalties`).send({
+      type: "cancel",
+      amount: 200,
+      reason: "Cancellation penalty",
+    });
 
     expect(res.status).toBe(201);
 
@@ -207,8 +211,11 @@ describe("POST /api/admin/riders/:id/penalties", () => {
   it("creates the penalty row but skips wallet debit when amount is 0", async () => {
     await setWalletBalance(riderId, 300);
 
-    const res = await authPost(`/api/admin/riders/${riderId}/penalties`)
-      .send({ type: "warning", amount: 0, reason: "Formal warning" });
+    const res = await authPost(`/api/admin/riders/${riderId}/penalties`).send({
+      type: "warning",
+      amount: 0,
+      reason: "Formal warning",
+    });
 
     expect(res.status).toBe(201);
     expect(res.body.penalty.amount).toBe(0);
@@ -232,8 +239,10 @@ describe("POST /api/admin/riders/:id/penalties", () => {
   it("accepts a penalty without an explicit reason", async () => {
     await setWalletBalance(riderId, 100);
 
-    const res = await authPost(`/api/admin/riders/${riderId}/penalties`)
-      .send({ type: "manual", amount: 50 });
+    const res = await authPost(`/api/admin/riders/${riderId}/penalties`).send({
+      type: "manual",
+      amount: 50,
+    });
 
     expect(res.status).toBe(201);
     expect(res.body.penalty.amount).toBe(50);
@@ -241,8 +250,10 @@ describe("POST /api/admin/riders/:id/penalties", () => {
   });
 
   it("returns 404 for a non-existent rider", async () => {
-    const res = await authPost(`/api/admin/riders/nonexistent_rider_xyz/penalties`)
-      .send({ type: "manual", amount: 100 });
+    const res = await authPost(`/api/admin/riders/nonexistent_rider_xyz/penalties`).send({
+      type: "manual",
+      amount: 100,
+    });
 
     expect(res.status).toBe(404);
   });
@@ -260,8 +271,11 @@ describe("DELETE /api/admin/riders/:id/penalties/:pid", () => {
   it("removes the penalty and credits the wallet back", async () => {
     await setWalletBalance(riderId, 500);
 
-    const addRes = await authPost(`/api/admin/riders/${riderId}/penalties`)
-      .send({ type: "manual", amount: 200, reason: "Reversal test" });
+    const addRes = await authPost(`/api/admin/riders/${riderId}/penalties`).send({
+      type: "manual",
+      amount: 200,
+      reason: "Reversal test",
+    });
     expect(addRes.status).toBe(201);
 
     const penaltyId = addRes.body.penalty.id as string;
@@ -305,8 +319,10 @@ describe("DELETE /api/admin/riders/:id/penalties/:pid", () => {
   it("removes a zero-amount penalty without any wallet change", async () => {
     await setWalletBalance(riderId, 400);
 
-    const addRes = await authPost(`/api/admin/riders/${riderId}/penalties`)
-      .send({ type: "warning", amount: 0 });
+    const addRes = await authPost(`/api/admin/riders/${riderId}/penalties`).send({
+      type: "warning",
+      amount: 0,
+    });
     expect(addRes.status).toBe(201);
 
     const penaltyId = addRes.body.penalty.id as string;
@@ -342,8 +358,10 @@ describe("DELETE /api/admin/riders/:id/penalties/:pid", () => {
     });
 
     try {
-      const addRes = await authPost(`/api/admin/riders/${otherRiderId}/penalties`)
-        .send({ type: "manual", amount: 50 });
+      const addRes = await authPost(`/api/admin/riders/${otherRiderId}/penalties`).send({
+        type: "manual",
+        amount: 50,
+      });
       expect(addRes.status).toBe(201);
       const penaltyId = addRes.body.penalty.id as string;
 
@@ -362,10 +380,16 @@ describe("GET /api/admin/riders/:id/penalties", () => {
   it("returns a list of penalties for a rider", async () => {
     await setWalletBalance(riderId, 500);
 
-    await authPost(`/api/admin/riders/${riderId}/penalties`)
-      .send({ type: "cancel", amount: 100, reason: "Late cancellation" });
-    await authPost(`/api/admin/riders/${riderId}/penalties`)
-      .send({ type: "warning", amount: 0, reason: "First warning" });
+    await authPost(`/api/admin/riders/${riderId}/penalties`).send({
+      type: "cancel",
+      amount: 100,
+      reason: "Late cancellation",
+    });
+    await authPost(`/api/admin/riders/${riderId}/penalties`).send({
+      type: "warning",
+      amount: 0,
+      reason: "First warning",
+    });
 
     const res = await authGet(`/api/admin/riders/${riderId}/penalties`);
 

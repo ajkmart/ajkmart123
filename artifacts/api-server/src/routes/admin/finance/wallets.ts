@@ -1048,7 +1048,10 @@ router.post(
       });
     } catch (err) {
       logger.error(
-        { error: err instanceof Error ? err.message : String(err), timestamp: new Date().toISOString() },
+        {
+          error: err instanceof Error ? err.message : String(err),
+          timestamp: new Date().toISOString(),
+        },
         "[route] unhandled error"
       );
       res.status(500).json({ success: false, error: "Internal server error" });
@@ -1102,7 +1105,10 @@ router.delete(
       res.json({ success: true });
     } catch (err) {
       logger.error(
-        { error: err instanceof Error ? err.message : String(err), timestamp: new Date().toISOString() },
+        {
+          error: err instanceof Error ? err.message : String(err),
+          timestamp: new Date().toISOString(),
+        },
         "[route] unhandled error"
       );
       res.status(500).json({ success: false, error: "Internal server error" });

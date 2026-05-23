@@ -193,8 +193,7 @@ export default function Transactions() {
           <div className="flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5">
             <User className="h-4 w-4 shrink-0 text-sky-600" />
             <span className="flex-1 text-sm font-medium text-sky-800">
-              Filtered by rider:{" "}
-              <span className="font-mono text-xs">{userIdFilter}</span>
+              Filtered by rider: <span className="font-mono text-xs">{userIdFilter}</span>
             </span>
             <button
               onClick={() => navigate("/transactions")}

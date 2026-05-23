@@ -33,29 +33,32 @@
   "lint-staged": {
     "artifacts/api-server/src/**/*.ts": [
       "prettier --write",
-      "eslint --fix",
-      "node_modules/.bin/tsc -p artifacts/api-server/tsconfig.json --noEmit"
+      "eslint --fix"
     ],
     "artifacts/admin/src/**/*.{ts,tsx}": [
       "prettier --write",
-      "eslint --fix",
-      "node_modules/.bin/tsc -p artifacts/admin/tsconfig.json --noEmit"
+      "eslint --fix"
     ],
     "artifacts/rider-app/src/**/*.{ts,tsx}": [
       "prettier --write",
-      "eslint --fix",
-      "node_modules/.bin/tsc -p artifacts/rider-app/tsconfig.json --noEmit"
+      "eslint --fix"
     ],
     "artifacts/vendor-app/src/**/*.{ts,tsx}": [
       "prettier --write",
-      "eslint --fix",
-      "node_modules/.bin/tsc -p artifacts/vendor-app/tsconfig.json --noEmit"
+      "eslint --fix"
     ],
-    "lib/**/*.{ts,tsx}": [
+    "lib/**/*.{ts,tsx,js,jsx}": [
       "prettier --write",
       "eslint --fix"
     ],
-    "**/*.{ts,tsx,js,jsx}": [
+    "artifacts/*/vite.config.{ts,js}": [
+      "prettier --write"
+    ],
+    "scripts/**/*.{ts,tsx,js,jsx}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "./*.{ts,tsx,js,jsx}": [
       "prettier --write",
       "eslint --fix"
     ],

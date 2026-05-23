@@ -5,8 +5,6 @@ import {
   AlertTriangle,
   Car,
   CheckCircle,
-  ChevronDown,
-  ChevronUp,
   Clock,
   MapPin,
   MessageSquare,
