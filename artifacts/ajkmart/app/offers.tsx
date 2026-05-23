@@ -27,6 +27,7 @@ import { CountdownTimer } from "@/components/user-shared";
 import { API_BASE } from "@/utils/api";
 import { useLanguage } from "@/context/LanguageContext";
 import { tDual, type TranslationKey } from "@workspace/i18n";
+const T = (key: TranslationKey) => tDual(key, "en");
 
 type IoniconsName = ComponentProps<typeof Ionicons>["name"];
 

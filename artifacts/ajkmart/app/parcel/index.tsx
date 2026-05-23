@@ -27,6 +27,7 @@ import { withServiceGuard } from "@/components/ServiceGuard";
 import { PermissionGuide } from "@/components/PermissionGuide";
 import { useLanguage } from "@/context/LanguageContext";
 import { tDual, type TranslationKey } from "@workspace/i18n";
+const T = (key: TranslationKey) => tDual(key, "en");
 import { getPaymentMethods, estimateParcel, createParcelBooking } from "@workspace/api-client-react";
 import type { CreateParcelBookingRequest } from "@workspace/api-client-react";
 import { normalizePhone, isValidPakistaniPhone } from "@/utils/phone";

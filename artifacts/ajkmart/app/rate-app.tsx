@@ -23,6 +23,7 @@ import { useSmartBack } from "@/hooks/useSmartBack";
 import { useTheme } from "@/context/ThemeContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { tDual, type TranslationKey } from "@workspace/i18n";
+const T = (key: TranslationKey) => tDual(key, "en");
 const PLAY_STORE_URL = "https://play.google.com/store/apps";
 const APP_STORE_URL = "https://apps.apple.com";
 

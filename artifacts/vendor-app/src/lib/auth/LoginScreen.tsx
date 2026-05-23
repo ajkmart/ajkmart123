@@ -197,6 +197,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
   const [otpSending, setOtpSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<string | null>(null);
   const [devOtp, setDevOtp] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
 

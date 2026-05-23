@@ -27,6 +27,7 @@ import { SkeletonBlock } from "@/components/ui/SkeletonBlock";
 import { WishlistHeart } from "@/components/WishlistHeart";
 import { useLanguage } from "@/context/LanguageContext";
 import { tDual, type TranslationKey } from "@workspace/i18n";
+const T = (key: TranslationKey) => tDual(key, "en");
 
 const CARD_W_CONST = (375 - 16 * 2 - 12) / 2;
 

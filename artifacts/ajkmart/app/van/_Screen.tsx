@@ -50,11 +50,7 @@ interface AvailabilityData {
 type Step = "routes" | "schedules" | "date" | "seats" | "confirm";
 
 export default function VanServiceScreen() {
-  
-  const { language } = useLanguage();
-  const T = (key: TranslationKey) => tDual(key, language);
-
-const { colors: C } = useTheme();
+  const { colors: C } = useTheme();
   const ss = useMemo(() => makeStyles(C), [C]);
   const insets = useSafeAreaInsets();
   const { goBack: smartGoBack } = useSmartBack();
@@ -62,7 +58,7 @@ const { colors: C } = useTheme();
   const { user, token } = useAuth();
   const { showToast } = useToast();
   const { language } = useLanguage();
-  const T = (key: any) => tDual(key, language);
+  const T = (key: TranslationKey) => tDual(key, language);
 
   const [step, setStep] = useState<Step>("routes");
   const [loading, setLoading] = useState(false);

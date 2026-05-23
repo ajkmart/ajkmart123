@@ -29,6 +29,7 @@ import { useCart } from "@/context/CartContext";
 import { usePlatformConfig } from "@/context/PlatformConfigContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { tDual, type TranslationKey } from "@workspace/i18n";
+const T = (key: TranslationKey) => tDual(key, "en");
 import { useGetProducts, useGetCategories, getFlashDeals, type FlashDealProduct } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { WishlistHeart } from "@/components/WishlistHeart";

@@ -26,6 +26,7 @@ import { SkeletonBlock } from "@/components/ui/SkeletonBlock";
 import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { tDual, type TranslationKey } from "@workspace/i18n";
+const T = (key: TranslationKey) => tDual(key, "en");
 import { useGetProducts, useGetCategories } from "@workspace/api-client-react";
 import type { Product } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";

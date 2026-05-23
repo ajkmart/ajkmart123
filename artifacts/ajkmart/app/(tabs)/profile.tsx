@@ -29,6 +29,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { usePlatformConfig, isMethodEnabled } from "@/context/PlatformConfigContext";
 import { useToast } from "@/context/ToastContext";
 import { tDual, type TranslationKey, type Language, LANGUAGE_OPTIONS } from "@workspace/i18n";
+const T = (key: TranslationKey) => tDual(key, "en");
 import { SmartRefresh } from "@/components/ui/SmartRefresh";
 import Accordion from "@/components/Accordion";
 import { API_BASE as API } from "@/utils/api";

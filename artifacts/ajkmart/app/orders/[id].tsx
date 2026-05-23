@@ -163,7 +163,7 @@ function OrderDetailScreenInner() {
     T("statusAccepted"),
     T("arrived"),
     T("inTransit"),
-    T(T("completedLabel")),
+    T("completedLabel"),
   ];
 
   const [order, setOrder] = useState<OrderDetail | null>(null);
@@ -208,7 +208,7 @@ function OrderDetailScreenInner() {
     const res = await fetch(orderEndpoint, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
-    const serverDate = res.headers.get(T("date"));
+    const serverDate = res.headers.get("date");
     if (serverDate && mountedRef.current) {
       setServerNow(new Date(serverDate).getTime());
     }
@@ -1383,7 +1383,7 @@ function OrderDetailScreenInner() {
                   </View>
                 ) : null}
 
-                <Text style={s.sectionTitle}>{T(T("itemsLabel"))}</Text>
+                <Text style={s.sectionTitle}>{T("itemsLabel")}</Text>
                 {(order.items || []).map((item: OrderItem, i: number) => (
                   <View key={i} style={s.itemRow}>
                     <View style={s.itemQty}>

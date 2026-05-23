@@ -24,6 +24,7 @@ import { searchProducts, getTrendingSearches, useGetCategories } from "@workspac
 import { WishlistHeart } from "@/components/WishlistHeart";
 import { useLanguage } from "@/context/LanguageContext";
 import { tDual, type TranslationKey } from "@workspace/i18n";
+const T = (key: TranslationKey) => tDual(key, "en");
 
 const C = Colors.light;
 const HISTORY_KEY = "@ajkmart_search_history";
@@ -34,7 +35,7 @@ const SORT_OPTIONS: { key: SortOption; label: string }[] = [
   { key: "relevance", label: T("sortRelevance") },
   { key: "price_asc", label: T("sortPriceLow") },
   { key: "price_desc", label: T("sortPriceHigh") },
-  { key: T("ratingLabel"), label: T("sortTopRated") },
+  { key: "rating", label: T("sortTopRated") },
   { key: "newest", label: T("newest") },
 ];
 

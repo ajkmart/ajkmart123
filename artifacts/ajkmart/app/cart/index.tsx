@@ -27,6 +27,7 @@ import { useToast } from "@/context/ToastContext";
 import { usePlatformConfig } from "@/context/PlatformConfigContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { tDual, type TranslationKey } from "@workspace/i18n";
+const T = (key: TranslationKey) => tDual(key, "en");
 import { createOrder } from "@workspace/api-client-react";
 import { API_BASE } from "@/utils/api";
 

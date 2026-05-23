@@ -1489,7 +1489,7 @@ type ThrottledEntry = {
 function maskIdentifier(id: string): string {
   if (id.includes("@")) {
     const [local, domain] = id.split("@");
-    return `${local.slice(0, 2)}***@${domain}`;
+    return `${local!.slice(0, 2)}***@${domain}`;
   }
   if (id.length > 6) return `${id.slice(0, 4)}***${id.slice(-2)}`;
   return `${id.slice(0, 2)}***`;
@@ -1773,7 +1773,7 @@ function OtpChannelsSection() {
     if (!result.destination) return;
     const next = [...channels];
     const [moved] = next.splice(result.source.index, 1);
-    next.splice(result.destination.index, 0, moved);
+    next.splice(result.destination.index, 0, moved!);
     setChannels(next);
   }
 

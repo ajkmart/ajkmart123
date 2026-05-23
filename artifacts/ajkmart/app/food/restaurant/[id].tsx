@@ -28,6 +28,7 @@ import { CartSwitchModal } from "@/components/CartSwitchModal";
 import { SkeletonBlock } from "@/components/ui/SkeletonBlock";
 import { useLanguage } from "@/context/LanguageContext";
 import { tDual, type TranslationKey } from "@workspace/i18n";
+const T = (key: TranslationKey) => tDual(key, "en");
 
 interface MenuItem {
   id: string;

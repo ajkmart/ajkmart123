@@ -27,6 +27,7 @@ import { useToast } from "@/context/ToastContext";
 import { usePlatformConfig } from "@/context/PlatformConfigContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { tDual, type TranslationKey } from "@workspace/i18n";
+const T = (key: TranslationKey) => tDual(key, "en");
 import { SmartRefresh } from "@/components/ui/SmartRefresh";
 import { useGetWallet } from "@workspace/api-client-react";
 import { API_BASE as API } from "@/utils/api";
@@ -733,15 +734,11 @@ function DepositModal({ onClose, onSuccess, onFrozen, token, minTopup, maxTopup 
 }
 
 export default function WalletScreen() {
-  
-  const { language } = useLanguage();
-  const T = (key: TranslationKey) => tDual(key, language);
-
-const insets = useSafeAreaInsets();
+  const insets = useSafeAreaInsets();
   const { user, updateUser, token } = useAuth();
   const { showToast } = useToast();
   const { language } = useLanguage();
-  const T = (key: Parameters<typeof tDual>[0]) => tDual(key, language);
+  const T = (key: TranslationKey) => tDual(key, language);
   const qc = useQueryClient();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const TAB_H  = Platform.OS === "web" ? 84 : 49;

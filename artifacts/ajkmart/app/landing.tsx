@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLanguage } from "@/context/LanguageContext";
 import type { Language } from "@workspace/i18n";
 import { tDual, type TranslationKey } from "@workspace/i18n";
+const T = (key: TranslationKey) => tDual(key, "en");
 
 const PRIMARY = "#0066FF";
 const PRIMARY_DARK = "#0047B3";
@@ -67,12 +68,9 @@ const CONTENT = {
 };
 
 export default function LandingScreen() {
-  
-  const { language } = useLanguage();
-  const T = (key: TranslationKey) => tDual(key, language);
-
-const insets = useSafeAreaInsets();
+  const insets = useSafeAreaInsets();
   const { language, setLanguage } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
 
   const C = CONTENT[language as keyof typeof CONTENT] ?? CONTENT.en;
   const isRTL = language === "ur";
