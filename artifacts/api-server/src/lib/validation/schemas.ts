@@ -411,6 +411,7 @@ export const VendorRegisterSchema = z
       .optional()
       .or(z.literal("")),
     acceptedTermsVersion: z.string().optional(),
+    password: z.string().min(8, "Password must be at least 8 characters").optional(),
   })
   .strip();
 

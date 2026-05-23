@@ -34,6 +34,10 @@ args = "API Server"
 task = "workflow.run"
 args = "Rider App"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Vendor App"
+
   [[workflows.workflow]]
   name = "All Services"
   mode = "parallel"
@@ -83,6 +87,18 @@ waitForPort = 5000
 [workflows.workflow.metadata]
 outputType = "webview"
 
+[[workflows.workflow]]
+name = "Vendor App"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/vendor-app && PORT=3001 VITE_API_PROXY_TARGET=http://127.0.0.1:8080 pnpm dev"
+waitForPort = 3001
+
+[workflows.workflow.metadata]
+outputType = "console"
+
   [agent]
 stack = "BEST_EFFORT_FALLBACK"
 expertMode = true
@@ -129,10 +145,6 @@ externalPort = 3000
 [[ports]]
 localPort = 3001
 externalPort = 3001
-
-[[ports]]
-localPort = 3002
-externalPort = 3002
 
 [[ports]]
 localPort = 3003

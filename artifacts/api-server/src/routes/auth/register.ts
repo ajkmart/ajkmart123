@@ -114,6 +114,7 @@ router.post(
         bankAccountTitle,
         username,
         acceptedTermsVersion,
+        password,
       } = req.body;
       if (!storeName) {
         sendError(res, "Store name is required", 400);
@@ -123,6 +124,14 @@ router.post(
       if (cnic && !CNIC_REGEX.test(String(cnic).trim())) {
         sendError(res, "CNIC must be in format XXXXX-XXXXXXX-X", 400);
         return;
+      }
+
+      if (password) {
+        const pwCheck = validatePasswordStrength(password);
+        if (!pwCheck.ok) {
+          sendError(res, pwCheck.message, 400);
+          return;
+        }
       }
 
       if (username) {
@@ -256,6 +265,7 @@ router.post(
             bankAccountTitle: bankAccountTitle || user.bankAccountTitle || null,
             approvalStatus: autoApprove ? "approved" : "pending",
             isActive: true,
+            ...(password ? { passwordHash: hashPassword(password) } : {}),
             ...(acceptedTermsVersion ? { acceptedTermsVersion: String(acceptedTermsVersion) } : {}),
             updatedAt: new Date(),
           })
