@@ -141,6 +141,17 @@ function checkEnv(): void {
       );
       process.exit(1);
     }
+
+    // Block ALLOW_DEV_OTP=true in production/staging — would leak plaintext OTP codes
+    if (process.env["ALLOW_DEV_OTP"] === "true") {
+      logger.fatal(
+        { NODE_ENV: nodeEnv, ALLOW_DEV_OTP: "true" },
+        "[env:check] FATAL — ALLOW_DEV_OTP=true is set in a production/staging environment. " +
+          "This would expose plaintext OTP codes in API responses. " +
+          "Remove ALLOW_DEV_OTP or set it to 'false' in the Replit Secrets panel before deploying."
+      );
+      process.exit(1);
+    }
   }
 
   /* ── Dev-mock mode: vault not unlocked, not production ─────────────────────
