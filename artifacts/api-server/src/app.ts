@@ -306,11 +306,25 @@ export async function runStartupTasks(): Promise<void> {
  * Development: warns and falls back to a safe localhost-only list so
  *   developers can work without setting every env var upfront.
  */
+function getLocalhostOrigins(): string[] {
+  const ports = [3000, 3001, 3002, 3003, 5000, 5173];
+  const hosts = ["localhost", "127.0.0.1"];
+  const schemes = ["http", "https"];
+
+  return [...new Set(
+    ports.flatMap((port) =>
+      hosts.flatMap((host) => schemes.map((scheme) => `${scheme}://${host}:${port}`))
+    )
+  )];
+}
+
 function validateCORS(): string[] {
   const fromEnv = (process.env.ALLOWED_ORIGINS ?? "")
     .split(",")
     .map((o) => o.trim())
     .filter(Boolean);
+
+  const localhostOrigins = process.env.NODE_ENV === "production" ? [] : getLocalhostOrigins();
 
   // Always include the Replit dev domain if running on Replit.
   // Also add port variants for each Vite dev server / Expo web server that
@@ -338,8 +352,9 @@ function validateCORS(): string[] {
       })()
     : [];
 
+  const merged = [...new Set([...fromEnv, ...localhostOrigins, ...replitOrigins])];
+
   if (fromEnv.length > 0) {
-    const merged = [...new Set([...fromEnv, ...replitOrigins])];
     return merged;
   }
 
@@ -350,16 +365,7 @@ function validateCORS(): string[] {
   const replitPortVariants = replitDomain
     ? [3000, 3001, 3002, 5000, 8000, 8080].map((p) => `https://${replitDomain}:${p}`)
     : [];
-  const fallback = [
-    "http://localhost:5000",
-    "http://localhost:5173",
-    "http://localhost:3001",
-    "http://localhost:3002",
-    "http://localhost:3003",
-    "http://127.0.0.1:5000",
-    ...replitOrigins,
-    ...replitPortVariants,
-  ];
+  const fallback = [...localhostOrigins, ...replitOrigins, ...replitPortVariants];
 
   if (process.env.NODE_ENV === "production") {
     logger.fatal(

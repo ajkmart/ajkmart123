@@ -5,6 +5,7 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { generateId } from "../lib/id.js";
 import { logger } from "../lib/logger.js";
+import { normalizePhoneFormatPattern } from "../lib/phone-format.js";
 import { sendError, sendNotFound, sendSuccess, sendValidationError } from "../lib/response.js";
 import { customerAuth, getClientIp } from "../middleware/security.js";
 import { getCachedSettings } from "./admin.js";
@@ -523,7 +524,7 @@ router.get("/", async (req, res) => {
       };
     })(),
     regional: {
-      phoneFormat: s["regional_phone_format"] ?? "^0?3\\d{9}$",
+      phoneFormat: normalizePhoneFormatPattern(s["regional_phone_format"]),
       phoneHint: s["regional_phone_hint"] ?? "03XXXXXXXXX",
       timezone: s["regional_timezone"] ?? "Asia/Karachi",
       currencySymbol: s["currency_symbol"] ?? s["regional_currency_symbol"] ?? "Rs.",

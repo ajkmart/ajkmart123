@@ -21,6 +21,7 @@ import {
   UserLoginSchema,
   VerifyOtpSchema,
 } from "../../lib/validation/auth-schemas.js";
+import { normalizePhoneFormatPattern } from "../../lib/phone-format.js";
 import {
   generateRefreshToken,
   getAccessTokenTtlSec,
@@ -85,17 +86,17 @@ const SAFE_PHONE_REGEX_DEFAULT = /^0?3\d{9}$/;
 export async function isValidCanonicalPhone(phone: string): Promise<boolean> {
   try {
     const s = await getCachedSettings();
-    const raw = s["regional_phone_format"] ?? "^0?3\\d{9}$";
-    // Guard against ReDoS: validate the DB-stored pattern before compiling it
-    const { default: safeRegex } = await import("safe-regex2");
-    if (!safeRegex(raw)) {
+    const raw = s["regional_phone_format"];
+    const pattern = normalizePhoneFormatPattern(raw);
+
+    if (pattern !== (raw?.trim() ?? "")) {
       logger.warn(
         { pattern: raw },
-        "[isValidCanonicalPhone] unsafe regex in regional_phone_format — falling back to default"
+        "[isValidCanonicalPhone] invalid regex in regional_phone_format — falling back to default"
       );
-      return SAFE_PHONE_REGEX_DEFAULT.test(phone);
     }
-    return new RegExp(raw).test(phone);
+
+    return new RegExp(pattern).test(phone);
   } catch (err) {
     logger.error(
       {

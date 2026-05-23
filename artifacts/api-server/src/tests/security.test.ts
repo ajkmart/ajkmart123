@@ -88,6 +88,27 @@ describe("CORS security – production mode", () => {
       process.env["NODE_ENV"] = originalEnv;
     }
   });
+
+  it("allows localhost HTTPS origins in development mode", async () => {
+    const originalEnv = process.env["NODE_ENV"];
+    const originalAllowed = process.env["ALLOWED_ORIGINS"];
+
+    process.env["NODE_ENV"] = "development";
+    process.env["ALLOWED_ORIGINS"] = "http://localhost:3000,http://localhost:5000";
+
+    try {
+      const { createServer } = await import("../app.js");
+      const devApp = (await createServer()) as Express;
+      const res = await supertest(devApp)
+        .get("/api/health")
+        .set("Origin", "https://localhost:3000");
+
+      expect(res.status).toBe(200);
+    } finally {
+      process.env["NODE_ENV"] = originalEnv;
+      process.env["ALLOWED_ORIGINS"] = originalAllowed;
+    }
+  });
 });
 
 // ─── 2. OSRM – 429 passthrough with Retry-After header ───────────────────────

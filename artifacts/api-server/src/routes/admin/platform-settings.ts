@@ -2,6 +2,7 @@ import { db } from "@workspace/db";
 import { platformSettingsTable } from "@workspace/db/schema";
 import { Router, type IRouter } from "express";
 import { logger } from "../../lib/logger.js";
+import { isValidPhoneFormatPattern } from "../../lib/phone-format.js";
 import { sendError } from "../../lib/response.js";
 import { invalidateSettingsCache } from "../../middleware/security.js";
 import { DEFAULT_PLATFORM_SETTINGS } from "../admin-shared.js";
@@ -95,13 +96,14 @@ router.put("/platform-settings", async (req, res, next) => {
       return sendError(res, "All settings entries must have a non-empty key", 400);
     }
 
-    /* B-019: Reject unsafe regex patterns for regional_phone_format at write time */
+    /* B-019: Reject invalid or unsafe regex patterns for regional_phone_format at write time */
     const phoneFormatEntry = entries.find((e) => e.key === "regional_phone_format");
-    if (phoneFormatEntry) {
-      const { default: safeRegex } = await import("safe-regex2");
-      if (!safeRegex(phoneFormatEntry.value)) {
-        return sendError(res, "regional_phone_format contains an unsafe regex pattern that could hang the server (ReDoS). Provide a safe pattern.", 400);
-      }
+    if (phoneFormatEntry && !isValidPhoneFormatPattern(phoneFormatEntry.value)) {
+      return sendError(
+        res,
+        "regional_phone_format must be a valid, safe regex pattern. Use a compiled pattern such as ^0?3\\d{9}$.",
+        400
+      );
     }
 
     const allCurrentRows = await db
