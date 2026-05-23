@@ -804,27 +804,47 @@ router.post(
             .where(inArray(productsTable.id, productIds)),
           variantIds.length > 0
             ? tx
-                .select({ id: productVariantsTable.id, price: productVariantsTable.price })
+                .select({
+                  id: productVariantsTable.id,
+                  price: productVariantsTable.price,
+                  productId: productVariantsTable.productId,
+                })
                 .from(productVariantsTable)
                 .where(inArray(productVariantsTable.id, variantIds))
-            : (Promise.resolve([]) as Promise<{ id: string; price: string }[]>),
+            : (Promise.resolve([]) as Promise<{ id: string; price: string; productId: string }[]>),
         ]);
 
         const productPriceMap = new Map(txProducts.map((p) => [p.id, parseFloat(p.price)]));
-        const variantPriceMap = new Map(txVariants.map((v) => [v.id, parseFloat(v.price)]));
+        /* Map variantId → { price, productId } so we can validate ownership */
+        const variantInfoMap = new Map(
+          txVariants.map((v) => [v.id, { price: parseFloat(v.price), productId: v.productId }])
+        );
 
-        /* Reject if any productId is not found in the DB */
+        /* Validate every line item: product must exist, variant (when given)
+           must exist AND must belong to that product — prevents cross-product
+           variant price substitution attacks. */
         for (const item of items) {
           if (!productPriceMap.has(item.productId)) {
             throw Object.assign(new Error(`Product not found: ${item.productId}`), {
               code: "PRODUCT_NOT_FOUND",
             });
           }
-          /* Reject if variantId is explicitly provided but not found */
-          if (item.variantId && !variantPriceMap.has(item.variantId)) {
-            throw Object.assign(new Error(`Variant not found: ${item.variantId}`), {
-              code: "VARIANT_NOT_FOUND",
-            });
+          if (item.variantId) {
+            const vInfo = variantInfoMap.get(item.variantId);
+            if (!vInfo) {
+              throw Object.assign(new Error(`Variant not found: ${item.variantId}`), {
+                code: "VARIANT_NOT_FOUND",
+              });
+            }
+            /* Variant must belong to the submitted productId */
+            if (vInfo.productId !== item.productId) {
+              throw Object.assign(
+                new Error(
+                  `Variant ${item.variantId} does not belong to product ${item.productId}`
+                ),
+                { code: "VARIANT_NOT_FOUND" }
+              );
+            }
           }
         }
 
@@ -832,9 +852,10 @@ router.post(
         let subtotal = 0;
         orderItems = items.map((item) => {
           const qty = Math.min(Math.max(1, Number(item.quantity ?? 1)), MAX_ITEM_QUANTITY);
-          /* Prefer variant price when present and found; fall back to product price */
+          /* Prefer variant price only when the variant was validated to belong
+             to this product; fall back to product price otherwise */
           const price =
-            (item.variantId ? variantPriceMap.get(item.variantId) : undefined) ??
+            (item.variantId ? variantInfoMap.get(item.variantId)?.price : undefined) ??
             productPriceMap.get(item.productId) ??
             0;
           subtotal += price * qty;
