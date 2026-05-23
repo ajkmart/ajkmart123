@@ -361,17 +361,18 @@ function validateCORS(): string[] {
   ];
 
   if (process.env.NODE_ENV === "production") {
-    logger.warn(
-      { allowedOrigins: fallback },
-      "[SECURITY:CORS] ALLOWED_ORIGINS is not set in production — falling back to Replit-derived origins. " +
-        "Set ALLOWED_ORIGINS to a comma-separated list of your production URLs for tighter CORS control."
+    logger.fatal(
+      "[SECURITY:CORS] FATAL — ALLOWED_ORIGINS is not set in production. " +
+        "Refusing to start with an over-permissive CORS policy. " +
+        "Set ALLOWED_ORIGINS to a comma-separated list of your production URLs in the Replit Secrets panel."
     );
-  } else {
-    logger.info(
-      { allowedOrigins: fallback },
-      "[SECURITY:CORS] ALLOWED_ORIGINS not set — using localhost-only whitelist for development. Set ALLOWED_ORIGINS before deploying to production."
-    );
+    process.exit(1);
   }
+
+  logger.info(
+    { allowedOrigins: fallback },
+    "[SECURITY:CORS] ALLOWED_ORIGINS not set — using localhost-only whitelist for development. Set ALLOWED_ORIGINS before deploying to production."
+  );
   return fallback;
 }
 
