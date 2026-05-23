@@ -63,7 +63,7 @@ function AddressPickerModal({
   token: string | null | undefined;
 }) {
   const [showForm, setShowForm] = useState(false);
-  const [newLabel, setNewLabel] = useState("Home");
+  const [newLabel, setNewLabel] = useState(T("home"));
   const [newAddress, setNewAddress] = useState("");
   const [newCity, setNewCity] = useState("Muzaffarabad");
   const [saving, setSaving] = useState(false);
@@ -71,7 +71,7 @@ function AddressPickerModal({
 
   const resetForm = () => {
     setShowForm(false);
-    setNewLabel("Home");
+    setNewLabel(T("home"));
     setNewAddress("");
     setNewCity("Muzaffarabad");
     setFormError(null);
@@ -90,7 +90,7 @@ function AddressPickerModal({
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          label: newLabel.trim() || "Home",
+          label: newLabel.trim() || T("home"),
           address: newAddress.trim(),
           city: newCity.trim(),
           icon: newLabel.toLowerCase().includes("work") ? "briefcase-outline" : newLabel.toLowerCase().includes("office") ? "business-outline" : "home-outline",
@@ -112,14 +112,14 @@ function AddressPickerModal({
     setSaving(false);
   };
 
-  const LABEL_PRESETS = ["Home", "Work", "Office", "Other"];
+  const LABEL_PRESETS = [T("home"), T("work"), "Office", T("other")];
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={() => { if (!saving) { resetForm(); onClose(); } }}>
       <Pressable style={styles.overlay} onPress={() => { if (!saving) { resetForm(); onClose(); } }}>
         <Pressable style={styles.sheet} onPress={() => {}}>
           <View style={styles.handle} />
-          <Text style={styles.sheetTitle}>{showForm ? "Add New Address" : "Choose Delivery Address"}</Text>
+          <Text style={styles.sheetTitle}>{showForm ? T("addNewAddress") : T("chooseDeliveryAddress")}</Text>
 
           {showForm ? (
             <View style={{ gap: 14 }}>
@@ -237,7 +237,7 @@ function AddressPickerModal({
                 <View style={[styles.addrOptIcon, { backgroundColor: C.brandBlueSoft }]}>
                   <Ionicons name="add-outline" size={20} color={C.primary} />
                 </View>
-                <Text style={[styles.addrOptLabel, { color: C.primary }]}>Add New Address</Text>
+                <Text style={[styles.addrOptLabel, { color: C.primary }]}>{T("addNewAddress")}</Text>
               </Pressable>
               <Pressable onPress={onClose} style={styles.cancelBtn}>
                 <Text style={styles.cancelBtnText}>Cancel</Text>
@@ -283,7 +283,7 @@ export default function CartScreen() {
   const [addrLoading, setAddrLoading] = useState(false);
 
   const [allPayMethods, setAllPayMethods] = useState<PaymentMethod[]>([
-    { id: "cash",   label: "Cash on Delivery",    logo: "💵", available: true,  description: "Pay on delivery" },
+    { id: "cash",   label: T("cashOnDelivery"),    logo: "💵", available: true,  description: "Pay on delivery" },
     { id: "wallet", label: `${appName} Wallet`,   logo: "💰", available: true,  description: "Instant pay from wallet" },
   ]);
 
@@ -337,7 +337,7 @@ export default function CartScreen() {
             });
             const d = await r.json() as any;
             if (!mountedRef.current) return;
-            if (d.status === "completed" || d.status === "success") {
+            if (d.status === T("completedLabel") || d.status === "success") {
               const successData = { id: oid.slice(-6).toUpperCase(), time: "30-45 min", payMethod };
               setPendingOrderId(oid, successData);
               setPendingAck(true);
@@ -772,7 +772,7 @@ export default function CartScreen() {
     }
   };
 
-  const gwName = payMethod === "jazzcash" ? "JazzCash" : "EasyPaisa";
+  const gwName = payMethod === "jazzcash" ? T("paymentJazzCash") : T("paymentEasyPaisa");
   const gwLogo = payMethod === "jazzcash" ? "🔴" : "🟢";
   const gwColor = payMethod === "jazzcash" ? C.red : C.greenBright;
 
@@ -823,7 +823,7 @@ export default function CartScreen() {
                 <Text style={{ ...Typ.body, color: C.textSecondary, marginRight: 4 }}>+92</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={{ ...Typ.bodyMedium, fontSize: 15, color: gwMobile ? C.text : C.textSecondary, paddingVertical: 14 }}>
-                    {gwMobile || "03XX-XXXXXXX"}
+                    {gwMobile || T("emergencyPlaceholder")}
                   </Text>
                 </View>
               </View>
@@ -894,7 +894,7 @@ export default function CartScreen() {
 
   if (orderSuccess) {
     const methodLabel: Record<string, string> = {
-      cash: "Cash on Delivery", wallet: `${appName} Wallet`,
+      cash: T("cashOnDelivery"), wallet: `${appName} Wallet`,
       jazzcash: "JazzCash ✅", easypaisa: "EasyPaisa ✅",
     };
     return (
@@ -919,7 +919,7 @@ export default function CartScreen() {
             </Pressable>
             <Pressable onPress={() => { clearOrderSuccess(); router.replace("/(tabs)"); }} style={styles.homeBtn}>
               <Ionicons name="home-outline" size={16} color={C.primary} />
-              <Text style={styles.homeBtnTxt}>Home</Text>
+              <Text style={styles.homeBtnTxt}>{T("home")}</Text>
             </Pressable>
           </View>
         </View>

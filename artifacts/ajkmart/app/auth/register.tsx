@@ -18,6 +18,8 @@ import { spacing, radii, shadows, typography } from "@/constants/colors";
 import { useAuth, type AppUser } from "@/context/AuthContext";
 import { usePlatformConfig } from "@/context/PlatformConfigContext";
 import { normalizePhone, isValidPakistaniPhone } from "@/utils/phone";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 
 import {
   OtpDigitInput,
@@ -57,7 +59,11 @@ const LEVEL_CONFIG: Record<string, { color: string; bg: string; icon: string; la
 };
 
 export default function RegisterScreen() {
-  const insets = useSafeAreaInsets();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const insets = useSafeAreaInsets();
   const { login } = useAuth();
   const { config } = usePlatformConfig();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -324,11 +330,11 @@ export default function RegisterScreen() {
 
   const handleStep4 = async () => {
     clearError();
-    if (!password || password.length < 8) { setError("Password must be at least 8 characters"); return; }
+    if (!password || password.length < 8) { setError(T("passwordMinLength")); return; }
     if (!/[A-Z]/.test(password)) { setError("Password must contain at least 1 uppercase letter"); return; }
     if (!/[0-9]/.test(password)) { setError("Password must contain at least 1 number"); return; }
     if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(password)) { setError("Password must contain at least 1 special character (e.g. !@#$%)"); return; }
-    if (password !== confirmPassword) { setError("Passwords do not match"); return; }
+    if (password !== confirmPassword) { setError(T("passwordsDoNotMatch")); return; }
     if (!termsAccepted) { setError("Please accept the Terms & Conditions"); return; }
 
     setLoading(true);
@@ -502,7 +508,7 @@ export default function RegisterScreen() {
               <Ionicons name="person-add" size={24} color={C.primary} />
             </View>
           </View>
-          <Text style={s.headerTitle}>Create Account</Text>
+          <Text style={s.headerTitle}>{T("createAccount")}</Text>
           <Text style={s.headerSub}>{stepSubtitles[step]}</Text>
 
           <View style={s.progressRow}>
@@ -568,7 +574,7 @@ export default function RegisterScreen() {
                   >
                     <Ionicons name="refresh-outline" size={16} color={resendCooldown > 0 ? C.textMuted : C.primary} />
                     <Text style={[s.resendText, resendCooldown > 0 && { color: C.textMuted }]}>
-                      {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend OTP"}
+                      {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : T("otpResend")}
                     </Text>
                   </Pressable>
                 </>
@@ -589,10 +595,10 @@ export default function RegisterScreen() {
               </View>
 
               <InputField
-                label="Full Name *"
+                label={T("nameRequired")}
                 value={name}
                 onChangeText={v => { setName(v); clearError(); }}
-                placeholder="Enter your full name"
+                placeholder={T("enterFullName")}
                 autoCapitalize="words"
                 autoFocus
                 error={!!error && !name.trim()}
@@ -631,7 +637,7 @@ export default function RegisterScreen() {
                 )}
               </View>
               <InputField
-                label="Email (optional)"
+                label={T("emailOptional")}
                 value={email}
                 onChangeText={v => { setEmail(v); clearError(); }}
                 placeholder="email@example.com"
@@ -770,7 +776,7 @@ export default function RegisterScreen() {
               </View>
 
               <InputField
-                label="Password *"
+                label={T("passwordRequired")}
                 value={password}
                 onChangeText={v => { setPassword(v); clearError(); }}
                 placeholder="Minimum 8 characters"
@@ -791,7 +797,7 @@ export default function RegisterScreen() {
                 error={!!confirmPassword && password !== confirmPassword}
               />
               {!!confirmPassword && password !== confirmPassword && (
-                <Text style={s.mismatchText}>Passwords do not match</Text>
+                <Text style={s.mismatchText}>{T("passwordsDoNotMatch")}</Text>
               )}
 
               <Pressable
@@ -817,10 +823,10 @@ export default function RegisterScreen() {
           <AuthButton
             label={
               step === 1
-                ? otpSent ? "Verify OTP" : "Send OTP"
+                ? otpSent ? T("verifyOtp") : T("sendOtpBtn")
                 : step === 2 ? "Continue"
                 : step === 3 ? "Continue"
-                : "Create Account"
+                : T("createAccount")
             }
             onPress={
               step === 1

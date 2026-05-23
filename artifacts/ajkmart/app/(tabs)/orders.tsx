@@ -56,7 +56,7 @@ const RIDE_STATUS: Record<string, { color: string; bg: string; icon: string; lab
   arrived:    { color: C.purple, bg: C.purpleSoft, icon: "location-outline",          labelKey: "arrived" },
   in_transit: { color: C.emerald, bg: C.emeraldSoft, icon: "car-outline",               labelKey: "inTransit" },
   ongoing:    { color: C.emerald, bg: C.emeraldSoft, icon: "car-outline",               labelKey: "inTransit" },
-  completed:  { color: C.gray, bg: C.graySoft, icon: "checkmark-done-outline",    labelKey: "completed" },
+  completed:  { color: C.gray, bg: C.graySoft, icon: "checkmark-done-outline",    labelKey: T("completedLabel") },
   cancelled:  { color: C.red, bg: C.redSoft, icon: "close-circle-outline",      labelKey: "cancelled" },
 };
 
@@ -226,7 +226,7 @@ function OrderCard({ order, liveTracking, reviews, cancelWindowMin, refundDays, 
       {isDelivered && order.paymentMethod !== "cash" && order.paymentMethod !== "cod" && !order.refundStatus && (
         <Pressable style={styles.refundRequestBtn} onPress={() => router.push(`/order?orderId=${order.id}&action=refund`)} accessibilityRole="button" accessibilityLabel="Request refund for this order">
           <Ionicons name="return-down-back-outline" size={14} color={C.purple} />
-          <Text style={styles.refundRequestBtnText}>{T("requestRefund") || "Request Refund"}</Text>
+          <Text style={styles.refundRequestBtnText}>{T("requestRefund") || T("requestRefund")}</Text>
         </Pressable>
       )}
 
@@ -246,7 +246,7 @@ function OrderCard({ order, liveTracking, reviews, cancelWindowMin, refundDays, 
 
       <View style={styles.tapHint}>
         <Ionicons name="open-outline" size={11} color={C.textMuted} />
-        <Text style={styles.tapHintText}>Tap for details</Text>
+        <Text style={styles.tapHintText}>{T("tapForDetails")}</Text>
       </View>
     </Pressable>
   );
@@ -265,8 +265,8 @@ function RideCard({ ride, liveTracking, reviews, onRate, onCancel }: {
   const { language } = useLanguage();
   const T = (key: TranslationKey) => tDual(key, language);
   const cfg = RIDE_STATUS[ride.status] || RIDE_STATUS["searching"]!;
-  const isActive    = !["completed", "cancelled"].includes(ride.status);
-  const isCompleted = ride.status === "completed";
+  const isActive    = ![T("completedLabel"), "cancelled"].includes(ride.status);
+  const isCompleted = ride.status === T("completedLabel");
   const canCancel   = ["searching", "bargaining", "accepted", "arrived"].includes(ride.status);
   const hasRider    = ["accepted", "arrived", "in_transit", "ongoing"].includes(ride.status);
   const rideStepIdx = RIDE_STEPS.indexOf(ride.status);
@@ -301,9 +301,9 @@ function RideCard({ ride, liveTracking, reviews, onRate, onCancel }: {
           />
           <Text style={[styles.chipText, { color: C.emerald }]}>
             {ride.type === "bike" ? T("bikeRide") :
-             ride.type === "rickshaw" ? "Rickshaw" :
+             ride.type === "rickshaw" ? T("rickshaw") :
              ride.type === "daba" ? "Daba" :
-             ride.type === "school_shift" ? "School Shift" :
+             ride.type === "school_shift" ? T("schoolShift") :
              T("carRide")}
           </Text>
         </View>
@@ -399,9 +399,9 @@ function RideCard({ ride, liveTracking, reviews, onRate, onCancel }: {
       )}
 
       {reviews && isCompleted && !ride._reviewed && (
-        <Pressable style={styles.rateBtn} onPress={() => onRate({ ...ride, _type: "ride" })} accessibilityRole="button" accessibilityLabel="Rate this ride">
+        <Pressable style={styles.rateBtn} onPress={() => onRate({ ...ride, _type: "ride" })} accessibilityRole="button" accessibilityLabel={T("rateThisRide")}>
           <Ionicons name="star-outline" size={14} color={C.gold} />
-          <Text style={styles.rateBtnText}>Rate this ride</Text>
+          <Text style={styles.rateBtnText}>{T("rateThisRide")}</Text>
         </Pressable>
       )}
 
@@ -466,7 +466,7 @@ function RideCard({ ride, liveTracking, reviews, onRate, onCancel }: {
 
       <View style={styles.tapHint}>
         <Ionicons name="open-outline" size={11} color={C.textMuted} />
-        <Text style={styles.tapHintText}>{isActive ? "Tap to track" : "Tap for details"}</Text>
+        <Text style={styles.tapHintText}>{isActive ? T("tapToTrack") : T("tapForDetails")}</Text>
       </View>
     </Pressable>
   );
@@ -576,7 +576,7 @@ function ParcelCard({ booking }: { booking: any }) {
   const { language } = useLanguage();
   const T = (key: TranslationKey) => tDual(key, language);
   const cfg = PARCEL_STATUS[booking.status] || PARCEL_STATUS["pending"]!;
-  const isActive = !["completed", "cancelled"].includes(booking.status);
+  const isActive = ![T("completedLabel"), "cancelled"].includes(booking.status);
   const parcelLabel = booking.parcelType
     ? booking.parcelType.charAt(0).toUpperCase() + booking.parcelType.slice(1)
     : T("parcel");
@@ -646,7 +646,7 @@ function ParcelCard({ booking }: { booking: any }) {
         </View>
       )}
 
-      {(booking.status === "completed" || booking.status === "cancelled") && (
+      {(booking.status === T("completedLabel") || booking.status === "cancelled") && (
         <Pressable
           style={styles.bookAgainBtn}
           onPress={() => router.push({
@@ -667,7 +667,7 @@ function ParcelCard({ booking }: { booking: any }) {
 
       <View style={styles.tapHint}>
         <Ionicons name="open-outline" size={11} color={C.textMuted} />
-        <Text style={styles.tapHintText}>{isActive ? "Tap to track" : "Tap for details"}</Text>
+        <Text style={styles.tapHintText}>{isActive ? T("tapToTrack") : T("tapForDetails")}</Text>
       </View>
     </Pressable>
   );
@@ -1154,9 +1154,9 @@ export default function OrdersScreen() {
 
   const globalActiveCount =
     allOrders.filter(o => !["delivered", "cancelled"].includes(o.status)).length +
-    rides.filter((r: any) => !["completed", "cancelled"].includes(r.status)).length +
+    rides.filter((r: any) => ![T("completedLabel"), "cancelled"].includes(r.status)).length +
     pharmOrders.filter((o: any) => !["delivered", "cancelled"].includes(o.status)).length +
-    parcels.filter((b: any) => !["completed", "cancelled"].includes(b.status)).length;
+    parcels.filter((b: any) => ![T("completedLabel"), "cancelled"].includes(b.status)).length;
 
   React.useEffect(() => {
     setHasActiveItems(globalActiveCount > 0);
@@ -1190,7 +1190,7 @@ export default function OrdersScreen() {
         martActive    && { route: "/mart",     icon: "storefront-outline",  label: "Mart",      color: C.brandBlue,  bg: C.brandBlueSoft },
         foodActive    && { route: "/food",     icon: "restaurant-outline",  label: "Food",      color: C.amber,      bg: C.amberSoft },
         ridesActive   && { route: "/ride",     icon: "car-outline",         label: "Ride",      color: C.emerald,    bg: C.emeraldSoft },
-        pharmActive   && { route: "/pharmacy", icon: "medical-outline",     label: "Pharmacy",  color: C.purple,     bg: C.purpleSoft },
+        pharmActive   && { route: "/pharmacy", icon: "medical-outline",     label: T("navPharmacy"),  color: C.purple,     bg: C.purpleSoft },
         parcelActive  && { route: "/parcel",   icon: "cube-outline",        label: "Parcel",    color: C.amberBrown, bg: C.amberBg },
       ].filter(Boolean) as { route: string; icon: string; label: string; color: string; bg: string }[];
 
@@ -1207,7 +1207,7 @@ export default function OrdersScreen() {
             </View>
           </View>
 
-          <Text style={styles.emptyHeading}>No orders yet</Text>
+          <Text style={styles.emptyHeading}>{T("noOrdersYet")}</Text>
           <Text style={styles.emptySubtext}>Start exploring and your orders,{"\n"}rides & bookings will appear here</Text>
 
           {quickServices.length > 0 && (
@@ -1278,19 +1278,19 @@ export default function OrdersScreen() {
 
     const activeOrders   = displayOrders.filter(o => !["delivered","cancelled"].includes(o.status));
     const pastOrders     = displayOrders.filter(o => ["delivered","cancelled"].includes(o.status));
-    const activeRides    = displayRides.filter(r => !["completed","cancelled"].includes(r.status));
-    const pastRides      = displayRides.filter(r => ["completed","cancelled"].includes(r.status));
+    const activeRides    = displayRides.filter(r => ![T("completedLabel"),"cancelled"].includes(r.status));
+    const pastRides      = displayRides.filter(r => [T("completedLabel"),"cancelled"].includes(r.status));
     const activePharm    = displayPharm.filter(o => !["delivered","cancelled"].includes(o.status));
     const pastPharm      = displayPharm.filter(o => ["delivered","cancelled"].includes(o.status));
-    const activeParcel   = displayParcel.filter(b => !["completed","cancelled"].includes(b.status));
-    const pastParcel     = displayParcel.filter(b => ["completed","cancelled"].includes(b.status));
+    const activeParcel   = displayParcel.filter(b => ![T("completedLabel"),"cancelled"].includes(b.status));
+    const pastParcel     = displayParcel.filter(b => [T("completedLabel"),"cancelled"].includes(b.status));
 
     const anyActive = activeOrders.length + activeRides.length + activePharm.length + activeParcel.length;
     const anyPast   = pastOrders.length + pastRides.length + pastPharm.length + pastParcel.length;
 
     if (anyActive + anyPast === 0) {
       const tabMeta: Record<string, { icon: string; label: string; msg: string; route?: string; color: string; bg: string }> = {
-        all:      { icon: "receipt-outline",     label: "No orders yet",             msg: "Your order history will appear here once you place an order.",   color: C.primary,     bg: C.blueSoft },
+        all:      { icon: "receipt-outline",     label: T("noOrdersYet"),             msg: "Your order history will appear here once you place an order.",   color: C.primary,     bg: C.blueSoft },
         mart:     { icon: "storefront-outline",  label: "No mart orders yet",        msg: "Browse the mart and add items to start shopping.",               route: "/mart",       color: C.brandBlue,  bg: C.brandBlueSoft },
         food:     { icon: "restaurant-outline",  label: "No food orders yet",        msg: "Order delicious food from nearby restaurants.",                  route: "/food",       color: C.amber,      bg: C.amberSoft },
         rides:    { icon: "car-outline",         label: "No rides yet",              msg: "Book your first ride — safe, fast and affordable.",              route: "/ride",       color: C.emerald,    bg: C.emeraldSoft },
@@ -1450,7 +1450,7 @@ export default function OrdersScreen() {
             {pharmOrders.length > 0 && (
               <View style={styles.headerStat}>
                 <Ionicons name="medical-outline" size={12} color="rgba(255,255,255,0.8)" />
-                <Text style={styles.headerStatText}>{pharmOrders.length} Pharmacy</Text>
+                <Text style={styles.headerStatText}>{pharmOrders.length} {T("navPharmacy")}</Text>
               </View>
             )}
             {parcels.length > 0 && (
@@ -1539,7 +1539,7 @@ export default function OrdersScreen() {
               const refund = result?.refundAmount;
               const msg = refund > 0
                 ? `Order cancelled. Rs. ${Math.round(refund)} will be refunded.`
-                : "Order cancelled successfully.";
+                : T("orderCancelledSuccess");
               showToast(msg, "success");
               refetchOrders();
             }

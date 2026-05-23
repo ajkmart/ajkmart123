@@ -146,7 +146,7 @@ export default function ForgotPasswordScreen() {
     if (!newPassword || newPassword.length < 8) { setError("New password must be at least 8 characters"); return; }
     if (!/[A-Z]/.test(newPassword)) { setError("Password must contain an uppercase letter"); return; }
     if (!/[0-9]/.test(newPassword)) { setError("Password must contain a number"); return; }
-    if (newPassword !== confirmPassword) { setError("Passwords do not match"); return; }
+    if (newPassword !== confirmPassword) { setError(T("passwordsDoNotMatch")); return; }
 
     setLoading(true);
     try {
@@ -225,7 +225,7 @@ export default function ForgotPasswordScreen() {
             <Text style={s.doneSub}>
               Your password has been successfully changed. Please log in with your new password.
             </Text>
-            <AuthButton label="Go to Login" onPress={() => router.replace("/auth")} icon="log-in-outline" />
+            <AuthButton label={T("goToLogin")} onPress={() => router.replace("/auth")} icon="log-in-outline" />
           </View>
         </View>
       </LinearGradient>
@@ -248,14 +248,14 @@ export default function ForgotPasswordScreen() {
           <View style={s.headerIcon}>
             <Ionicons name="lock-closed" size={28} color="rgba(255,255,255,0.95)" />
           </View>
-          <Text style={s.headerTitle}>Reset Password</Text>
+          <Text style={s.headerTitle}>{T("resetPassword")}</Text>
           <Text style={s.headerSub}>{stepDescriptions[step]}</Text>
 
           <View style={s.progressRow}>
             <StepProgress total={3} current={stepNumber} />
           </View>
           <View style={s.stepLabels}>
-            {["Phone/Email", "Verify Code", "New Password"].map((label, i) => (
+            {["Phone/Email", "Verify Code", T("newPassword")].map((label, i) => (
               <Text key={label} style={[s.stepLabel, stepNumber >= i + 1 && s.stepLabelActive]}>{label}</Text>
             ))}
           </View>
@@ -303,7 +303,7 @@ export default function ForgotPasswordScreen() {
 
               {method === "email" && (
                 <InputField
-                  label="Email Address"
+                  label={T("emailAddress")}
                   value={email}
                   onChangeText={v => { setEmail(v); clearError(); }}
                   placeholder="your@email.com"
@@ -359,7 +359,7 @@ export default function ForgotPasswordScreen() {
           {step === "newPassword" && (
             <>
               <InputField
-                label="New Password"
+                label={T("newPassword")}
                 value={newPassword}
                 onChangeText={v => { setNewPassword(v); clearError(); }}
                 placeholder="Enter new password"
@@ -371,7 +371,7 @@ export default function ForgotPasswordScreen() {
               <PasswordStrengthBar password={newPassword} />
 
               <InputField
-                label="Confirm Password"
+                label={T("confirmPassword")}
                 value={confirmPassword}
                 onChangeText={v => { setConfirmPassword(v); clearError(); }}
                 placeholder="Re-enter new password"
@@ -381,7 +381,7 @@ export default function ForgotPasswordScreen() {
                 error={!!confirmPassword && newPassword !== confirmPassword}
               />
               {confirmPassword && newPassword !== confirmPassword && (
-                <Text style={s.mismatchText}>Passwords do not match</Text>
+                <Text style={s.mismatchText}>{T("passwordsDoNotMatch")}</Text>
               )}
             </>
           )}
@@ -392,7 +392,7 @@ export default function ForgotPasswordScreen() {
             label={
               step === "method" ? "Send Reset Code"
                 : step === "otp" ? "Verify Code"
-                : "Reset Password"
+                : T("resetPassword")
             }
             onPress={
               step === "method" ? handleSendResetCode

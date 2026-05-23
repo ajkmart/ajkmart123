@@ -23,6 +23,8 @@ import { useToast } from "@/context/ToastContext";
 import { useTheme } from "@/context/ThemeContext";
 import { API_BASE, SOCKET_BASE } from "@/utils/api";
 import { useSmartBack } from "@/hooks/useSmartBack";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 const log = createLogger("[Chat]");
 
 const SOCKET_URL = SOCKET_BASE;
@@ -51,7 +53,11 @@ interface CallSignal {
 }
 
 export default function ChatDetailScreen() {
-  const { colors: C } = useTheme();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const { colors: C } = useTheme();
   const st = useMemo(() => makeStyles(C), [C]);
   const { id, name, ajkId: otherAjkId, otherId } = useLocalSearchParams<{ id: string; name: string; ajkId: string; otherId: string }>();
   const insets = useSafeAreaInsets();
@@ -194,7 +200,7 @@ export default function ChatDetailScreen() {
     });
     socket.on("comm:call:incoming", (data: CallSignal) => {
       Alert.alert("Incoming Call", `${data.callerName || "Someone"} is calling`, [
-        { text: "Reject", style: "destructive", onPress: () => apiFetch(`/calls/${data.callId}/reject`, { method: "POST" }) },
+        { text: T("reject"), style: "destructive", onPress: () => apiFetch(`/calls/${data.callId}/reject`, { method: "POST" }) },
         { text: "Answer", onPress: () => answerIncoming(data.callId, data.callerId || "") },
       ]);
     });
@@ -401,7 +407,7 @@ export default function ChatDetailScreen() {
           <Ionicons name="arrow-back" size={24} color={C.text} />
         </TouchableOpacity>
         <View style={st.headerInfo}>
-          <Text style={st.headerName} numberOfLines={1}>{name || "User"}</Text>
+          <Text style={st.headerName} numberOfLines={1}>{name || T("user")}</Text>
           <Text style={st.headerMeta}>{otherAjkId}{typing ? " · typing..." : ""}</Text>
         </View>
         <TouchableOpacity style={st.callBtn} onPress={startCall} disabled={callActive}>

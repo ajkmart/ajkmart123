@@ -163,7 +163,7 @@ function OrderDetailScreenInner() {
     T("statusAccepted"),
     T("arrived"),
     T("inTransit"),
-    T("completed"),
+    T(T("completedLabel")),
   ];
 
   const [order, setOrder] = useState<OrderDetail | null>(null);
@@ -208,7 +208,7 @@ function OrderDetailScreenInner() {
     const res = await fetch(orderEndpoint, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
-    const serverDate = res.headers.get("Date");
+    const serverDate = res.headers.get(T("date"));
     if (serverDate && mountedRef.current) {
       setServerNow(new Date(serverDate).getTime());
     }
@@ -219,7 +219,7 @@ function OrderDetailScreenInner() {
     >(raw);
     const detail = data.order || data.booking || (data as OrderDetail);
     if (detail.userId && detail.userId !== user?.id) {
-      throw new Error("Order not found");
+      throw new Error(T("orderNotFound"));
     }
     return detail;
   }, [orderEndpoint, token, user?.id]);
@@ -361,7 +361,7 @@ function OrderDetailScreenInner() {
      This ensures rides use ride:{id} and mart/food use order:{id}. */
   useEffect(() => {
     if (!orderId || !token || !order) return;
-    const isTerminal = ["delivered", "cancelled", "completed"].includes(
+    const isTerminal = ["delivered", "cancelled", T("completedLabel")].includes(
       order.status ?? "",
     );
     if (isTerminal) return;
@@ -490,7 +490,7 @@ function OrderDetailScreenInner() {
         if (
           mountedRef.current &&
           fetched &&
-          ["delivered", "cancelled", "completed"].includes(fetched.status)
+          ["delivered", "cancelled", T("completedLabel")].includes(fetched.status)
         ) {
           if (ivRef !== null) clearInterval(ivRef);
         }
@@ -588,7 +588,7 @@ function OrderDetailScreenInner() {
   /* ── Check server whether user has already reviewed this order ── */
   const reviewCheckedRef = useRef(false);
   const orderStatusDelivered =
-    order?.status === "delivered" || order?.status === "completed";
+    order?.status === "delivered" || order?.status === T("completedLabel");
   useEffect(() => {
     if (!orderId || !token || !order) return;
     if (isRide) return;
@@ -730,7 +730,7 @@ function OrderDetailScreenInner() {
       ? RIDE_STEP_LABELS
       : STEP_LABELS;
   const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["pending"]!;
-  const isActive = !["delivered", "cancelled", "completed"].includes(
+  const isActive = !["delivered", "cancelled", T("completedLabel")].includes(
     order.status,
   );
   const stepIdx = activeSteps.indexOf(order.status);
@@ -752,7 +752,7 @@ function OrderDetailScreenInner() {
         minutesSincePlaced <= cancelWindowMin;
 
   const isDelivered =
-    order.status === "delivered" || order.status === "completed";
+    order.status === "delivered" || order.status === T("completedLabel");
   const isCashOrder =
     order.paymentMethod === "cod" || order.paymentMethod === "cash";
   const hasExistingRefund =
@@ -1383,7 +1383,7 @@ function OrderDetailScreenInner() {
                   </View>
                 ) : null}
 
-                <Text style={s.sectionTitle}>{T("items")}</Text>
+                <Text style={s.sectionTitle}>{T(T("itemsLabel"))}</Text>
                 {(order.items || []).map((item: OrderItem, i: number) => (
                   <View key={i} style={s.itemRow}>
                     <View style={s.itemQty}>
@@ -1517,7 +1517,7 @@ function OrderDetailScreenInner() {
                         ...Typ.small,
                         marginTop: 2,
                         color:
-                          paymentStatus === "completed" ||
+                          paymentStatus === T("completedLabel") ||
                           paymentStatus === "success"
                             ? C.emerald
                             : paymentStatus === "failed" ||
@@ -1526,7 +1526,7 @@ function OrderDetailScreenInner() {
                               : C.textMuted,
                       }}
                     >
-                      {paymentStatus === "completed" ||
+                      {paymentStatus === T("completedLabel") ||
                       paymentStatus === "success"
                         ? T("paymentConfirmed" as TranslationKey)
                         : paymentStatus === "failed"

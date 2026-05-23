@@ -15,6 +15,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Font } from "@/constants/typography";
 import { useAuth } from "@/context/AuthContext";
 import { API_BASE, SOCKET_BASE } from "@/utils/api";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 const log = createLogger("[van-tracking]");
 
 const SOCKET_URL = SOCKET_BASE;
@@ -252,7 +254,11 @@ function getStatusMessage(
 }
 
 export default function VanTrackingScreen() {
-  const insets = useSafeAreaInsets();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const insets = useSafeAreaInsets();
   const { goBack } = useSmartBack();
   const topPad = Math.max(insets.top, 12);
   const params = useLocalSearchParams<{
@@ -350,7 +356,7 @@ export default function VanTrackingScreen() {
           "van:trip-update",
           (data: { event: string; stopsAway?: number }) => {
             if (mounted) {
-              if (data.event === "trip_completed") setTripStatus("completed");
+              if (data.event === "trip_completed") setTripStatus(T("completedLabel"));
               if (data.stopsAway != null) setStopsAway(data.stopsAway);
             }
           },
@@ -366,7 +372,7 @@ export default function VanTrackingScreen() {
     };
   }, [scheduleId, date, token]);
 
-  const isCompleted = tripStatus === "completed";
+  const isCompleted = tripStatus === T("completedLabel");
   const status = getStatusMessage(location, stopsAway);
 
   return (

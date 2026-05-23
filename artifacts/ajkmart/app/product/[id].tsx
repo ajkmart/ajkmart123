@@ -33,6 +33,8 @@ import {
   type Product, type ProductReview, type ReviewSummary,
 } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 
 const C = Colors.light;
 const { width: SCREEN_W } = Dimensions.get("window");
@@ -345,7 +347,11 @@ function FullScreenImageViewer({
 }
 
 export default function ProductDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const topPad = Platform.OS === "web" ? 20 : insets.top;
   const bottomPad = Math.max(insets.bottom, Platform.OS === "web" ? 20 : 16);
@@ -555,8 +561,8 @@ export default function ProductDetailScreen() {
     );
   }
 
-  const serviceLabel = productType === "food" ? "Food" : productType === "pharmacy" ? "Pharmacy" : "Mart";
-  const currentServiceLabel = cartType === "pharmacy" ? "Pharmacy" : cartType === "food" ? "Food" : cartType === "mart" ? "Mart" : "Another service";
+  const serviceLabel = productType === "food" ? T("food") : productType === "pharmacy" ? T("navPharmacy") : T("martTitle");
+  const currentServiceLabel = cartType === "pharmacy" ? T("navPharmacy") : cartType === "food" ? T("food") : cartType === "mart" ? T("martTitle") : "Another service";
 
   const summary: ReviewSummary = reviewSummary || { average: 0, total: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } };
   const reviews: ProductReview[] = reviewsData?.reviews || [];
@@ -797,7 +803,7 @@ export default function ProductDetailScreen() {
                 <Ionicons name={product.inStock ? "checkmark-circle-outline" : "close-circle-outline"} size={16} color={product.inStock ? C.emerald : C.danger} />
                 <View>
                   <Text style={styles.specLabel}>Availability</Text>
-                  <Text style={styles.specValue}>{product.inStock ? "Available" : "Unavailable"}</Text>
+                  <Text style={styles.specValue}>{product.inStock ? "Available" : T("unavailable")}</Text>
                 </View>
               </View>
             </View>
@@ -923,7 +929,7 @@ export default function ProductDetailScreen() {
           >
             <Ionicons name={added ? "checkmark-circle" : "bag-add-outline"} size={20} color={C.textInverse} />
             <Text style={styles.addToCartTxt}>
-              {!product.inStock ? "Out of Stock" : added ? "Added to Cart!" : "Add to Cart"}
+              {!product.inStock ? "Out of Stock" : added ? "Added to Cart!" : T("addToCart")}
             </Text>
           </Pressable>
         </Animated.View>

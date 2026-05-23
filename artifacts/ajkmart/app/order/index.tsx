@@ -314,7 +314,7 @@ export default function OrderDetailScreen() {
       <View style={[s.root, { paddingTop: topPad }]}>
         <View style={s.loadingWrap}>
           <ActivityIndicator color={C.primary} size="large" />
-          <Text style={s.loadingText}>{isParcel ? "Loading parcel..." : "Loading order..."}</Text>
+          <Text style={s.loadingText}>{isParcel ? T("loadingParcel") : T("loadingOrder")}</Text>
         </View>
       </View>
     );
@@ -439,10 +439,10 @@ export default function OrderDetailScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ ...Typ.body, fontFamily: Font.bold, color: C.emeraldDeep }}>
-                    {order.status === "in_transit" ? "In Transit" : "On the Way to You"}
+                    {order.status === "in_transit" ? "In Transit" : T("onTheWayToYou")}
                   </Text>
                   <Text style={{ ...Typ.caption, color: C.emeraldDark, marginTop: 2 }}>
-                    {etaMinutes !== null ? `ETA: ~${etaMinutes} min` : "Your delivery is heading your way"}
+                    {etaMinutes !== null ? `ETA: ~${etaMinutes} min` : T("deliveryHeading")}
                   </Text>
                 </View>
                 <View style={{ backgroundColor: C.emerald, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
@@ -652,7 +652,7 @@ export default function OrderDetailScreen() {
                   ? "JazzCash"
                   : order.paymentMethod === "easypaisa"
                   ? "EasyPaisa"
-                  : "Cash on Delivery"}
+                  : T("cashOnDelivery")}
               </Text>
               {paymentStatus && paymentStatus !== "pending" && (
                 <Text style={{
@@ -661,7 +661,7 @@ export default function OrderDetailScreen() {
                     : paymentStatus === "failed" || paymentStatus === "expired" ? C.red
                     : C.textMuted,
                 }}>
-                  {paymentStatus === "completed" || paymentStatus === "success" ? "Payment confirmed"
+                  {paymentStatus === "completed" || paymentStatus === "success" ? T("paymentConfirmed")
                     : paymentStatus === "failed" ? "Payment failed"
                     : paymentStatus === "expired" ? "Payment expired"
                     : `Status: ${paymentStatus}`}
@@ -696,9 +696,9 @@ export default function OrderDetailScreen() {
             <Ionicons name="close-circle-outline" size={16} color={C.textMuted} />
             <Text style={s.cancelDisabledBtnText}>
               {T("cancelOrder")} — {["preparing", "ready", "picked_up"].includes(order.status)
-                ? "Order is being prepared"
+                ? T("orderPreparing")
                 : order.status === "out_for_delivery" || order.status === "in_transit"
-                ? "Order is on the way"
+                ? T("deliveryOnWay")
                 : `Window passed (${cancelWindowMin}m)`}
             </Text>
           </View>
@@ -728,8 +728,8 @@ export default function OrderDetailScreen() {
             <Ionicons name="checkmark-circle" size={20} color={C.emerald} />
             <Text style={s.refundSuccessText}>
               {order.refundStatus === "approved" || order.refundStatus === "refunded"
-                ? "Refund has been processed."
-                : "Refund request submitted. You'll receive an update soon."}
+                ? T("refundProcessed")
+                : T("refundSubmitted")}
             </Text>
           </View>
         )}

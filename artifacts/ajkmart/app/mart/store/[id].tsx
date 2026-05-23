@@ -25,6 +25,8 @@ import { AuthGateSheet, useAuthGate, useRoleGate, RoleBlockSheet } from "@/compo
 import { CartSwitchModal } from "@/components/CartSwitchModal";
 import { SkeletonBlock } from "@/components/ui/SkeletonBlock";
 import { WishlistHeart } from "@/components/WishlistHeart";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 
 const CARD_W_CONST = (375 - 16 * 2 - 12) / 2;
 
@@ -114,8 +116,8 @@ function ProductGridCard({ product, styles, C }: { product: MartProduct, styles:
       <RoleBlockSheet {...roleBlockProps} />
       <CartSwitchModal
         visible={showSwitchModal}
-        targetService="Mart"
-        currentService={cartType === "pharmacy" ? "Pharmacy" : cartType === "food" ? "Food" : "Another service"}
+        targetService={T("martTitle")}
+        currentService={cartType === "pharmacy" ? T("navPharmacy") : cartType === "food" ? T("food") : "Another service"}
         onCancel={() => setShowSwitchModal(false)}
         onConfirm={() => { setShowSwitchModal(false); clearCartAndAdd({ productId: product.id, name: product.name, price: product.price, quantity: 1, image: product.image ?? undefined, type: "mart" }); }}
       />
@@ -176,7 +178,11 @@ function ProductGridCard({ product, styles, C }: { product: MartProduct, styles:
 }
 
 export default function MartStorePage() {
-  const { colors: C } = useTheme();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const { colors: C } = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
   const { width: W } = useWindowDimensions();
   const CARD_W = (W - 16 * 2 - 12) / 2;
@@ -184,7 +190,7 @@ export default function MartStorePage() {
   const { goBack } = useSmartBack();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState<string>("All");
+  const [activeCategory, setActiveCategory] = useState<string>(T("allTypes"));
 
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ["mart-store", id],
@@ -203,13 +209,13 @@ export default function MartStorePage() {
   const products = data?.products ?? [];
 
   const categories = useMemo(() => {
-    const cats = ["All", ...Array.from(new Set(products.map(i => i.category).filter(Boolean)))];
+    const cats = [T("allTypes"), ...Array.from(new Set(products.map(i => i.category).filter(Boolean)))];
     return cats;
   }, [products]);
 
   const filtered = useMemo(() => {
     let list = products;
-    if (activeCategory !== "All") list = list.filter(i => i.category === activeCategory);
+    if (activeCategory !== T("allTypes")) list = list.filter(i => i.category === activeCategory);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(i => i.name.toLowerCase().includes(q) || (i.description ?? "").toLowerCase().includes(q));
@@ -302,7 +308,7 @@ export default function MartStorePage() {
             <View style={[styles.statusChip, { backgroundColor: isOpen ? C.emeraldBg : C.redBg }]}>
               <View style={[styles.statusDot, { backgroundColor: isOpen ? C.emerald : C.red }]} />
               <Text style={[styles.statusText, { color: isOpen ? C.emeraldDeep : C.redBright }]}>
-                {isOpen ? "Open" : "Closed"}
+                {isOpen ? T("openLabel") : T("closedLabel")}
               </Text>
             </View>
           </View>
@@ -351,7 +357,7 @@ export default function MartStorePage() {
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Search products..."
+            placeholder={T("searchProducts")}
             placeholderTextColor={C.textMuted}
             style={styles.searchInput}
           />

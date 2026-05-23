@@ -23,6 +23,8 @@ import { useToast } from "@/context/ToastContext";
 import { API_BASE } from "@/utils/api";
 import { createLogger } from "@/utils/logger";
 import { SkeletonBlock } from "@/components/ui/SkeletonBlock";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 
 const log = createLogger("[PharmacyStore]");
 
@@ -106,7 +108,11 @@ function ProductCard({ product, qty, onAdd, onRemove, s, C }: {
 }
 
 export default function PharmacyStoreScreen() {
-  const { colors: C } = useTheme();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const { colors: C } = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const { id: vendorId } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
@@ -207,7 +213,7 @@ export default function PharmacyStoreScreen() {
             {vendorLoading ? (
               <SkeletonBlock w={140} h={18} r={6} />
             ) : (
-              <Text style={s.headerTitle} numberOfLines={1}>{vendor?.name ?? "Pharmacy"}</Text>
+              <Text style={s.headerTitle} numberOfLines={1}>{vendor?.name ?? T("navPharmacy")}</Text>
             )}
           </View>
           {cartCount > 0 && (
@@ -254,7 +260,7 @@ export default function PharmacyStoreScreen() {
             {rxPhotoUri ? "Prescription uploaded" : "Upload a valid prescription to add Rx items"}
           </Text>
           <TouchableOpacity activeOpacity={0.8} onPress={handleUploadRx} disabled={rxUploading} style={s.rxUploadBtn}>
-            {rxUploading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={s.rxUploadTxt}>{rxPhotoUri ? "Change" : "Upload"}</Text>}
+            {rxUploading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={s.rxUploadTxt}>{rxPhotoUri ? T("changePhoto") : "Upload"}</Text>}
           </TouchableOpacity>
         </View>
       )}

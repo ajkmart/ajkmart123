@@ -114,10 +114,10 @@ function PharmacyScreenInner() {
   const pharmacyEnabled = config.features.pharmacy;
 
   const [medicines, setMedicines] = useState<Med[]>([]);
-  const [categories, setCategories] = useState<string[]>(["All"]);
+  const [categories, setCategories] = useState<string[]>([T("allTypes")]);
   const [loadingMeds, setLoadingMeds] = useState(true);
   const [medsError, setMedsError] = useState(false);
-  const [activeTab, setActiveTab] = useState(routeCategory || "All");
+  const [activeTab, setActiveTab] = useState(routeCategory || T("allTypes"));
   const [search, setSearch] = useState("");
   const [showCheckout, setShowCheckout] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -210,7 +210,7 @@ function PharmacyScreenInner() {
             requires_prescription: !!p.requires_prescription,
           }));
           setMedicines(meds);
-          setCategories(["All", ...new Set(meds.map(m => m.category))]);
+          setCategories([T("allTypes"), ...new Set(meds.map(m => m.category))]);
         }
       })
       .catch(() => setMedsError(true))
@@ -220,7 +220,7 @@ function PharmacyScreenInner() {
   useEffect(() => { loadMeds(); }, [pharmacyEnabled]);
 
   const filtered = medicines.filter(m => {
-    const matchCat = activeTab === "All" || m.category === activeTab;
+    const matchCat = activeTab === T("allTypes") || m.category === activeTab;
     const matchSearch = !search || m.name.toLowerCase().includes(search.toLowerCase());
     return matchCat && matchSearch;
   });

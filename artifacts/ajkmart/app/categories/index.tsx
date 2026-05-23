@@ -19,6 +19,8 @@ import Colors from "@/constants/colors";
 import { Font } from "@/constants/typography";
 import { getHierarchicalCategories, type HierarchicalCategory } from "@workspace/api-client-react";
 import { useGetProducts } from "@workspace/api-client-react";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 
 const C = Colors.light;
 const { width } = Dimensions.get("window");
@@ -26,7 +28,11 @@ const SIDEBAR_W = 90;
 const RIGHT_W = width - SIDEBAR_W;
 
 export default function CategoriesBrowseScreen() {
-  const insets = useSafeAreaInsets();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const insets = useSafeAreaInsets();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const { type: initialType } = useLocalSearchParams<{ type?: string }>();
   const serviceType = initialType || "mart";
@@ -63,7 +69,7 @@ export default function CategoriesBrowseScreen() {
           <Ionicons name="arrow-back" size={20} color={C.text} />
         </Pressable>
         <Text style={s.headerTitle}>
-          {serviceType === "food" ? "Food Categories" : serviceType === "pharmacy" ? "Pharmacy" : "Categories"}
+          {serviceType === "food" ? "Food Categories" : serviceType === "pharmacy" ? T("navPharmacy") : T("navCategories")}
         </Text>
         <Pressable onPress={() => router.push("/search")} style={s.searchBtn}>
           <Ionicons name="search-outline" size={20} color={C.text} />
@@ -165,7 +171,7 @@ export default function CategoriesBrowseScreen() {
 
             <View style={s.productsHeader}>
               <Text style={s.productsTitle}>
-                {subCategories.length > 0 ? "All Products" : "Products"}
+                {subCategories.length > 0 ? T("allProductsLabel") : T("navProducts")}
               </Text>
               <Text style={s.productsCount}>{products.length}</Text>
             </View>

@@ -13,7 +13,7 @@ import { Font } from "@/constants/typography";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { tDual } from "@workspace/i18n";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 import { useTheme } from "@/context/ThemeContext";
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
@@ -50,7 +50,11 @@ interface AvailabilityData {
 type Step = "routes" | "schedules" | "date" | "seats" | "confirm";
 
 export default function VanServiceScreen() {
-  const { colors: C } = useTheme();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const { colors: C } = useTheme();
   const ss = useMemo(() => makeStyles(C), [C]);
   const insets = useSafeAreaInsets();
   const { goBack: smartGoBack } = useSmartBack();
@@ -208,7 +212,7 @@ export default function VanServiceScreen() {
     const showTieredFare = routes.some(r => r.fareWindow || r.fareAisle || r.fareEconomy);
     return (
       <View style={ss.root}>
-        {renderHeader("Van Service", "Fixed-route commuter vans")}
+        {renderHeader(T("navVanService"), "Fixed-route commuter vans")}
         {loading ? <View style={ss.center}><ActivityIndicator color={C.primary} size="large" /></View> : (
           <ScrollView contentContainerStyle={ss.content}>
             {routes.length === 0 ? (
@@ -291,7 +295,7 @@ export default function VanServiceScreen() {
                 return <View key={d} style={[ss.dayBadge, isToday && ss.dayBadgeActive]}><Text style={[ss.dayBadgeText, isToday && ss.dayBadgeTextActive]}>{DAY_NAMES[d === 7 ? 0 : d]}</Text></View>;
               })}
             </View>
-            {s.vehiclePlate ? <Text style={ss.vehicleText}>{s.vehicleModel || "Van"} · {s.vehiclePlate} · {s.totalSeats ?? "?"} seats</Text> : null}
+            {s.vehiclePlate ? <Text style={ss.vehicleText}>{s.vehicleModel || T("vanVehicle")} · {s.vehiclePlate} · {s.totalSeats ?? "?"} seats</Text> : null}
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -308,7 +312,7 @@ export default function VanServiceScreen() {
           const d = new Date();
           d.setDate(d.getDate() + i);
           const iso = d.toISOString().split("T")[0]!;
-          const label = i === 0 ? "Today" : i === 1 ? "Tomorrow" : `${DAY_NAMES[d.getDay()]}, ${d.getDate()} ${d.toLocaleString("default",{month:"short"})}`;
+          const label = i === 0 ? T("today") : i === 1 ? "Tomorrow" : `${DAY_NAMES[d.getDay()]}, ${d.getDate()} ${d.toLocaleString("default",{month:"short"})}`;
           const dow = d.getDay() === 0 ? 7 : d.getDay();
           const running = (Array.isArray(selectedSchedule.daysOfWeek) ? selectedSchedule.daysOfWeek as number[] : []).includes(dow);
           return (
@@ -518,7 +522,7 @@ export default function VanServiceScreen() {
             {(["cash","wallet"] as const).map(pm => (
               <TouchableOpacity activeOpacity={0.7} key={pm} style={[ss.payBtn, paymentMethod === pm && ss.payBtnSelected]} onPress={() => setPaymentMethod(pm)}>
                 <Ionicons name={pm === "cash" ? "cash-outline" : "wallet-outline"} size={18} color={paymentMethod === pm ? "#fff" : C.textMuted} />
-                <Text style={[ss.payBtnText, paymentMethod === pm && { color: "#fff" }]}>{pm === "cash" ? "Cash" : "Wallet"}</Text>
+                <Text style={[ss.payBtnText, paymentMethod === pm && { color: "#fff" }]}>{pm === "cash" ? T("paymentCashLabel") : T("paymentWallet")}</Text>
               </TouchableOpacity>
             ))}
           </View>

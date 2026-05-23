@@ -22,6 +22,8 @@ import { Font } from "@/constants/typography";
 import { API_BASE, unwrapApiResponse } from "@/utils/api";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { SkeletonBlock } from "@/components/ui/SkeletonBlock";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 
 interface PharmacyStore {
   id: string;
@@ -60,7 +62,7 @@ function StoreCard({ store, styles, C }: { store: PharmacyStore, styles: any, C:
         }
         <View style={styles.openBadge}>
           <View style={[styles.openDot, { backgroundColor: store.storeIsOpen === false ? C.danger : C.emerald }]} />
-          <Text style={styles.openTxt}>{store.storeIsOpen === false ? "Closed" : "Open"}</Text>
+          <Text style={styles.openTxt}>{store.storeIsOpen === false ? T("closedLabel") : T("openLabel")}</Text>
         </View>
       </View>
       <View style={styles.cardBody}>
@@ -98,7 +100,11 @@ function StoreCard({ store, styles, C }: { store: PharmacyStore, styles: any, C:
 }
 
 export default function PharmacyStoresScreen() {
-  const { colors: C } = useTheme();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const { colors: C } = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
   const { width: W } = useWindowDimensions();
   const insets = useSafeAreaInsets();

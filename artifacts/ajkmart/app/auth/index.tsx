@@ -283,7 +283,7 @@ export default function AuthScreen() {
         setMethod("phone");
         setLoading(false); // unblock UI before secondary async send-otp
         const r = await authPost("/auth/send-otp", { phone: `0${normalized}` }).catch((e: unknown) => {
-          setError(e instanceof Error ? e.message : "Failed to send OTP");
+          setError(e instanceof Error ? e.message : T("sendOtpFailed"));
           return null;
         });
         if (r) {
@@ -304,7 +304,7 @@ export default function AuthScreen() {
         setMethod("email");
         setLoading(false); // unblock UI before secondary async send-email-otp
         const r = await authPost("/auth/send-email-otp", { email: id }).catch((e: unknown) => {
-          setError(e instanceof Error ? e.message : "Failed to send OTP");
+          setError(e instanceof Error ? e.message : T("sendOtpFailed"));
           return null;
         });
         if (r) {
@@ -748,7 +748,7 @@ export default function AuthScreen() {
                 label={T("yourNameRequired")}
                 value={profileName}
                 onChangeText={v => { setProfileName(v); clearError(); }}
-                placeholder="Enter your full name"
+                placeholder={T("enterFullName")}
                 autoFocus
                 error={!!error && profileName.trim().length < 2}
               />
@@ -771,7 +771,7 @@ export default function AuthScreen() {
                 label={T("passwordOptional")}
                 value={profilePassword}
                 onChangeText={v => { setProfilePassword(v); clearError(); }}
-                placeholder="Min 8 characters"
+                placeholder={T("minChars")}
                 secureTextEntry={!showProfilePwd}
                 rightIcon={showProfilePwd ? "eye-off-outline" : "eye-outline"}
                 onRightIconPress={() => setShowProfilePwd(v => !v)}
@@ -921,7 +921,7 @@ export default function AuthScreen() {
                             autoCapitalize="none"
                           />
                           <SocialButton
-                            provider="Magic Link"
+                            provider={T("magicLinkLogin")}
                             label="Send Magic Link"
                             icon="link"
                             color={C.info}
@@ -1039,7 +1039,7 @@ export default function AuthScreen() {
                   onPress={() => handleSendPhoneOtp()}
                   style={[styles.resendBtn, resendCooldown > 0 && styles.resendDisabled]}
                   disabled={resendCooldown > 0}
-                  accessibilityLabel={resendCooldown > 0 ? `Resend in ${resendCooldown} seconds` : "Resend OTP"}
+                  accessibilityLabel={resendCooldown > 0 ? `Resend in ${resendCooldown} seconds` : T("otpResend")}
                   accessibilityRole="button"
                 >
                   <Ionicons name="refresh-outline" size={16} color={resendCooldown > 0 ? C.textMuted : C.primary} />
@@ -1116,7 +1116,7 @@ export default function AuthScreen() {
                 <InputField
                   value={password}
                   onChangeText={v => { setPassword(v); clearError(); }}
-                  placeholder="Password"
+                  placeholder={T("passwordLabel")}
                   secureTextEntry={!showPwd}
                   rightIcon={showPwd ? "eye-off-outline" : "eye-outline"}
                   onRightIconPress={() => setShowPwd(v => !v)}
@@ -1124,7 +1124,7 @@ export default function AuthScreen() {
                 <Pressable
                   onPress={() => router.push("/auth/forgot-password")}
                   style={styles.forgotBtn}
-                  accessibilityLabel="Forgot Password"
+                  accessibilityLabel={T("forgotPassword")}
                   accessibilityRole="link"
                 >
                   <Text style={styles.forgotText}>Forgot Password?</Text>
@@ -1190,7 +1190,7 @@ export default function AuthScreen() {
                               autoCapitalize="none"
                             />
                             <SocialButton
-                              provider="Magic Link"
+                              provider={T("magicLinkLogin")}
                               label="Send Magic Link"
                               icon="link"
                               color={C.info}

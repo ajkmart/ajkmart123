@@ -216,8 +216,8 @@ const FlashCard = React.memo(function FlashCard({ product }: { product: FlashDea
       <RoleBlockSheet {...roleBlockProps} />
       <CartSwitchModal
         visible={showSwitchModal}
-        targetService="Mart"
-        currentService={cartType === "pharmacy" ? "Pharmacy" : cartType === "food" ? "Food" : "Another service"}
+        targetService={T("martTitle")}
+        currentService={cartType === "pharmacy" ? T("navPharmacy") : cartType === "food" ? T("food") : "Another service"}
         onCancel={() => setShowSwitchModal(false)}
         onConfirm={() => { setShowSwitchModal(false); clearCartAndAdd({ productId: product.id, name: product.name, price: productPrice, quantity: 1, image: product.image ?? undefined, type: "mart" }); }}
       />
@@ -302,8 +302,8 @@ const ProductCard = React.memo(function ProductCard({ product }: { product: Mart
       <RoleBlockSheet {...roleBlockProps} />
       <CartSwitchModal
         visible={showSwitchModal}
-        targetService="Mart"
-        currentService={cartType === "pharmacy" ? "Pharmacy" : cartType === "food" ? "Food" : "Another service"}
+        targetService={T("martTitle")}
+        currentService={cartType === "pharmacy" ? T("navPharmacy") : cartType === "food" ? T("food") : "Another service"}
         onCancel={() => setShowSwitchModal(false)}
         onConfirm={() => { setShowSwitchModal(false); clearCartAndAdd({ productId: product.id, name: product.name ?? "—", price: product.price ?? 0, quantity: 1, image: product.image ?? undefined, type: "mart" }); }}
       />
@@ -496,8 +496,8 @@ function MartScreenInner() {
 
       <CartSwitchModal
         visible={clearBannerConfirm}
-        currentService={cartType === "food" ? "Food" : cartType === "pharmacy" ? "Pharmacy" : "Current"}
-        targetService="Mart"
+        currentService={cartType === "food" ? T("food") : cartType === "pharmacy" ? T("navPharmacy") : "Current"}
+        targetService={T("martTitle")}
         onConfirm={() => { clearCart(); setClearBannerConfirm(false); }}
         onCancel={() => setClearBannerConfirm(false)}
       />
@@ -536,7 +536,7 @@ function MartScreenInner() {
             { key: "price_asc", label: T("priceLowHigh" as TranslationKey), icon: "arrow-up-outline" as const },
             { key: "price_desc", label: T("priceHighLow" as TranslationKey), icon: "arrow-down-outline" as const },
             { key: "popular", label: T("popular" as TranslationKey), icon: "flame-outline" as const },
-            { key: "rating", label: T("topRated" as TranslationKey), icon: "star-outline" as const },
+            { key: T("ratingLabel"), label: T("topRated" as TranslationKey), icon: "star-outline" as const },
             { key: "newest", label: T("newest" as TranslationKey), icon: "time-outline" as const },
           ] as const).map(opt => (
             <TouchableOpacity activeOpacity={0.7} key={opt.key} onPress={() => setSortBy(opt.key)}

@@ -181,7 +181,7 @@ function EditProfileModal({ visible, onClose }: { visible: boolean; onClose: () 
       setPendingAsset(null);
       onClose();
       showToast("Profile updated!", "success");
-    } catch { showToast("Update failed. Please try again.", "error"); }
+    } catch { showToast(T("updateFailed"), "error"); }
     setSaving(false);
   };
 
@@ -667,7 +667,7 @@ function PrivacyModal({ visible, userId, token, onClose }: { visible: boolean; u
       setBackupCodes(data.backupCodes || []);
       updateUser({ totpEnabled: true });
       showToast("2FA enabled successfully!", "success");
-    } catch (e: any) { setTwoFAError(e.message || "Verification failed"); }
+    } catch (e: any) { setTwoFAError(e.message || T("verificationFailed")); }
     setTwoFALoading(false);
   };
 
@@ -758,15 +758,15 @@ function PrivacyModal({ visible, userId, token, onClose }: { visible: boolean; u
             </Accordion>
             <Accordion title="🔔 Notifications" icon="notifications-outline" iconColor={C.accent} iconBg={C.accentSoft} defaultOpen={true} badge="4 toggles" badgeColor={C.textMuted} badgeBg={C.surfaceSecondary}>
               <View style={secCard.wrap}>
-                <ToggleRow k="notifOrders"  label="Order Updates"    sub="Delivery & order status"     icon="bag-outline"           ic={C.primary} ib={C.primarySoft} />
-                <ToggleRow k="notifWallet"  label="Wallet Activity"  sub="Payment & top-up alerts"     icon="wallet-outline"        ic={C.info}    ib={C.infoSoft} />
-                <ToggleRow k="notifDeals"   label="Deals & Offers"   sub="Discounts & promotions"      icon="pricetag-outline"      ic={C.accent}  ib={C.accentSoft} />
+                <ToggleRow k="notifOrders"  label={T("orderUpdates")}    sub="Delivery & order status"     icon="bag-outline"           ic={C.primary} ib={C.primarySoft} />
+                <ToggleRow k="notifWallet"  label={T("walletActivity")}  sub="Payment & top-up alerts"     icon="wallet-outline"        ic={C.info}    ib={C.infoSoft} />
+                <ToggleRow k="notifDeals"   label={T("dealsOffers")}   sub="Discounts & promotions"      icon="pricetag-outline"      ic={C.accent}  ib={C.accentSoft} />
                 <ToggleRow k="notifRides"   label="Ride Updates"     sub="Driver assignment & ETA"     icon="car-outline"           ic={C.success} ib={C.successSoft} />
               </View>
             </Accordion>
             <Accordion title="🔒 Privacy" icon="eye-off-outline" iconColor={C.info} iconBg={C.infoSoft}>
               <View style={secCard.wrap}>
-                <ToggleRow k="locationSharing" label="Location Sharing" sub="For rides and deliveries"  icon="location-outline"     ic={C.success} ib={C.successSoft} />
+                <ToggleRow k="locationSharing" label={T("locationSharing")} sub="For rides and deliveries"  icon="location-outline"     ic={C.success} ib={C.successSoft} />
               </View>
             </Accordion>
             <Accordion title="🛡️ Security" icon="shield-checkmark-outline" iconColor={C.success} iconBg={C.successSoft}>
@@ -978,7 +978,7 @@ function PrivacyModal({ visible, userId, token, onClose }: { visible: boolean; u
                     "If you've lost access to your authenticator app, please contact support with your registered phone number and a government-issued ID. We'll verify your identity and disable 2FA manually.\n\nThis process may take 1-2 business days.",
                     [
                       { text: "Cancel", style: "cancel" },
-                      { text: "Contact Support", onPress: () => Linking.openURL("mailto:support@ajkmart.pk?subject=Lost%202FA%20Authenticator") },
+                      { text: T("contactSupport"), onPress: () => Linking.openURL("mailto:support@ajkmart.pk?subject=Lost%202FA%20Authenticator") },
                     ]
                   );
                 }}
@@ -1053,7 +1053,7 @@ function AddressesModal({ visible, userId, token, onClose }: { visible: boolean;
     await fetch(`${API}/addresses/${id}`, { method: "DELETE", headers: authHdrs });
     setList(p => p.filter(a => a.id !== id));
     setDeleteConfirmId(null);
-    showToast("Address deleted", "info");
+    showToast(T("addressDeleted"), "info");
   };
 
   const startEdit = (a: any) => {
@@ -1350,7 +1350,7 @@ export default function ProfileScreen() {
 
   const roleMap: Record<string, { label: string; colors: [string, string] }> = {
     customer: { label: "Customer",        colors: [C.primaryDark, C.primary] },
-    rider:    { label: "Delivery Rider",  colors: [C.primaryDark, C.primary] },
+    rider:    { label: T("deliveryRider"),  colors: [C.primaryDark, C.primary] },
     vendor:   { label: "Store Vendor",    colors: [C.primaryDark, C.primary] },
   };
   const role = roleMap[user?.role || "customer"] || roleMap.customer!;
@@ -1661,7 +1661,7 @@ export default function ProfileScreen() {
           <Row icon="bicycle-outline"  label={T("rides")}         sub={`${stats.rides} ${T("ridesCount")}`}          onPress={() => router.push("/ride")}            iconColor={C.info}   iconBg={C.infoSoft} />
           <Row icon="medkit-outline"   label={T("pharmacy")}         sub={T("medicineOrderHistory")}               onPress={() => router.push("/pharmacy")}        iconColor={C.pharmacy}   iconBg={C.pharmacyLight} />
           <Row icon="cube-outline"     label={T("parcelBookings")}  sub={T("courierHistory")}             onPress={() => router.push("/parcel")}          iconColor={C.parcel}   iconBg={C.parcelLight} />
-          <Row icon="heart-outline"    label="My Wishlist"          sub="Saved favorites"                 onPress={() => router.push("/wishlist")}         iconColor={C.danger}  iconBg={C.dangerSoft} />
+          <Row icon="heart-outline"    label={T("myWishlist")}          sub="Saved favorites"                 onPress={() => router.push("/wishlist")}         iconColor={C.danger}  iconBg={C.dangerSoft} />
           <Row icon="star-outline"     label={T("myReviews")}       sub={T("customerFeedback")}           onPress={() => router.push("/my-reviews")}      iconColor={C.gold}    iconBg={C.amberBg} />
           <Row icon="location-outline" label={T("savedAddresses")}  sub={T("savedAddressesSub")}    onPress={() => setShowAddrs(true)}              iconColor={C.mart}    iconBg={C.martLight} />
         </SectionCard>

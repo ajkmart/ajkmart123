@@ -22,6 +22,8 @@ import { useCart } from "@/context/CartContext";
 import { usePlatformConfig } from "@/context/PlatformConfigContext";
 import { searchProducts, getTrendingSearches, useGetCategories } from "@workspace/api-client-react";
 import { WishlistHeart } from "@/components/WishlistHeart";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 
 const C = Colors.light;
 const HISTORY_KEY = "@ajkmart_search_history";
@@ -29,11 +31,11 @@ const MAX_HISTORY = 10;
 
 type SortOption = "relevance" | "price_asc" | "price_desc" | "rating" | "newest";
 const SORT_OPTIONS: { key: SortOption; label: string }[] = [
-  { key: "relevance", label: "Relevance" },
-  { key: "price_asc", label: "Price: Low" },
-  { key: "price_desc", label: "Price: High" },
-  { key: "rating", label: "Top Rated" },
-  { key: "newest", label: "Newest" },
+  { key: "relevance", label: T("sortRelevance") },
+  { key: "price_asc", label: T("sortPriceLow") },
+  { key: "price_desc", label: T("sortPriceHigh") },
+  { key: T("ratingLabel"), label: T("sortTopRated") },
+  { key: "newest", label: T("newest") },
 ];
 
 type ServiceKey = "mart" | "food" | "pharmacy";
@@ -51,9 +53,9 @@ interface SearchResult {
 }
 
 const SERVICE_META: Record<ServiceKey, { label: string; icon: keyof typeof Ionicons.glyphMap; color: string; bg: string }> = {
-  mart:     { label: "Mart",     icon: "basket-outline",   color: "#7C3AED", bg: "#F3E8FF" },
-  food:     { label: "Food",     icon: "restaurant-outline", color: "#D97706", bg: "#FEF3C7" },
-  pharmacy: { label: "Pharmacy", icon: "medical-outline",  color: "#059669", bg: "#D1FAE5" },
+  mart:     { label: T("martTitle"),     icon: "basket-outline",   color: "#7C3AED", bg: "#F3E8FF" },
+  food:     { label: T("food"),     icon: "restaurant-outline", color: "#D97706", bg: "#FEF3C7" },
+  pharmacy: { label: T("navPharmacy"), icon: "medical-outline",  color: "#059669", bg: "#D1FAE5" },
 };
 
 const SERVICE_ROUTES: Record<ServiceKey, "/mart" | "/food" | "/pharmacy"> = {
@@ -73,7 +75,11 @@ function ServiceBadge({ type }: { type: ServiceKey }) {
 }
 
 export default function UniversalSearchScreen() {
-  const insets = useSafeAreaInsets();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const insets = useSafeAreaInsets();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const { addItem, cartType, itemCount, clearCart } = useCart();
   const { config } = usePlatformConfig();
@@ -261,7 +267,7 @@ export default function UniversalSearchScreen() {
         `Switch to ${meta.label}?`,
         `Your cart has items from another service. Adding this item will clear your current cart.`,
         [
-          { text: "Cancel", style: "cancel" },
+          { text: T("cancelLabel"), style: "cancel" },
           { text: "Clear & Add", style: "destructive", onPress: () => { clearCart(); doAddItem(item); } },
         ],
       );

@@ -13,6 +13,8 @@ import { Font } from "@/constants/typography";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { useTheme } from "@/context/ThemeContext";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
@@ -47,14 +49,18 @@ interface VanBooking {
 }
 
 const STATUS_INFO: Record<string, { color: string; bg: string; icon: any; label: string }> = {
-  confirmed: { color: "#2563EB", bg: "#DBEAFE", icon: "checkmark-circle-outline", label: "Confirmed" },
+  confirmed: { color: "#2563EB", bg: "#DBEAFE", icon: "checkmark-circle-outline", label: T("confirmed") },
   boarded:   { color: "#D97706", bg: "#FEF3C7", icon: "bus-outline",               label: "Boarded" },
-  completed: { color: "#16A34A", bg: "#DCFCE7", icon: "checkmark-done-circle",     label: "Completed" },
-  cancelled: { color: "#DC2626", bg: "#FEE2E2", icon: "close-circle-outline",      label: "Cancelled" },
+  completed: { color: "#16A34A", bg: "#DCFCE7", icon: "checkmark-done-circle",     label: T("stepCompleted") },
+  cancelled: { color: "#DC2626", bg: "#FEE2E2", icon: "close-circle-outline",      label: T("ridesCancelled") },
 };
 
 export default function VanBookingsScreen() {
-  const { colors: C } = useTheme();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const { colors: C } = useTheme();
   const ss = useMemo(() => makeStyles(C), [C]);
   const insets = useSafeAreaInsets();
   const { goBack } = useSmartBack();
@@ -85,10 +91,10 @@ export default function VanBookingsScreen() {
   useEffect(() => { fetchBookings(); }, []);
 
   async function cancelBooking(id: string) {
-    Alert.alert("Cancel Booking", "Are you sure you want to cancel this booking?", [
-      { text: "No", style: "cancel" },
+    Alert.alert(T("cancelBooking"), "Are you sure you want to cancel this booking?", [
+      { text: T("cancelNo"), style: "cancel" },
       {
-        text: "Yes, Cancel", style: "destructive", onPress: async () => {
+        text: T("yesCancel"), style: "destructive", onPress: async () => {
           setCancelling(id);
           try {
             const res = await fetch(`${API_BASE}/van/bookings/${id}/cancel`, {
@@ -223,7 +229,7 @@ export default function VanBookingsScreen() {
                         disabled={cancelling === b.id}
                       >
                         {cancelling === b.id ? <ActivityIndicator color="#DC2626" size="small" /> : (
-                          <><Ionicons name="close-circle-outline" size={16} color="#DC2626" /><Text style={ss.cancelBtnText}>Cancel Booking</Text></>
+                          <><Ionicons name="close-circle-outline" size={16} color="#DC2626" /><Text style={ss.cancelBtnText}>{T("cancelBooking")}</Text></>
                         )}
                       </TouchableOpacity>
                     )}

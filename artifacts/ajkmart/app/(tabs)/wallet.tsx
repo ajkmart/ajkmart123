@@ -26,7 +26,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { usePlatformConfig } from "@/context/PlatformConfigContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { tDual } from "@workspace/i18n";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 import { SmartRefresh } from "@/components/ui/SmartRefresh";
 import { useGetWallet } from "@workspace/api-client-react";
 import { API_BASE as API } from "@/utils/api";
@@ -143,8 +143,8 @@ function WithdrawModal({ onClose, onSuccess, onFrozen, token, balance, minWithdr
   }, [step]);
 
   const WITHDRAW_METHODS: { id: WithdrawMethod; label: string; placeholder: string }[] = [
-    { id: "jazzcash",  label: "JazzCash",  placeholder: "03XX-XXXXXXX" },
-    { id: "easypaisa", label: "EasyPaisa", placeholder: "03XX-XXXXXXX" },
+    { id: "jazzcash",  label: T("paymentJazzCash"),  placeholder: T("emergencyPlaceholder") },
+    { id: "easypaisa", label: T("paymentEasyPaisa"), placeholder: T("emergencyPlaceholder") },
     { id: "bank",      label: "Bank Transfer", placeholder: "PKXX XXXX XXXX XXXX XXXX (IBAN)" },
   ];
 
@@ -171,7 +171,7 @@ function WithdrawModal({ onClose, onSuccess, onFrozen, token, balance, minWithdr
       setStep("done");
       onSuccess();
     } catch {
-      setErr("Network error. Please try again.");
+      setErr(T("networkError"));
       setSubmitting(false);
     }
   };
@@ -205,8 +205,8 @@ function WithdrawModal({ onClose, onSuccess, onFrozen, token, balance, minWithdr
                     <Text style={{ ...Typ.h2, color: C.danger }}>Rs. {parseFloat(amount).toLocaleString()}</Text>
                   </View>
                 </View>
-                <Pressable onPress={onClose} style={[ws.actionBtn, { backgroundColor: C.primary, marginTop: 16, width: "100%" }]} accessibilityRole="button" accessibilityLabel="Done">
-                  <Text style={ws.actionBtnTxt}>Done</Text>
+                <Pressable onPress={onClose} style={[ws.actionBtn, { backgroundColor: C.primary, marginTop: 16, width: "100%" }]} accessibilityRole="button" accessibilityLabel={T("stepDone")}>
+                  <Text style={ws.actionBtnTxt}>{T("stepDone")}</Text>
                 </Pressable>
               </Animated.View>
             )}
@@ -421,14 +421,14 @@ function DepositModal({ onClose, onSuccess, onFrozen, token, minTopup, maxTopup 
       setStep("done");
       onSuccess();
     } catch {
-      setErr("Network error. Please try again.");
+      setErr(T("networkError"));
     }
     setSubmitting(false);
   };
 
   const copyToClipboard = (text: string) => {
     Clipboard.setStringAsync(text);
-    showToast("Copied!", "success");
+    showToast(T("copiedExclaim"), "success");
   };
 
   return (
@@ -472,8 +472,8 @@ function DepositModal({ onClose, onSuccess, onFrozen, token, minTopup, maxTopup 
                     <Text style={{ ...Typ.h2, color: C.success }}>Rs. {parseFloat(amount).toLocaleString()}</Text>
                   </View>
                 </View>
-                <Pressable onPress={onClose} style={[ws.actionBtn, { backgroundColor: C.primary, marginTop: 16, width: "100%" }]} accessibilityRole="button" accessibilityLabel="Done">
-                  <Text style={ws.actionBtnTxt}>Done</Text>
+                <Pressable onPress={onClose} style={[ws.actionBtn, { backgroundColor: C.primary, marginTop: 16, width: "100%" }]} accessibilityRole="button" accessibilityLabel={T("stepDone")}>
+                  <Text style={ws.actionBtnTxt}>{T("stepDone")}</Text>
                 </Pressable>
               </View>
             )}
@@ -575,8 +575,8 @@ function DepositModal({ onClose, onSuccess, onFrozen, token, minTopup, maxTopup 
                 </View>
 
                 <View style={{ flexDirection: "row", gap: 12 }}>
-                  <Pressable onPress={() => setStep("method")} style={[ws.actionBtn, { flex: 1, backgroundColor: C.surfaceSecondary }]} accessibilityRole="button" accessibilityLabel="Back">
-                    <Text style={[ws.actionBtnTxt, { color: C.text }]}>Back</Text>
+                  <Pressable onPress={() => setStep("method")} style={[ws.actionBtn, { flex: 1, backgroundColor: C.surfaceSecondary }]} accessibilityRole="button" accessibilityLabel={T("back")}>
+                    <Text style={[ws.actionBtnTxt, { color: C.text }]}>{T("back")}</Text>
                   </Pressable>
                   <Pressable onPress={goToAmount} style={[ws.actionBtn, { flex: 2, backgroundColor: C.primary }]} accessibilityRole="button" accessibilityLabel="Payment done, continue">
                     <Ionicons name="checkmark-circle-outline" size={18} color={C.textInverse} />
@@ -627,7 +627,7 @@ function DepositModal({ onClose, onSuccess, onFrozen, token, minTopup, maxTopup 
                   <TextInput
                     value={senderAcNo}
                     onChangeText={setSenderAcNo}
-                    placeholder={selectedMethod.id === "bank" ? "Your IBAN" : "03XX-XXXXXXX"}
+                    placeholder={selectedMethod.id === "bank" ? "Your IBAN" : T("emergencyPlaceholder")}
                     placeholderTextColor={C.textMuted}
                     style={[ws.sendInput, { paddingVertical: 0 }]}
                   />
@@ -652,8 +652,8 @@ function DepositModal({ onClose, onSuccess, onFrozen, token, minTopup, maxTopup 
                 ) : null}
 
                 <View style={{ flexDirection: "row", gap: 12, marginTop: 4 }}>
-                  <Pressable onPress={() => setStep("details")} style={[ws.actionBtn, { flex: 1, backgroundColor: C.surfaceSecondary }]} accessibilityRole="button" accessibilityLabel="Back">
-                    <Text style={[ws.actionBtnTxt, { color: C.text }]}>Back</Text>
+                  <Pressable onPress={() => setStep("details")} style={[ws.actionBtn, { flex: 1, backgroundColor: C.surfaceSecondary }]} accessibilityRole="button" accessibilityLabel={T("back")}>
+                    <Text style={[ws.actionBtnTxt, { color: C.text }]}>{T("back")}</Text>
                   </Pressable>
                   <Pressable onPress={goToConfirm} style={[ws.actionBtn, { flex: 2, backgroundColor: C.primary }]} accessibilityRole="button" accessibilityLabel="Review deposit">
                     <Text style={ws.actionBtnTxt}>Review</Text>
@@ -733,7 +733,11 @@ function DepositModal({ onClose, onSuccess, onFrozen, token, minTopup, maxTopup 
 }
 
 export default function WalletScreen() {
-  const insets = useSafeAreaInsets();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const insets = useSafeAreaInsets();
   const { user, updateUser, token } = useAuth();
   const { showToast } = useToast();
   const { language } = useLanguage();
@@ -914,7 +918,7 @@ export default function WalletScreen() {
       closeSendModal();
       showToast(`Rs. ${num.toLocaleString()} sent to ${data.receiverName || sendPhone}!`, "success");
     } catch {
-      showToast("Network error. Please try again.", "error");
+      showToast(T("networkError"), "error");
       setSendLoading(false);
     }
   };

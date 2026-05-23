@@ -24,11 +24,17 @@ import { useCart } from "@/context/CartContext";
 import { withServiceGuard } from "@/components/ServiceGuard";
 import { useGetProducts, useGetCategories } from "@workspace/api-client-react";
 import { CartSwitchModal } from "@/components/CartSwitchModal";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 
 const C = Colors.light;
 
 function FoodCard({ item }: { item: any }) {
-  const { addItem, cartType, itemCount, clearCart, items, updateQuantity, removeItem } = useCart();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const { addItem, cartType, itemCount, clearCart, items, updateQuantity, removeItem } = useCart();
   const [added, setAdded] = useState(false);
   const scale = useRef(new Animated.Value(1)).current;
   const addedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -64,8 +70,8 @@ function FoodCard({ item }: { item: any }) {
     <Pressable onPress={() => router.push({ pathname: "/product/[id]", params: { id: item.id } })} style={styles.foodCard}>
       <CartSwitchModal
         visible={showSwitchModal}
-        targetService="Food"
-        currentService={cartType === "pharmacy" ? "Pharmacy" : cartType === "mart" ? "Mart" : "Another service"}
+        targetService={T("food")}
+        currentService={cartType === "pharmacy" ? T("navPharmacy") : cartType === "mart" ? T("martTitle") : "Another service"}
         onCancel={() => setShowSwitchModal(false)}
         onConfirm={() => { setShowSwitchModal(false); clearCart(); doAdd(); }}
       />
@@ -165,7 +171,7 @@ function FoodScreenInner() {
             style={styles.searchInput}
             value={search}
             onChangeText={setSearch}
-            placeholder="Search food, restaurants..."
+            placeholder={T("searchFoodPlaceholder")}
             placeholderTextColor={C.textMuted}
           />
           {search.length > 0 && (
@@ -180,7 +186,7 @@ function FoodScreenInner() {
         <View style={{ backgroundColor: C.indigoSoft, flexDirection: "row", alignItems: "center", padding: 12, gap: 10, borderBottomWidth: 1, borderBottomColor: C.indigoBorder }}>
           <Ionicons name="warning-outline" size={18} color={C.indigoDark} />
           <View style={{ flex: 1 }}>
-            <Text style={{ ...Typ.buttonSmall, fontFamily: Font.bold, color: C.indigoDarkest }}>{cartType === "pharmacy" ? "Pharmacy cart active" : cartType === "mart" ? "Mart cart active" : "Another cart active"}</Text>
+            <Text style={{ ...Typ.buttonSmall, fontFamily: Font.bold, color: C.indigoDarkest }}>{cartType === "pharmacy" ? T("pharmacyCartActive") : cartType === "mart" ? "Mart cart active" : T("anotherCartActive")}</Text>
             <Text style={{ ...Typ.caption, color: C.indigoDarkest }}>Adding Food items will clear your existing cart</Text>
           </View>
           <Pressable
@@ -194,8 +200,8 @@ function FoodScreenInner() {
 
       <CartSwitchModal
         visible={clearBannerConfirm}
-        currentService={cartType === "mart" ? "Mart" : cartType === "pharmacy" ? "Pharmacy" : "Current"}
-        targetService="Food"
+        currentService={cartType === "mart" ? T("martTitle") : cartType === "pharmacy" ? T("navPharmacy") : "Current"}
+        targetService={T("food")}
         onConfirm={() => { clearCart(); setClearBannerConfirm(false); }}
         onCancel={() => setClearBannerConfirm(false)}
       />
@@ -258,7 +264,7 @@ function FoodScreenInner() {
           <>
             <View style={styles.secRow}>
               <Text style={styles.secTitle}>
-                {search ? `Results for "${search}"` : selectedCat ? "Category Items" : "Popular Near You"}
+                {search ? `Results for "${search}"` : selectedCat ? T("categoryItemsLabel") : "Popular Near You"}
               </Text>
               <View style={styles.countBadge}>
                 <Text style={styles.countBadgeTxt}>{items.length}</Text>

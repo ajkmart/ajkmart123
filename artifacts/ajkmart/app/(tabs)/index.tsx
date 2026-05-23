@@ -27,7 +27,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { usePlatformConfig } from "@/context/PlatformConfigContext";
-import { tDual } from "@workspace/i18n";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 import {
   SERVICE_REGISTRY,
   getActiveServices,
@@ -76,7 +76,7 @@ function ServiceGrid({ services, isGuest, T }: {
   T: (key: Parameters<typeof tDual>[0]) => string;
 }) {
   const shortLabel: Record<string, string> = {
-    mart: "Mart", food: "Food", rides: "Ride", pharmacy: "Pharma", parcel: "Parcel",
+    mart: T("martTitle"), food: T("food"), rides: T("ride"), pharmacy: "Pharma", parcel: T("parcel"),
   };
 
   return (
@@ -164,6 +164,8 @@ function ActiveTrackerStrip({ userId, tabBarHeight = 0 }: { userId: string; tabB
   const { token } = useAuth();
   const { config: pCfg } = usePlatformConfig();
   const authHdrs: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
 
   const { data: ordersData, isLoading: ordersLoading, isError: ordersError } = useQuery({
     queryKey: ["home-active-orders", userId],
@@ -194,7 +196,7 @@ function ActiveTrackerStrip({ userId, tabBarHeight = 0 }: { userId: string; tabB
   if (ordersError || ridesError) return null;
 
   const activeOrders = Array.isArray(ordersData) ? ordersData.filter((o: any) => !["delivered", "cancelled"].includes(o.status)) : [];
-  const activeRides = Array.isArray(ridesData) ? ridesData.filter((r: any) => !["completed", "cancelled"].includes(r.status)) : [];
+  const activeRides = Array.isArray(ridesData) ? ridesData.filter((r: any) => ![T("completedLabel"), "cancelled"].includes(r.status)) : [];
   const total = activeOrders.length + activeRides.length;
   if (total === 0) return null;
 
@@ -202,7 +204,7 @@ function ActiveTrackerStrip({ userId, tabBarHeight = 0 }: { userId: string; tabB
   if (activeOrders.length > 0) {
     items.push({
       label: `${activeOrders.length} Active Order${activeOrders.length > 1 ? "s" : ""}`,
-      sublabel: "Tap to track",
+      sublabel: T("tapToTrack"),
       route: activeOrders[0]?.id ? `/order?orderId=${activeOrders[0].id}` : "/(tabs)/orders",
       c1: "#F59E0B", c2: "#D97706",
       icon: "bag-outline",
@@ -211,7 +213,7 @@ function ActiveTrackerStrip({ userId, tabBarHeight = 0 }: { userId: string; tabB
   if (activeRides.length > 0) {
     items.push({
       label: `${activeRides.length} Active Ride${activeRides.length > 1 ? "s" : ""}`,
-      sublabel: "Tap to track",
+      sublabel: T("tapToTrack"),
       route: activeRides[0]?.id ? `/ride?rideId=${activeRides[0].id}` : "/(tabs)/orders",
       c1: "#10B981", c2: "#059669",
       icon: "car-outline",
@@ -251,7 +253,7 @@ const tr = StyleSheet.create({
   ctaTxt: { fontFamily: Font.semiBold, fontSize: 12, color: "#000" },
 });
 
-function WalletStrip({ balance, onPress, appName = "AJKMart" }: { balance: number; onPress: () => void; appName?: string }) {
+function WalletStrip({ balance, onPress, appName = T("appName") }: { balance: number; onPress: () => void; appName?: string }) {
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${appName} Wallet, Rs. ${balance.toLocaleString()}, tap to open`} style={ws.wrap}>
       <LinearGradient colors={["#0047B3", "#0066FF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={ws.card}>
@@ -725,7 +727,11 @@ function HomeSkeleton() {
 }
 
 export default function HomeScreen() {
-  const insets = useSafeAreaInsets();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { itemCount } = useCart();
   const topPad = Math.max(insets.top, 12);
@@ -757,9 +763,6 @@ export default function HomeScreen() {
     AsyncStorage.getItem(announceKey).then(val => { setAnnounceDismissed(val === "1"); }).catch(() => { setAnnounceDismissed(false); });
   }, [announcement, announceKey]);
 
-  const { language } = useLanguage();
-  const T = (key: Parameters<typeof tDual>[0]) => tDual(key, language);
-
   useEffect(() => {
     Animated.timing(hdOp, { toValue: 1, duration: 400, useNativeDriver: true }).start();
   }, []);
@@ -784,7 +787,7 @@ export default function HomeScreen() {
             }}
             style={s.announceClose}
             accessibilityRole="button"
-            accessibilityLabel="Dismiss announcement"
+            accessibilityLabel={T("dismissAnnouncement")}
           >
             <Ionicons name="close" size={16} color="rgba(255,255,255,0.8)" />
           </Pressable>
@@ -855,7 +858,7 @@ export default function HomeScreen() {
             icon="storefront-outline"
             title="No Services Available"
             subtitle={"No services are currently available.\nPlease check back later!"}
-            actionLabel="Refresh"
+            actionLabel={T("refresh")}
             onAction={refreshConfig}
           />
         ) : (

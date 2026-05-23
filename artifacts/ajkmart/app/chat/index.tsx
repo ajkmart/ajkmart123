@@ -18,6 +18,8 @@ import { useToast } from "@/context/ToastContext";
 import { useTheme } from "@/context/ThemeContext";
 import { API_BASE } from "@/utils/api";
 import * as Clipboard from "expo-clipboard";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 
 const log = createLogger("[chat/index]");
 
@@ -36,7 +38,11 @@ interface CommRequest {
 }
 
 export default function ChatListScreen() {
-  const { colors: C } = useTheme();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const { colors: C } = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const insets = useSafeAreaInsets();
   const { token } = useAuth();
@@ -101,7 +107,7 @@ export default function ChatListScreen() {
   const renderConversation = ({ item }: { item: Conversation }) => (
     <TouchableOpacity
       style={s.convRow}
-      onPress={() => router.push(`/chat/${item.id}?name=${encodeURIComponent(item.otherUser?.name || "User")}&ajkId=${item.otherUser?.ajkId}&otherId=${item.otherUser?.id}`)}
+      onPress={() => router.push(`/chat/${item.id}?name=${encodeURIComponent(item.otherUser?.name || T("user"))}&ajkId=${item.otherUser?.ajkId}&otherId=${item.otherUser?.id}`)}
       activeOpacity={0.7}
     >
       <View style={s.avatar}>
@@ -109,7 +115,7 @@ export default function ChatListScreen() {
       </View>
       <View style={s.convInfo}>
         <View style={s.convTop}>
-          <Text style={s.convName} numberOfLines={1}>{item.otherUser?.name || "User"}</Text>
+          <Text style={s.convName} numberOfLines={1}>{item.otherUser?.name || T("user")}</Text>
           {item.lastMessageAt && (
             <Text style={s.convTime}>{new Date(item.lastMessageAt).toLocaleDateString()}</Text>
           )}
@@ -130,7 +136,7 @@ export default function ChatListScreen() {
         <Text style={s.avatarText}>{(item.sender?.name || "?").charAt(0).toUpperCase()}</Text>
       </View>
       <View style={s.convInfo}>
-        <Text style={s.convName}>{item.sender?.name || "Unknown"}</Text>
+        <Text style={s.convName}>{item.sender?.name || T("unknown")}</Text>
         <Text style={s.reqRole}>{item.sender?.ajkId} · {item.sender?.roles}</Text>
       </View>
       <View style={s.reqActions}>

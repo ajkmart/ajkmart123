@@ -25,6 +25,8 @@ import { withServiceGuard } from "@/components/ServiceGuard";
 import { useGetProducts, useGetCategories } from "@workspace/api-client-react";
 import { WishlistHeart } from "@/components/WishlistHeart";
 import { CartSwitchModal } from "@/components/CartSwitchModal";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 
 const C = Colors.light;
 const { width } = Dimensions.get("window");
@@ -67,7 +69,11 @@ function AddToCartButton({ onPress, added }: { onPress: () => void; added: boole
 }
 
 function FlashCard({ product }: { product: any }) {
-  const { addItem, cartType, itemCount, clearCart } = useCart();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const { addItem, cartType, itemCount, clearCart } = useCart();
   const [added, setAdded] = useState(false);
   const addedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const origPrice = Number(product.originalPrice) || 0;
@@ -98,8 +104,8 @@ function FlashCard({ product }: { product: any }) {
     <Pressable onPress={() => router.push({ pathname: "/product/[id]", params: { id: product.id } })} style={[styles.flashCard, { width: FLASH_CARD_W }]}>
       <CartSwitchModal
         visible={showSwitchModal}
-        targetService="Mart"
-        currentService={cartType === "pharmacy" ? "Pharmacy" : cartType === "food" ? "Food" : "Another service"}
+        targetService={T("martTitle")}
+        currentService={cartType === "pharmacy" ? T("navPharmacy") : cartType === "food" ? T("food") : "Another service"}
         onCancel={() => setShowSwitchModal(false)}
         onConfirm={() => { setShowSwitchModal(false); clearCart(); doAdd(); }}
       />
@@ -166,8 +172,8 @@ function ProductCard({ product }: { product: any }) {
     <Pressable onPress={() => router.push({ pathname: "/product/[id]", params: { id: product.id } })} style={[styles.productCard, { width: PRODUCT_CARD_W }]}>
       <CartSwitchModal
         visible={showSwitchModal}
-        targetService="Mart"
-        currentService={cartType === "pharmacy" ? "Pharmacy" : cartType === "food" ? "Food" : "Another service"}
+        targetService={T("martTitle")}
+        currentService={cartType === "pharmacy" ? T("navPharmacy") : cartType === "food" ? T("food") : "Another service"}
         onCancel={() => setShowSwitchModal(false)}
         onConfirm={() => { setShowSwitchModal(false); clearCart(); doAdd(); }}
       />
@@ -252,7 +258,7 @@ function MartScreenInner() {
             <Ionicons name="arrow-back" size={20} color={C.textInverse} />
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={styles.hdrTitle}>{appName} Mart</Text>
+            <Text style={styles.hdrTitle}>{appName} {T("martTitle")}</Text>
             <Text style={styles.hdrSub}>Fresh groceries delivered fast</Text>
           </View>
           <Pressable onPress={() => router.push("/cart")} style={styles.cartBtn}>
@@ -272,7 +278,7 @@ function MartScreenInner() {
             style={styles.searchInput}
             value={search}
             onChangeText={setSearch}
-            placeholder="Search groceries..."
+            placeholder={T("searchGroceries")}
             placeholderTextColor={C.textMuted}
           />
           {search.length > 0 && (
@@ -287,7 +293,7 @@ function MartScreenInner() {
         <View style={{ backgroundColor: C.amberSoft, flexDirection: "row", alignItems: "center", padding: 12, gap: 10, borderBottomWidth: 1, borderBottomColor: C.amberBorder }}>
           <Ionicons name="warning-outline" size={18} color={C.amber} />
           <View style={{ flex: 1 }}>
-            <Text style={{ ...Typ.buttonSmall, fontFamily: Font.bold, color: C.amberDark }}>{cartType === "pharmacy" ? "Pharmacy cart active" : cartType === "food" ? "Food cart active" : "Another cart active"}</Text>
+            <Text style={{ ...Typ.buttonSmall, fontFamily: Font.bold, color: C.amberDark }}>{cartType === "pharmacy" ? T("pharmacyCartActive") : cartType === "food" ? T("foodCartActive") : T("anotherCartActive")}</Text>
             <Text style={{ ...Typ.caption, color: C.amberDark }}>Adding Mart items will clear your existing cart</Text>
           </View>
           <Pressable
@@ -301,8 +307,8 @@ function MartScreenInner() {
 
       <CartSwitchModal
         visible={clearBannerConfirm}
-        currentService={cartType === "food" ? "Food" : cartType === "pharmacy" ? "Pharmacy" : "Current"}
-        targetService="Mart"
+        currentService={cartType === "food" ? T("food") : cartType === "pharmacy" ? T("navPharmacy") : "Current"}
+        targetService={T("martTitle")}
         onConfirm={() => { clearCart(); setClearBannerConfirm(false); }}
         onCancel={() => setClearBannerConfirm(false)}
       />
@@ -387,7 +393,7 @@ function MartScreenInner() {
 
             <View style={styles.secRow}>
               <Text style={styles.secTitle}>
-                {search ? `Results for "${search}"` : selectedCat ? "Category Items" : "All Products"}
+                {search ? `Results for "${search}"` : selectedCat ? T("categoryItemsLabel") : T("allProductsLabel")}
               </Text>
               <View style={styles.itemCountBadge}>
                 <Text style={styles.itemCountTxt}>{products.length}</Text>

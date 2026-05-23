@@ -131,8 +131,8 @@ const FoodCard = React.memo(function FoodCard({ item }: { item: FoodProduct }) {
       <RoleBlockSheet {...roleBlockProps} />
       <CartSwitchModal
         visible={showSwitchModal}
-        targetService="Food"
-        currentService={cartType === "pharmacy" ? "Pharmacy" : cartType === "mart" ? "Mart" : "Another service"}
+        targetService={T("food")}
+        currentService={cartType === "pharmacy" ? T("navPharmacy") : cartType === "mart" ? T("martTitle") : "Another service"}
         onCancel={() => setShowSwitchModal(false)}
         onConfirm={() => { setShowSwitchModal(false); clearCartAndAdd({ productId: item.id, name: item.name, price: item.price, quantity: 1, image: item.image, type: "food" }); }}
       />
@@ -341,7 +341,7 @@ function FoodScreenInner() {
         <View style={{ backgroundColor: C.indigoSoft, flexDirection: "row", alignItems: "center", padding: 12, gap: 10, borderBottomWidth: 1, borderBottomColor: C.indigoBorder }}>
           <Ionicons name="warning-outline" size={18} color={C.indigoDark} />
           <View style={{ flex: 1 }}>
-            <Text style={{ ...Typ.buttonSmall, fontFamily: Font.bold, color: C.indigoDarkest }}>{cartType === "pharmacy" ? `${T("pharmacy")} cart active` : cartType === "mart" ? `${T("mart")} cart active` : "Another cart active"}</Text>
+            <Text style={{ ...Typ.buttonSmall, fontFamily: Font.bold, color: C.indigoDarkest }}>{cartType === "pharmacy" ? `${T("pharmacy")} cart active` : cartType === "mart" ? `${T("mart")} cart active` : T("anotherCartActive")}</Text>
             <Text style={{ ...Typ.caption, color: C.indigoDarkest }}>{T("cartClearWarning").replace("{service}", T("food"))}</Text>
           </View>
           <TouchableOpacity activeOpacity={0.7}
@@ -355,8 +355,8 @@ function FoodScreenInner() {
 
       <CartSwitchModal
         visible={clearBannerConfirm}
-        currentService={cartType === "mart" ? "Mart" : cartType === "pharmacy" ? "Pharmacy" : "Current"}
-        targetService="Food"
+        currentService={cartType === "mart" ? T("martTitle") : cartType === "pharmacy" ? T("navPharmacy") : "Current"}
+        targetService={T("food")}
         onConfirm={() => { clearCart(); setClearBannerConfirm(false); }}
         onCancel={() => setClearBannerConfirm(false)}
       />
@@ -405,11 +405,11 @@ function FoodScreenInner() {
                       }
                       {!isOpen && (
                         <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center" }}>
-                          <Text style={{ fontFamily: Font.bold, fontSize: 11, color: "#fff" }}>Closed</Text>
+                          <Text style={{ fontFamily: Font.bold, fontSize: 11, color: "#fff" }}>{T("closedLabel")}</Text>
                         </View>
                       )}
                       <View style={{ position: "absolute", bottom: 6, right: 6, backgroundColor: isOpen ? C.emerald : C.danger, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
-                        <Text style={{ fontFamily: Font.bold, fontSize: 9, color: "#fff" }}>{isOpen ? "Open" : "Closed"}</Text>
+                        <Text style={{ fontFamily: Font.bold, fontSize: 9, color: "#fff" }}>{isOpen ? T("openLabel") : T("closedLabel")}</Text>
                       </View>
                     </View>
                     <View style={{ padding: 9 }}>
@@ -487,7 +487,7 @@ function FoodScreenInner() {
             { key: "price_asc", label: T("priceLowHigh" as TranslationKey), icon: "arrow-up-outline" as const },
             { key: "price_desc", label: T("priceHighLow" as TranslationKey), icon: "arrow-down-outline" as const },
             { key: "popular", label: T("popular" as TranslationKey), icon: "flame-outline" as const },
-            { key: "rating", label: T("topRated" as TranslationKey), icon: "star-outline" as const },
+            { key: T("ratingLabel"), label: T("topRated" as TranslationKey), icon: "star-outline" as const },
             { key: "newest", label: T("newest" as TranslationKey), icon: "time-outline" as const },
           ] as const).map(opt => (
             <TouchableOpacity activeOpacity={0.7} key={opt.key} onPress={() => setSortBy(opt.key)}
@@ -536,7 +536,7 @@ function FoodScreenInner() {
           <>
             <View style={styles.secRow}>
               <Text style={styles.secTitle}>
-                {search ? `Results for "${search}"` : selectedCat ? "Category Items" : "Popular Near You"}
+                {search ? `Results for "${search}"` : selectedCat ? T("categoryItemsLabel") : "Popular Near You"}
               </Text>
               <View style={styles.countBadge}>
                 <Text style={styles.countBadgeTxt}>{items.length}</Text>

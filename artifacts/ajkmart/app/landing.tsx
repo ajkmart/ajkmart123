@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLanguage } from "@/context/LanguageContext";
 import type { Language } from "@workspace/i18n";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 
 const PRIMARY = "#0066FF";
 const PRIMARY_DARK = "#0047B3";
@@ -21,22 +22,22 @@ const LANG_CYCLE: Language[] = ["en", "ur", "roman"];
 const LANG_LABELS: Record<string, string> = { en: "EN", ur: "اردو", roman: "RM" };
 
 const SERVICES = [
-  { icon: "🛒", label: { en: "Mart", ur: "مارٹ", roman: "Mart" }, color: "#00C48C" },
-  { icon: "🍔", label: { en: "Food", ur: "کھانا", roman: "Khana" }, color: "#FF9500" },
-  { icon: "🚗", label: { en: "Ride", ur: "سواری", roman: "Sawari" }, color: PRIMARY },
-  { icon: "💊", label: { en: "Pharmacy", ur: "فارمیسی", roman: "Pharmacy" }, color: "#AF52DE" },
-  { icon: "📦", label: { en: "Parcel", ur: "پارسل", roman: "Parcel" }, color: "#FF6B35" },
-  { icon: "🚐", label: { en: "Van", ur: "وین", roman: "Van" }, color: "#5856D6" },
+  { icon: "🛒", label: { en: T("martTitle"), ur: "مارٹ", roman: T("martTitle") }, color: "#00C48C" },
+  { icon: "🍔", label: { en: T("food"), ur: "کھانا", roman: "Khana" }, color: "#FF9500" },
+  { icon: "🚗", label: { en: T("ride"), ur: "سواری", roman: "Sawari" }, color: PRIMARY },
+  { icon: "💊", label: { en: T("navPharmacy"), ur: "فارمیسی", roman: T("navPharmacy") }, color: "#AF52DE" },
+  { icon: "📦", label: { en: T("parcel"), ur: "پارسل", roman: T("parcel") }, color: "#FF6B35" },
+  { icon: "🚐", label: { en: T("vanVehicle"), ur: "وین", roman: T("vanVehicle") }, color: "#5856D6" },
 ];
 
 const CONTENT = {
   en: {
-    appName: "AJKMart",
+    appName: T("appName"),
     tagline: "Shop. Eat. Ride. Repeat.",
     heroTitle: "Your All-in-One\nSuper App",
     heroSub: "Order food, hail a ride, shop for groceries, and send parcels — all in one place.",
-    login: "Login",
-    register: "Register",
+    login: T("loginBtn"),
+    register: T("register"),
     servicesTitle: "Explore Services",
     browseGuest: "Browse as Guest",
     footer: "© 2026 AJKMart",
@@ -53,12 +54,12 @@ const CONTENT = {
     footer: "© 2026 اے جے کے مارٹ",
   },
   roman: {
-    appName: "AJKMart",
+    appName: T("appName"),
     tagline: "Shopping. Khana. Sawari.",
     heroTitle: "Aapki Har Zaroorat\nEk App Mein",
     heroSub: "Khana order karein, sawari bulayein, grocery khareedein aur parcel bhejein — sab ek jagah.",
-    login: "Login",
-    register: "Register",
+    login: T("loginBtn"),
+    register: T("register"),
     servicesTitle: "Services Dekhein",
     browseGuest: "Guest Ke Tor Par Dekhein",
     footer: "© 2026 AJKMart",
@@ -66,7 +67,11 @@ const CONTENT = {
 };
 
 export default function LandingScreen() {
-  const insets = useSafeAreaInsets();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const insets = useSafeAreaInsets();
   const { language, setLanguage } = useLanguage();
 
   const C = CONTENT[language as keyof typeof CONTENT] ?? CONTENT.en;

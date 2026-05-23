@@ -12,6 +12,8 @@ import { Font } from "@/constants/typography";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { useTheme } from "@/context/ThemeContext";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
@@ -33,7 +35,11 @@ interface AvailabilityData {
 type LocalStep = "seats" | "confirm";
 
 export default function VanSeatsScreen() {
-  const { colors: C } = useTheme();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const { colors: C } = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const insets = useSafeAreaInsets();
   const topPad = Math.max(insets.top, 12);
@@ -189,7 +195,7 @@ export default function VanSeatsScreen() {
                 ["From", fromAddress],
                 ["To", toAddress],
                 ["Departure", departureTime],
-                ["Date", travelDate],
+                [T("date"), travelDate],
                 ["Seats", selectedSeats.join(", ")],
               ].map(([label, value]) => (
                 <View key={label} style={s.confirmRow}>
@@ -247,7 +253,7 @@ export default function VanSeatsScreen() {
                 <Ionicons name={pm === "cash" ? "cash-outline" : "wallet-outline"} size={18}
                   color={paymentMethod === pm ? "#fff" : C.textMuted} />
                 <Text style={[s.payBtnText, paymentMethod === pm && { color: "#fff" }]}>
-                  {pm === "cash" ? "Cash" : "Wallet"}
+                  {pm === "cash" ? T("paymentCashLabel") : T("paymentWallet")}
                 </Text>
               </TouchableOpacity>
             ))}

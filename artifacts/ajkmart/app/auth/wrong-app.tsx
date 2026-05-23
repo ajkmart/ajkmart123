@@ -14,9 +14,15 @@ import { Font } from "@/constants/typography";
 import { useAuth, hasRole } from "@/context/AuthContext";
 import { API_BASE } from "@/utils/api";
 import { useTheme } from "@/context/ThemeContext";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 
 export default function WrongAppScreen() {
-  const { colors: C } = useTheme();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const { colors: C } = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
   const insets = useSafeAreaInsets();
   const { user, token, logout, updateUser } = useAuth();
@@ -26,7 +32,7 @@ export default function WrongAppScreen() {
   const primaryRole = (user?.roles ?? [])[0];
   const roleLabel =
     primaryRole === "rider"
-      ? "Delivery Rider"
+      ? T("deliveryRider")
       : primaryRole === "vendor"
         ? "Store Vendor"
         : "non-customer";

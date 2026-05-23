@@ -25,6 +25,8 @@ import { Font } from "@/constants/typography";
 import { useAuth } from "@/context/AuthContext";
 import { CountdownTimer } from "@/components/user-shared";
 import { API_BASE } from "@/utils/api";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 
 type IoniconsName = ComponentProps<typeof Ionicons>["name"];
 
@@ -91,7 +93,7 @@ const TYPE_CONFIG: Record<
     colors: ["#7C3AED", "#6D28D9"],
   },
   category: {
-    label: "Category",
+    label: T("categoryLabel"),
     icon: "grid-outline",
     colors: ["#DC2626", "#B91C1C"],
   },
@@ -100,7 +102,7 @@ const TYPE_CONFIG: Record<
 function discountLabel(o: OfferType): string {
   if (o.type === "bogo" && o.buyQty && o.getQty)
     return `Buy ${o.buyQty} Get ${o.getQty} Free`;
-  if (o.type === "free_delivery") return "Free Delivery";
+  if (o.type === "free_delivery") return T("freeDelivery");
   if (o.type === "cashback" && o.cashbackPct)
     return `${o.cashbackPct}% Cashback`;
   if (o.discountPct) return `${o.discountPct}% Off`;
@@ -360,8 +362,8 @@ type GroupKey =
   | "bogoDeals"
   | "bundles";
 const GROUP_LABELS: Record<GroupKey, { label: string; emoji: string }> = {
-  flashDeals: { label: "Flash Deals", emoji: "⚡" },
-  freeDelivery: { label: "Free Delivery", emoji: "🚚" },
+  flashDeals: { label: T("navFlashDeals"), emoji: "⚡" },
+  freeDelivery: { label: T("freeDelivery"), emoji: "🚚" },
   categoryOffers: { label: "Category Offers", emoji: "🏷️" },
   newUserSpecials: { label: "New User Specials", emoji: "⭐" },
   cashback: { label: "Cashback Offers", emoji: "💰" },
@@ -376,7 +378,11 @@ const GROUP_LABELS: Record<GroupKey, { label: string; emoji: string }> = {
 export default withErrorBoundary(OffersScreenInner);
 
 function OffersScreenInner() {
-  const { colors: C } = useTheme();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const { colors: C } = useTheme();
   const { width: W } = useWindowDimensions();
   const styles = useMemo(() => makeStyles(C, W), [C, W]);
   const insets = useSafeAreaInsets();
@@ -469,8 +475,8 @@ function OffersScreenInner() {
     label: string;
     emoji: string;
   }[] = [
-    { key: "all", label: "All", emoji: "🎯" },
-    { key: "saved", label: "Saved", emoji: "🔖" },
+    { key: "all", label: T("allTypes"), emoji: "🎯" },
+    { key: "saved", label: T("savedFeedback"), emoji: "🔖" },
     { key: "flashDeals", label: "Flash", emoji: "⚡" },
     { key: "freeDelivery", label: "Free Ship", emoji: "🚚" },
     { key: "cashback", label: "Cashback", emoji: "💰" },

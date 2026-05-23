@@ -26,6 +26,8 @@ import { useSmartBack } from "@/hooks/useSmartBack";
 import { AuthGateSheet, useAuthGate, useRoleGate, RoleBlockSheet } from "@/components/AuthGateSheet";
 import { CartSwitchModal } from "@/components/CartSwitchModal";
 import { SkeletonBlock } from "@/components/ui/SkeletonBlock";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 
 interface MenuItem {
   id: string;
@@ -103,8 +105,8 @@ function MenuItemCard({ item, styles, C }: { item: MenuItem, styles: any, C: any
       <RoleBlockSheet {...roleBlockProps} />
       <CartSwitchModal
         visible={showSwitchModal}
-        targetService="Food"
-        currentService={cartType === "mart" ? "Mart" : cartType === "pharmacy" ? "Pharmacy" : "Another service"}
+        targetService={T("food")}
+        currentService={cartType === "mart" ? T("martTitle") : cartType === "pharmacy" ? T("navPharmacy") : "Another service"}
         onCancel={() => setShowSwitchModal(false)}
         onConfirm={() => { setShowSwitchModal(false); clearCartAndAdd({ productId: item.id, name: item.name, price: item.price, quantity: 1, image: item.image, type: "food" }); }}
       />
@@ -180,14 +182,18 @@ function MenuItemCard({ item, styles, C }: { item: MenuItem, styles: any, C: any
 }
 
 export default function FoodRestaurantScreen() {
-  const { colors: C } = useTheme();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const { colors: C } = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
   const { width: W } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { goBack } = useSmartBack();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState<string>("All");
+  const [activeCategory, setActiveCategory] = useState<string>(T("allTypes"));
 
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ["restaurant", id],
@@ -206,13 +212,13 @@ export default function FoodRestaurantScreen() {
   const menuItems = data?.products ?? [];
 
   const categories = useMemo(() => {
-    const cats = ["All", ...Array.from(new Set(menuItems.map(i => i.category).filter(Boolean)))];
+    const cats = [T("allTypes"), ...Array.from(new Set(menuItems.map(i => i.category).filter(Boolean)))];
     return cats;
   }, [menuItems]);
 
   const filtered = useMemo(() => {
     let list = menuItems;
-    if (activeCategory !== "All") list = list.filter(i => i.category === activeCategory);
+    if (activeCategory !== T("allTypes")) list = list.filter(i => i.category === activeCategory);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(i => i.name.toLowerCase().includes(q) || (i.description ?? "").toLowerCase().includes(q));
@@ -303,7 +309,7 @@ export default function FoodRestaurantScreen() {
             <View style={[styles.statusChip, { backgroundColor: isOpen ? C.emeraldBg : C.redBg }]}>
               <View style={[styles.statusDot, { backgroundColor: isOpen ? C.emerald : C.red }]} />
               <Text style={[styles.statusText, { color: isOpen ? C.emeraldDeep : C.redBright }]}>
-                {isOpen ? "Open" : "Closed"}
+                {isOpen ? T("openLabel") : T("closedLabel")}
               </Text>
             </View>
           </View>

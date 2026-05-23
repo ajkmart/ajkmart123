@@ -21,6 +21,8 @@ import { usePlatformConfig } from "@/context/PlatformConfigContext";
 import { useSmartBack } from "@/hooks/useSmartBack";
 
 import { useTheme } from "@/context/ThemeContext";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 const PLAY_STORE_URL = "https://play.google.com/store/apps";
 const APP_STORE_URL = "https://apps.apple.com";
 
@@ -28,14 +30,18 @@ const ASPECTS = [
   { id: "delivery", label: "Delivery Speed", icon: "bicycle-outline" },
   { id: "prices", label: "Prices & Deals", icon: "pricetag-outline" },
   { id: "ui", label: "App Experience", icon: "phone-portrait-outline" },
-  { id: "support", label: "Customer Support", icon: "headset-outline" },
+  { id: "support", label: T("navCustomerSupport"), icon: "headset-outline" },
   { id: "variety", label: "Product Variety", icon: "grid-outline" },
 ];
 
 export default withErrorBoundary(RateAppScreenInner);
 
 function RateAppScreenInner() {
-  const { colors: C } = useTheme();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const { colors: C } = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
   const insets = useSafeAreaInsets();
   const { goBack } = useSmartBack();
@@ -84,7 +90,7 @@ function RateAppScreenInner() {
     setSubmitted(true);
   };
 
-  const appName = platformConfig.platform.appName || "AJKMart";
+  const appName = platformConfig.platform.appName || T("appName");
 
   if (submitted) {
     return (
@@ -197,12 +203,12 @@ function RateAppScreenInner() {
               {rating === 1
                 ? "Poor"
                 : rating === 2
-                  ? "Fair"
+                  ? T("passwordFair")
                   : rating === 3
-                    ? "Good"
+                    ? T("passwordGood")
                     : rating === 4
                       ? "Great"
-                      : "Excellent!"}
+                      : T("ratingExcellent")}
             </Text>
           )}
         </View>

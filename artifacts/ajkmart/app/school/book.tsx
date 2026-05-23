@@ -20,11 +20,17 @@ import { Font } from "@/constants/typography";
 import { useAuth } from "@/context/AuthContext";
 import { API_BASE } from "@/utils/api";
 import { useTheme } from "@/context/ThemeContext";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 
 type Period = "weekly" | "monthly";
 
 export default function SchoolBookScreen() {
-  const { colors: C } = useTheme();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const { colors: C } = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
   const { goBack } = useSmartBack();
   const insets = useSafeAreaInsets();
@@ -52,7 +58,7 @@ export default function SchoolBookScreen() {
       return;
     }
     if (!routeId) {
-      Alert.alert("Error", "Route information is missing. Please go back and try again.");
+      Alert.alert(T("error"), "Route information is missing. Please go back and try again.");
       return;
     }
 
@@ -84,10 +90,10 @@ export default function SchoolBookScreen() {
       Alert.alert(
         "Booking Submitted",
         "Your school transport request has been received. We will contact you to confirm your seat.",
-        [{ text: "Done", onPress: () => router.replace("/school" as unknown as Href) }],
+        [{ text: T("stepDone"), onPress: () => router.replace("/school" as unknown as Href) }],
       );
     } catch {
-      Alert.alert("Error", "Unable to submit your booking. Please check your connection and try again.");
+      Alert.alert(T("error"), "Unable to submit your booking. Please check your connection and try again.");
     } finally {
       setSubmitting(false);
     }

@@ -23,18 +23,24 @@ import { buildPhoneValidator } from "@/utils/phone";
 import { usePlatformConfig } from "@/context/PlatformConfigContext";
 import { createPharmacyOrder } from "@workspace/api-client-react";
 import type { CreatePharmacyOrderRequest } from "@workspace/api-client-react";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 
 const log = createLogger("[PharmacyCheckout]");
 
 type Step = "review" | "address" | "payment" | "done";
 
 const PAYMENT_OPTIONS = [
-  { key: "cash", label: "Cash on Delivery", icon: "cash-outline" as const },
-  { key: "wallet", label: "Wallet Balance", icon: "wallet-outline" as const },
+  { key: "cash", label: T("cashOnDelivery"), icon: "cash-outline" as const },
+  { key: "wallet", label: T("walletBalanceLabel"), icon: "wallet-outline" as const },
 ];
 
 export default function PharmacyCheckoutScreen() {
-  const { colors: C } = useTheme();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const { colors: C } = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const { vendorId, rxPhotoUri } = useLocalSearchParams<{ vendorId?: string; rxPhotoUri?: string }>();
   const insets = useSafeAreaInsets();
@@ -59,8 +65,8 @@ export default function PharmacyCheckoutScreen() {
 
   const STEP_LABELS: Record<Step, string> = {
     review: "Review Cart",
-    address: "Delivery Details",
-    payment: "Payment",
+    address: T("deliveryDetails"),
+    payment: T("payment"),
     done: "Order Placed",
   };
 
@@ -80,7 +86,7 @@ export default function PharmacyCheckoutScreen() {
       return;
     }
     if (pharmacyItems.length === 0) {
-      showToast("Your cart is empty", "error");
+      showToast(T("cartEmpty"), "error");
       return;
     }
     setLoading(true);
@@ -184,7 +190,7 @@ export default function PharmacyCheckoutScreen() {
 
           {step === "address" && (
             <View>
-              <Text style={s.sectionTitle}>Delivery Details</Text>
+              <Text style={s.sectionTitle}>{T("deliveryDetails")}</Text>
               <Text style={s.fieldLabel}>Delivery Address *</Text>
               <TextInput
                 style={s.input}

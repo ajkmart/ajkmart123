@@ -141,10 +141,10 @@ function PharmacyScreenInner() {
   const pharmacyEnabled = config.features.pharmacy;
 
   const [medicines, setMedicines] = useState<Med[]>([]);
-  const [categories, setCategories] = useState<string[]>(["All"]);
+  const [categories, setCategories] = useState<string[]>([T("allTypes")]);
   const [loadingMeds, setLoadingMeds] = useState(true);
   const [medsError, setMedsError] = useState(false);
-  const [activeTab, setActiveTab] = useState(routeCategory || "All");
+  const [activeTab, setActiveTab] = useState(routeCategory || T("allTypes"));
   const [selectedStore, setSelectedStore] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<string>("default");
   const [search, setSearch] = useState("");
@@ -308,7 +308,7 @@ function PharmacyScreenInner() {
           requires_prescription: !!p.requires_prescription,
         }));
         setMedicines(meds);
-        setCategories(meds.length ? ["All", ...new Set(meds.map(m => m.category))] : ["All"]);
+        setCategories(meds.length ? [T("allTypes"), ...new Set(meds.map(m => m.category))] : [T("allTypes")]);
       })
       .catch(() => setMedsError(true))
       .finally(() => setLoadingMeds(false));
@@ -332,7 +332,7 @@ function PharmacyScreenInner() {
 
   const filtered = useMemo(() => {
     const list = medicines.filter(m => {
-      const matchCat = activeTab === "All" || m.category === activeTab;
+      const matchCat = activeTab === T("allTypes") || m.category === activeTab;
       const matchSearch = !search || m.name.toLowerCase().includes(search.toLowerCase());
       const matchStore = !selectedStore || m.brand === selectedStore;
       return matchCat && matchSearch && matchStore;
@@ -666,7 +666,7 @@ function PharmacyScreenInner() {
         ) : pharmacyStores.length > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}>
             {pharmacyStores.map((store: PharmacyStore) => {
-              const name = store.storeName || store.name || "Pharmacy";
+              const name = store.storeName || store.name || T("navPharmacy");
               const isOpen = store.storeIsOpen !== false;
               return (
                 <TouchableOpacity key={store.id} activeOpacity={0.75}
@@ -681,11 +681,11 @@ function PharmacyScreenInner() {
                     }
                     {!isOpen && (
                       <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center" }}>
-                        <Text style={{ fontFamily: Font.bold, fontSize: 11, color: "#fff" }}>Closed</Text>
+                        <Text style={{ fontFamily: Font.bold, fontSize: 11, color: "#fff" }}>{T("closedLabel")}</Text>
                       </View>
                     )}
                     <View style={{ position: "absolute", bottom: 6, right: 6, backgroundColor: isOpen ? C.emerald : C.danger, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
-                      <Text style={{ fontFamily: Font.bold, fontSize: 9, color: "#fff" }}>{isOpen ? "Open" : "Closed"}</Text>
+                      <Text style={{ fontFamily: Font.bold, fontSize: 9, color: "#fff" }}>{isOpen ? T("openLabel") : T("closedLabel")}</Text>
                     </View>
                   </View>
                   <View style={{ padding: 9 }}>

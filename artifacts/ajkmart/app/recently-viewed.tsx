@@ -21,6 +21,8 @@ import Colors from "@/constants/colors";
 import { useTheme } from "@/context/ThemeContext";
 import { Font } from "@/constants/typography";
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 
 const RECENTLY_VIEWED_KEY = "recently_viewed_products";
 
@@ -35,7 +37,11 @@ interface RecentItem {
 export default withErrorBoundary(RecentlyViewedScreenInner);
 
 function RecentlyViewedScreenInner() {
-  const { colors: C } = useTheme();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const { colors: C } = useTheme();
   const { width } = useWindowDimensions();
   const CARD_W = (width - 16 * 2 - 12) / 2;
   const styles = useMemo(() => makeStyles(C, CARD_W), [C, CARD_W]);
@@ -65,9 +71,9 @@ function RecentlyViewedScreenInner() {
 
   const handleClear = useCallback(() => {
     Alert.alert("Clear History", "Remove all recently viewed products?", [
-      { text: "Cancel", style: "cancel" },
+      { text: T("cancelLabel"), style: "cancel" },
       {
-        text: "Clear",
+        text: T("clearFilter"),
         style: "destructive",
         onPress: async () => {
           // eslint-disable-next-line ajk-local/no-silent-catch -- clearing history is non-critical; list is cleared in state regardless

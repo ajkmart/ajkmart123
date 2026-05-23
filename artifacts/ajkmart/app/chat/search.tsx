@@ -18,9 +18,15 @@ import { API_BASE } from "@/utils/api";
 import { useSmartBack } from "@/hooks/useSmartBack";
 
 import { useTheme } from "@/context/ThemeContext";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 
 export default function ChatSearchScreen() {
-  const { colors: C } = useTheme();
+  
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
+
+const { colors: C } = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const insets = useSafeAreaInsets();
   const { token } = useAuth();
@@ -102,11 +108,11 @@ export default function ChatSearchScreen() {
             <Text style={s.resultAvatarText}>{(result.name || "?").charAt(0).toUpperCase()}</Text>
           </View>
           <View style={s.resultInfo}>
-            <Text style={s.resultName}>{result.name || "Unknown"}</Text>
+            <Text style={s.resultName}>{result.name || T("unknown")}</Text>
             <Text style={s.resultMeta}>{result.ajkId} · {result.role}</Text>
             <View style={s.onlineRow}>
               <View style={[s.dot, { backgroundColor: result.isOnline ? C.success : C.textTertiary }]} />
-              <Text style={s.onlineText}>{result.isOnline ? "Online" : "Offline"}</Text>
+              <Text style={s.onlineText}>{result.isOnline ? T("onlineLabel") : T("offlineLabel")}</Text>
             </View>
           </View>
           <TouchableOpacity style={s.sendBtn} onPress={sendRequest} disabled={sending}>

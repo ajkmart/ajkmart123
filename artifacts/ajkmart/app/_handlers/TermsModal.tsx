@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { Modal, View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { useAuth } from "@/context/AuthContext";
 import { _domain } from "./_shared";
+import { useLanguage } from "@/context/LanguageContext";
+import { tDual, type TranslationKey } from "@workspace/i18n";
 
 export function TermsModal({
   visible,
@@ -15,6 +17,8 @@ export function TermsModal({
   const { token } = useAuth();
   const [accepting, setAccepting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
 
   const handleAccept = async () => {
     if (accepting) return;
@@ -70,7 +74,7 @@ export function TermsModal({
             style={{ backgroundColor: accepting ? "#A78BFA" : "#7C3AED", borderRadius: 14, paddingVertical: 14, alignItems: "center", marginBottom: 10 }}
           >
             <Text style={{ fontFamily: "Inter_700Bold", fontSize: 15, color: "#fff" }}>
-              {accepting ? "Accepting..." : "I Accept the Terms"}
+              {accepting ? T("accepting") : "I Accept the Terms"}
             </Text>
           </TouchableOpacity>
         </View>
