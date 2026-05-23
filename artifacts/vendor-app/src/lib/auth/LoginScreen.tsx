@@ -899,6 +899,19 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
                 (T("sendOtpBtn") as string) || "Send OTP"
               )}
             </button>
+            <div style={{ textAlign: "right", marginTop: -4 }}>
+              <Link
+                href="/forgot-password"
+                style={{
+                  fontSize: 12,
+                  color: theme.primary,
+                  textDecoration: "none",
+                  fontWeight: 600,
+                }}
+              >
+                Forgot Password?
+              </Link>
+            </div>
           </div>
         )}
 
@@ -972,6 +985,19 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
                   Resend OTP
                 </button>
               )}
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <Link
+                href="/forgot-password"
+                style={{
+                  fontSize: 12,
+                  color: theme.textMuted,
+                  textDecoration: "none",
+                  fontWeight: 500,
+                }}
+              >
+                Forgot Password?
+              </Link>
             </div>
           </div>
         )}
