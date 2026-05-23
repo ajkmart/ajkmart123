@@ -751,95 +751,14 @@ router.post(
       const orderType = type;
       const payment = paymentMethod;
 
-      /* ── server-side price enforcement ──
-         Client-supplied prices are never trusted. Fetch authoritative prices
-         from the products (and product_variants) tables before any calculation.
-         Orders referencing unknown product IDs are rejected immediately. */
-      const productIds = [...new Set(items.map((i) => i.productId))];
-      const variantIds = [...new Set(items.map((i) => i.variantId).filter(Boolean) as string[])];
-
-      const [dbProducts, dbVariants] = await Promise.all([
-        db
-          .select({ id: productsTable.id, price: productsTable.price })
-          .from(productsTable)
-          .where(inArray(productsTable.id, productIds)),
-        variantIds.length > 0
-          ? db
-              .select({ id: productVariantsTable.id, price: productVariantsTable.price })
-              .from(productVariantsTable)
-              .where(inArray(productVariantsTable.id, variantIds))
-          : Promise.resolve([] as { id: string; price: string }[]),
-      ]);
-
-      const productPriceMap = new Map(dbProducts.map((p) => [p.id, parseFloat(p.price)]));
-      const variantPriceMap = new Map(dbVariants.map((v) => [v.id, parseFloat(v.price)]));
-
-      /* Reject if any productId is not found in the DB */
-      for (const item of items) {
-        if (!productPriceMap.has(item.productId)) {
-          sendValidationError(res, `Product not found: ${item.productId}`);
-          return;
-        }
-      }
-
-      let subtotal = 0;
-      const orderItems = items.map((item) => {
-        const qty = Math.min(Math.max(1, Number(item.quantity ?? 1)), MAX_ITEM_QUANTITY);
-        /* Prefer variant price when a variantId is present and has a DB price */
-        const price =
-          (item.variantId && variantPriceMap.get(item.variantId)) ??
-          productPriceMap.get(item.productId) ??
-          0;
-        subtotal += price * qty;
-        return { ...item, quantity: qty, price: price.toString() };
-      });
-
-      /* ── platform fees ── */
+      /* ── platform fees — fetched once outside the tx (settings reads are safe) ── */
       const settings = await getPlatformSettings();
       const deliveryFeeKey = `delivery_fee_${orderType}`;
       const deliveryFee = parseFloat(
         settings[deliveryFeeKey] ?? settings["delivery_fee_mart"] ?? "50"
       );
       const gstPct = parseFloat(settings["gst_percentage"] ?? "0");
-      const gstAmount = Math.round(((subtotal * gstPct) / 100) * 100) / 100;
       const codFeePct = parseFloat(settings["cod_fee_percentage"] ?? "0");
-      const codFee = payment === "cod" ? Math.round(((subtotal * codFeePct) / 100) * 100) / 100 : 0;
-
-      /* ── promo validation ── */
-      let discount = 0;
-      let promoId: string | undefined;
-      let offerId: string | undefined;
-      let finalDeliveryFee = deliveryFee;
-      if (promoCode && promoCode.trim()) {
-        const promo = await validatePromoCode(promoCode.trim(), subtotal, orderType, customerId);
-        if (!promo.valid) {
-          sendValidationError(res, promo.error || "Invalid promo code");
-          return;
-        }
-        discount = promo.discount;
-        promoId = promo.promoId;
-        offerId = promo.offerId;
-        if (promo.freeDelivery) finalDeliveryFee = 0;
-      }
-
-      const total = Math.max(0, subtotal + finalDeliveryFee + gstAmount + codFee - discount);
-
-      /* ── wallet pre-check (optimistic, non-locking) ── */
-      if (payment === "wallet") {
-        const [u] = await db
-          .select({ walletBalance: usersTable.walletBalance })
-          .from(usersTable)
-          .where(eq(usersTable.id, customerId))
-          .limit(1);
-        const balance = parseFloat(u?.walletBalance ?? "0");
-        if (balance < total) {
-          sendForbidden(
-            res,
-            `Insufficient wallet balance. Available: Rs. ${balance.toFixed(2)}, Required: Rs. ${total.toFixed(2)}`
-          );
-          return;
-        }
-      }
 
       /* ── delivery eligibility ── */
       if (customerLat && customerLng) {
@@ -859,8 +778,91 @@ router.post(
       let placed!: typeof ordersTable.$inferSelect;
       let newWalletBalance = 0;
 
+      /* Declare these in outer scope so post-commit code can reference them */
+      let orderItems: Array<{ productId: string; variantId?: string; quantity: number; price: string; name?: string; imageUrl?: string; unit?: string; category?: string; variantName?: string; inStock?: boolean }> = [];
+      let total = 0;
+      let discount = 0;
+      let finalDeliveryFee = deliveryFee;
+      let gstAmount = 0;
+      let codFee = 0;
+      let promoId: string | undefined;
+      let offerId: string | undefined;
+
       await db.transaction(async (tx) => {
-        /* stock decrement for physical goods */
+        /* ── 1. Fetch authoritative prices inside the transaction ──────────────
+           Client-supplied prices are NEVER used for calculation.  Prices are
+           read from the products / product_variants tables using the transaction
+           connection so the values are consistent with any row locks held later
+           in the same transaction (e.g. the FOR UPDATE in decrementStock). */
+        const productIds = [...new Set(items.map((i) => i.productId))];
+        const variantIds = [...new Set(items.map((i) => i.variantId).filter(Boolean) as string[])];
+
+        const [txProducts, txVariants] = await Promise.all([
+          tx
+            .select({ id: productsTable.id, price: productsTable.price })
+            .from(productsTable)
+            .where(inArray(productsTable.id, productIds)),
+          variantIds.length > 0
+            ? tx
+                .select({ id: productVariantsTable.id, price: productVariantsTable.price })
+                .from(productVariantsTable)
+                .where(inArray(productVariantsTable.id, variantIds))
+            : (Promise.resolve([]) as Promise<{ id: string; price: string }[]>),
+        ]);
+
+        const productPriceMap = new Map(txProducts.map((p) => [p.id, parseFloat(p.price)]));
+        const variantPriceMap = new Map(txVariants.map((v) => [v.id, parseFloat(v.price)]));
+
+        /* Reject if any productId is not found in the DB */
+        for (const item of items) {
+          if (!productPriceMap.has(item.productId)) {
+            throw Object.assign(new Error(`Product not found: ${item.productId}`), {
+              code: "PRODUCT_NOT_FOUND",
+            });
+          }
+          /* Reject if variantId is explicitly provided but not found */
+          if (item.variantId && !variantPriceMap.has(item.variantId)) {
+            throw Object.assign(new Error(`Variant not found: ${item.variantId}`), {
+              code: "VARIANT_NOT_FOUND",
+            });
+          }
+        }
+
+        /* ── 2. Build order items with authoritative DB prices ── */
+        let subtotal = 0;
+        orderItems = items.map((item) => {
+          const qty = Math.min(Math.max(1, Number(item.quantity ?? 1)), MAX_ITEM_QUANTITY);
+          /* Prefer variant price when present and found; fall back to product price */
+          const price =
+            (item.variantId ? variantPriceMap.get(item.variantId) : undefined) ??
+            productPriceMap.get(item.productId) ??
+            0;
+          subtotal += price * qty;
+          return { ...item, quantity: qty, price: price.toString() };
+        });
+
+        /* ── 3. Fee computation based on authoritative subtotal ── */
+        gstAmount = Math.round(((subtotal * gstPct) / 100) * 100) / 100;
+        codFee = payment === "cod" ? Math.round(((subtotal * codFeePct) / 100) * 100) / 100 : 0;
+        finalDeliveryFee = deliveryFee;
+
+        /* ── 4. Promo validation against authoritative subtotal ── */
+        if (promoCode && promoCode.trim()) {
+          const promo = await validatePromoCode(promoCode.trim(), subtotal, orderType, customerId);
+          if (!promo.valid) {
+            throw Object.assign(new Error(promo.error || "Invalid promo code"), {
+              code: "INVALID_PROMO",
+            });
+          }
+          discount = promo.discount;
+          promoId = promo.promoId;
+          offerId = promo.offerId;
+          if (promo.freeDelivery) finalDeliveryFee = 0;
+        }
+
+        total = Math.max(0, subtotal + finalDeliveryFee + gstAmount + codFee - discount);
+
+        /* ── 5. Stock decrement for physical goods ── */
         if (["mart", "food"].includes(orderType)) {
           await decrementStock(
             tx,
@@ -869,7 +871,7 @@ router.post(
           );
         }
 
-        /* wallet deduction with pessimistic row lock */
+        /* ── 6. Wallet deduction with pessimistic row lock ── */
         if (payment === "wallet") {
           const lockedRows = await tx.execute(
             sql`SELECT wallet_balance FROM users WHERE id = ${customerId} FOR UPDATE`
@@ -896,7 +898,7 @@ router.post(
           });
         }
 
-        /* track promo/offer usage */
+        /* ── 7. Track promo/offer usage ── */
         if (offerId) {
           /* Re-fetch offer row with a pessimistic lock to prevent TOCTOU race.
              Two concurrent requests both passed the pre-transaction usageLimit
@@ -1006,6 +1008,14 @@ router.post(
       }
       if (err.code === "WALLET_INSUFFICIENT") {
         sendForbidden(res, err.message);
+        return;
+      }
+      if (err.code === "PRODUCT_NOT_FOUND" || err.code === "VARIANT_NOT_FOUND") {
+        sendValidationError(res, err.message);
+        return;
+      }
+      if (err.code === "INVALID_PROMO" || err.code === "OFFER_LIMIT_EXCEEDED" || err.code === "PROMO_LIMIT_EXCEEDED") {
+        sendValidationError(res, err.message);
         return;
       }
       logger.error({ err: err.message, stack: err.stack, customerId }, "[orders] placement failed");

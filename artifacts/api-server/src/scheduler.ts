@@ -64,20 +64,30 @@ async function withDistributedLock(
      with a minimum of 30 s so fast jobs don't release the lock too early. */
   const ttlMs = Math.max(30_000, Math.floor(intervalMs * 0.8));
   let acquired = false;
+  let result: string | null = null;
   try {
-    const result = await redisClient.set(lockKey, "1", "NX", "PX", ttlMs);
-    acquired = result === "OK";
-    if (!acquired) {
-      logger.debug({ job: label }, "[scheduler] lock held by another instance — skipping");
-      return;
-    }
+    result = await redisClient.set(lockKey, "1", "PX", ttlMs, "NX");
+  } catch (redisErr) {
+    /* Redis command failed (connection drop / timeout) — run without lock so
+       the job still executes in degraded mode rather than being silently skipped. */
+    logger.warn(
+      { err: (redisErr as Error).message, job: label },
+      "[scheduler] Redis lock acquire failed — running without lock (degraded)"
+    );
+    await fn();
+    return;
+  }
+  acquired = result === "OK";
+  if (!acquired) {
+    logger.debug({ job: label }, "[scheduler] lock held by another instance — skipping");
+    return;
+  }
+  try {
     await fn();
   } finally {
-    if (acquired) {
-      redisClient.del(lockKey).catch((e: Error) =>
-        logger.warn({ err: e.message, job: label }, "[scheduler] lock release failed")
-      );
-    }
+    redisClient.del(lockKey).catch((e: Error) =>
+      logger.warn({ err: e.message, job: label }, "[scheduler] lock release failed")
+    );
   }
 }
 

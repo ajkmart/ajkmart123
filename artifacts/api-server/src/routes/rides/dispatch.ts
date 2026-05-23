@@ -351,21 +351,30 @@ async function runDispatchCycleWithLock(): Promise<void> {
     await runDispatchCycle();
     return;
   }
-  let acquired = false;
+  let result: string | null = null;
   try {
-    const result = await redisClient.set(DISPATCH_LOCK_KEY, "1", "NX", "PX", DISPATCH_LOCK_TTL_MS);
-    acquired = result === "OK";
-    if (!acquired) {
-      logger.debug("[dispatch-engine] lock held by another instance — skipping cycle");
-      return;
-    }
+    result = await redisClient.set(DISPATCH_LOCK_KEY, "1", "PX", DISPATCH_LOCK_TTL_MS, "NX");
+  } catch (redisErr) {
+    /* Redis command failed — run the cycle without a lock so dispatch continues
+       in degraded single-node mode rather than being silently dropped. */
+    logger.warn(
+      { err: (redisErr as Error).message },
+      "[dispatch-engine] Redis lock acquire failed — running without lock (degraded)"
+    );
+    await runDispatchCycle();
+    return;
+  }
+  const acquired = result === "OK";
+  if (!acquired) {
+    logger.debug("[dispatch-engine] lock held by another instance — skipping cycle");
+    return;
+  }
+  try {
     await runDispatchCycle();
   } finally {
-    if (acquired) {
-      redisClient.del(DISPATCH_LOCK_KEY).catch((e: Error) =>
-        logger.warn({ err: e.message }, "[dispatch-engine] lock release failed")
-      );
-    }
+    redisClient.del(DISPATCH_LOCK_KEY).catch((e: Error) =>
+      logger.warn({ err: e.message }, "[dispatch-engine] lock release failed")
+    );
   }
 }
 

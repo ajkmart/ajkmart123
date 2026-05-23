@@ -339,7 +339,17 @@ router.post(
           city: user.city,
           address: user.address,
           cnic: user.cnic
-            ? user.cnic.replace(/^(\d{5})\d{7}(\d{1})$/, "$1*******$2")
+            ? ((): string => {
+                /* Strip hyphens/spaces so masking works for both "1234512345671"
+                   and "12345-1234567-1" storage formats.  Only the first 5 and
+                   last 1 digit are revealed; the middle 7 are replaced by "*". */
+                const digits = (user.cnic as string).replace(/\D/g, "");
+                if (digits.length !== 13) {
+                  const raw = user.cnic as string;
+                  return `${raw[0]}${"*".repeat(Math.max(0, raw.length - 2))}${raw[raw.length - 1]}`;
+                }
+                return `${digits.slice(0, 5)}${"*".repeat(7)}${digits.slice(12)}`;
+              })()
             : null,
           walletBalance: parseFloat(user.walletBalance ?? "0"),
           createdAt: user.createdAt.toISOString(),
