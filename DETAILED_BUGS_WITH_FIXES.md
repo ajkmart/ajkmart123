@@ -1,7 +1,7 @@
-# 🔍 COMPLETE DETAILED BUG REPORT - Rider & Vendor App Login/Register
+# 🔍 COMPLETE DETAILED BUG REPORT - Rider & Vendor App
 **Date:** May 23, 2026  
 **Status:** COMPREHENSIVE ANALYSIS  
-**Total Bugs Found:** 18 Active Issues
+**Total Bugs Found:** 25 Active Issues
 
 ---
 
@@ -934,82 +934,208 @@ setResendCooldown(OTP_RESEND_COOLDOWN);
 
 ---
 
-## 📊 PRIORITY MATRIX
+## 🔍 DEEP-SCAN FINDINGS (Rider + Vendor App Structure Review)
+**Date:** May 23, 2026  
+**Scope:** Full rider and vendor app module scan beyond login/register flows  
+**Added Findings:** 7 new real UI/UX issues discovered after reviewing routes, page state, offline flows, and shared components
 
-```
-┌─────────────────────────────────────────────────────┐
-│              PRIORITY & IMPACT MATRIX               │
-├─────────────────────────────────────────────────────┤
-│ CRITICAL (Fix First)                                │
-│ ├─ #1  Vendor phone validation missing              │
-│ ├─ #2  Vendor store category validation             │
-│ └─ #3  Rider upload error persistence               │
-│                                                     │
-│ HIGH (Fix This Week)                                │
-│ ├─ #4  Password mismatch no feedback                │
-│ ├─ #5  OTP not cleared on error                     │
-│ ├─ #6  Password strength mobile layout              │
-│ ├─ #7  Username check empty value                   │
-│ ├─ #8  No CNIC/phone real-time validation           │
-│ └─ #9  Bank account no validation                   │
-│                                                     │
-│ MEDIUM (Fix Next Sprint)                            │
-│ ├─ #10 Email regex too permissive                   │
-│ ├─ #11 Social buttons not disabled                  │
-│ ├─ #12 Phone format no hint                         │
-│ ├─ #13 Dev OTP exposure risk                        │
-│ ├─ #14 Username race condition                      │
-│ └─ #15 Role error not specific                      │
-│                                                     │
-│ LOW (Nice to Have)                                  │
-│ ├─ #16 No page meta tags                            │
-│ ├─ #17 CNIC optional confusion                      │
-│ └─ #18 Cooldown inconsistency                       │
-└─────────────────────────────────────────────────────┘
-```
+### APP STRUCTURE REFERENCE USED FOR THIS DEEP SCAN
+- **Rider app root:** `artifacts/rider-app/src/App.tsx`
+  - Route branches: guest login/register, authenticated home/active/history/earnings/wallet/notifications/profile/settings/chat/reviews/penalty-history
+  - Includes auth gating, offline banner, session-expired overlay, maintenance and approval handling
+- **Vendor app root:** `artifacts/vendor-app/src/App.tsx`
+  - Route branches: dashboard, orders, products, wallet, analytics, reviews, promos, campaigns, chat, store, notifications, profile
+  - Includes KYC gate, maintenance screen, pending approval screen, desktop sidebar + mobile bottom nav
+- **Shared UI flows reviewed:** rider and vendor auth flows, product management screen, orders dashboard, profile settings, notifications, bottom navigation, and online/offline handling
 
----
+### BUG #19: RIDER HOME OFFLINE STATE DOES NOT SHOW RECOVERY ACTIONS CLEARLY
+**File:** `artifacts/rider-app/src/pages/Home.tsx`  
+**Severity:** 🟡 Medium  
+**Status:** ACTIVE
 
-## 📋 IMPLEMENTATION CHECKLIST
+#### What is happening
+The rider home screen uses optimistic online/offline toggling and multiple passive notifications (`offlineHint`, `refreshFailToast`, socket status). When connectivity drops, the UI shows a toast or banner, but the root action state is split between several local states and is not presented as a single recovery path.
 
-### This Week (Critical + High Priority)
-- [ ] Add phone validation to vendor register
-- [ ] Add store category validation to vendor step 1
-- [ ] Fix upload error persistence in rider register
-- [ ] Add password match feedback to rider register
-- [ ] Clear OTP on verification failure (both apps)
-- [ ] Fix password strength layout on mobile
-- [ ] Skip username check on empty value
-- [ ] Add CNIC real-time validation with auto-format
-- [ ] Add bank account validation to vendor register
+#### Why this is a UX bug
+- Users can see a status change but not understand whether the app is temporarily offline, the socket is disconnected, or the profile wasn’t refreshed.
+- The current state relies on multiple small overlays/toasts instead of one consistent “Reconnect now” action.
+- Riders who are offline may continue to believe they are still online unless they inspect the toggle state carefully.
 
-### Next Sprint (Medium Priority)
-- [ ] Improve email validation regex
-- [ ] Disable social buttons during loading
-- [ ] Add phone format help text
-- [ ] Improve dev OTP security check
-- [ ] Add AbortController to username check
-- [ ] Make role error messages specific
+#### Impact
+- Confusing offline behavior during active rides and request acceptance
+- Increased support load for “why am I not getting requests?”
+- Poor recoverability when network reconnects fail
 
-### Later (Low Priority)
-- [ ] Add page title/meta tags
-- [ ] Clarify CNIC optional messaging
-- [ ] Unify cooldown duration logic
+#### Fix required
+- Consolidate offline, socket, and refresh failure into one persistent banner with a clear action like “Retry sync”
+- Show a dedicated “Offline mode” card on Home with state, last sync, and reconnect guidance
+- Use one source of truth for connectivity state rather than multiple competing banners
 
 ---
 
-## 🎯 TOTAL ISSUES BY TYPE
+### BUG #20: RIDER ACTIVE DELIVERY FLOW DOES NOT RESET PHOTO STATE AFTER FAILED UPLOAD
+**File:** `artifacts/rider-app/src/pages/Active.tsx`  
+**Severity:** 🟡 Medium  
+**Status:** ACTIVE
 
-| Category | Count | Status |
-|----------|-------|--------|
-| Critical | 3 | ⚠️ ACTIVE |
-| High | 6 | ⚠️ ACTIVE |
-| Medium | 6 | ⚠️ ACTIVE |
-| Low | 3 | ⚠️ ACTIVE |
-| **TOTAL** | **18** | **ALL ACTIVE** |
+#### What is happening
+The proof upload flow stores `proofPhoto`, `proofFile`, `proofFileName`, and `proofStagedForRetry` in local state. When upload fails due to network or a server error, the stale photo preview remains visible and the staged retry flag is set, but the UI does not always communicate whether the user is retrying the same capture or needs a new one.
+
+#### Why this is a UX bug
+- The user can be left with a preview that looks “accepted” even though the upload failed.
+- The retry flow depends on the same file still being in state, but the UI doesn’t clearly indicate the retry stage.
+- The button label and state may not match the actual action in progress.
+
+#### Impact
+- Users may resubmit stale proof unintentionally
+- Confusing delivery completion flow
+- Higher failure rate on slow or flaky connections
+
+#### Fix required
+- Add explicit upload status text like “Upload failed — tap retry”
+- Disable the “Mark Delivered” action while upload is in progress
+- Add a clear “Retake photo” action next to the current preview on failure
+- Reset the preview only when the user intentionally replaces or removes it
 
 ---
 
-**Report Generated:** May 23, 2026  
-**Apps Analyzed:** Rider App + Vendor App  
-**Next Review:** After critical fixes completed
+### BUG #21: VENDOR ORDERS PAGE DOES NOT EXPLAIN WHY A SEARCH RETURNS ZERO RESULTS
+**File:** `artifacts/vendor-app/src/pages/Orders.tsx`  
+**Severity:** 🟡 Medium  
+**Status:** ACTIVE
+
+#### What is happening
+The orders page supports search by order ID or customer, but when the filtered result set is empty, the UI only shows the default empty-state copy for the selected tab. It does not explain that the current search query is filtering everything out.
+
+#### Why this is a UX bug
+- A vendor seeing “No new orders” may mistake the result for a data outage rather than a search mismatch.
+- The current empty state is tab-specific and does not reflect the active filter state.
+- Search and tab behavior are mixed into one message, which makes the result ambiguous.
+
+#### Impact
+- Users think orders are missing instead of filtered
+- Wasted time trying to refresh or reload the page
+- Poor discoverability of the search feature
+
+#### Fix required
+- When `searchQuery` is non-empty and `orders.length === 0`, show a dedicated empty state like “No orders match your search”
+- Offer a “Clear search” action directly in the empty state
+- Keep the tab-specific message only for the non-search case
+
+---
+
+### BUG #22: VENDOR PRODUCTS PAGE DOES NOT CLEARLY SHOW OFFLINE SAVE STATUS FOR CREATE/UPDATE ACTIONS
+**File:** `artifacts/vendor-app/src/pages/Products.tsx` and `artifacts/vendor-app/src/pages/useProductForm.ts`  
+**Severity:** 🟡 Medium  
+**Status:** ACTIVE
+
+#### What is happening
+When the vendor is offline, product create/update actions are queued and the UI shows a toast like “Saved offline — will sync when connected”. The form closes immediately, but the screen does not show a persistent indicator that the action is pending sync or which action was queued.
+
+#### Why this is a UX bug
+- The vendor has no visible record of what was saved locally once the form closes.
+- The queue banner exists in the nav, but it is easy to miss and is not tied to the product action.
+- Users may believe changes were saved remotely when they are only pending sync.
+
+#### Impact
+- Lost trust in product data consistency
+- Duplicate or repeated edits when the vendor returns online
+- Higher chance of confusion around stale inventory data
+
+#### Fix required
+- Add a persistent “Pending sync” banner on the Products page when offline queue has queued product actions
+- Show the queued count and the next sync behavior directly on the page
+- Keep the form open or show a confirmation summary when the action is queued offline
+
+---
+
+### BUG #23: VENDOR PROFILE NOTIFICATION TEST BUTTON DOES NOT GIVE A CLEAR SUCCESS/FAIL CONTEXT WHEN PERMISSION IS DENIED
+**File:** `artifacts/vendor-app/src/pages/Profile.tsx`  
+**Severity:** 🟢 Minor  
+**Status:** ACTIVE
+
+#### What is happening
+The vendor profile page includes a “Send Test Notification” flow that requests browser permission and then calls the backend. The UI shows a toast, but the path for “permission denied” vs “push not registered” vs “socket-only fallback” is not obvious in the button state.
+
+#### Why this is a UX bug
+- The vendor receives generic error messages, but not a clear remediation path for the specific failure.
+- Users may keep retrying the button without knowing they must change browser permission or reload.
+- The button does not expose a persistent status of what was attempted.
+
+#### Impact
+- Poor notification troubleshooting
+- Repeated failed attempts
+- Lower confidence in push delivery
+
+#### Fix required
+- Add a dedicated notification troubleshooting notice in the profile section
+- Distinguish between permission denied, push registration missing, and socket-only fallback
+- Keep the button disabled while the test is in progress and show the current state
+
+---
+
+### BUG #24: RIDER NAVIGATION DOES NOT MAKE ACTIVE TASK STATUS OBVIOUS ENOUGH
+**File:** `artifacts/rider-app/src/components/BottomNav.tsx`  
+**Severity:** 🟢 Minor  
+**Status:** ACTIVE
+
+#### What is happening
+The active tab receives a green dot when an active order or ride exists, but the visual cue is subtle and may be missed, especially on small screens or in bright light.
+
+#### Why this is a UX bug
+- The current badge only shows a tiny status indicator and does not give the rider enough context.
+- The user has to infer that the active screen contains a live task.
+- There is no text or label that reinforces that “Active” is the current live screen.
+
+#### Impact
+- Riders may miss that an order is currently active
+- Increased chance of taking the wrong action from the home screen
+- Less obvious task-state awareness
+
+#### Fix required
+- Add a clearer “Live” pill or bold text state for the active nav item when there is an active task
+- Make the indicator larger and more visible
+- Consider adding a small “Active task” label near the tab when an order or ride is in progress
+
+---
+
+### BUG #25: VENDOR DASHBOARD / ORDERS / PRODUCTS FLOW DOES NOT PRIORITIZE ACTIONS FOR RECENTLY UPDATED DATA
+**File:** `artifacts/vendor-app/src/pages/Dashboard.tsx`, `artifacts/vendor-app/src/pages/Orders.tsx`, and `artifacts/vendor-app/src/pages/Products.tsx`  
+**Severity:** 🟢 Minor  
+**Status:** ACTIVE
+
+#### What is happening
+The vendor app pulls refreshes from React Query and Socket.IO, but the user experience still feels like “old data on the page” after updates, because there is no persistent “Updated just now” indicator or clear refresh source.
+
+#### Why this is a UX bug
+- Vendors cannot tell whether their current view is fresh or stale.
+- Socket and polling updates happen in the background, but the UI does not present the freshness clearly.
+- The current feedback is split between banners, sounds, and background invalidation.
+
+#### Impact
+- Reduced trust in the order/product view
+- Unclear whether a manual refresh is needed
+- Confusing behavior when real-time updates are delayed
+
+#### Fix required
+- Add a small “Updated just now / sync pending” label on each main page
+- Display when the last successful sync happened
+- Surface an explicit “tap to refresh” affordance if real-time updates are unavailable
+
+---
+
+## 📊 DEEP-SCAN PRIORITY MATRIX
+
+| Priority | Findings | Notes |
+|----------|----------|-------|
+| Medium | #19, #20, #21, #22 | Core rider/vendor UX flows need clarity and recovery messaging |
+| Minor | #23, #24, #25 | Important polish items that improve confidence and task awareness |
+
+---
+
+## ✅ SUMMARY
+- Existing report retains all original login/register issues
+- Added 7 new deep-scan findings from actual rider/vendor app flows
+- New findings focus on offline behavior, search feedback, queued state visibility, notification troubleshooting, active-task visibility, and data freshness
+
+**Report Updated:** May 23, 2026
