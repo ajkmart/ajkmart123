@@ -14,12 +14,7 @@ import {
 } from "@/hooks/use-admin";
 import { useToast } from "@/hooks/use-toast";
 import { adminFetch } from "@/lib/adminFetcher";
-import {
-  DragDropContext,
-  Draggable,
-  Droppable,
-  type DropResult,
-} from "@hello-pangea/dnd";
+import { DragDropContext, Draggable, Droppable, type DropResult } from "@hello-pangea/dnd";
 import {
   Activity,
   AlertTriangle,
@@ -419,9 +414,7 @@ export default function OtpControl() {
       });
       const mins = suspendModal.mins;
       const durationLabel =
-        mins >= 60 && mins % 60 === 0
-          ? `${mins / 60} hour(s)`
-          : `${mins} minute(s)`;
+        mins >= 60 && mins % 60 === 0 ? `${mins / 60} hour(s)` : `${mins} minute(s)`;
       toast({
         title: "OTP Suspended",
         description: `All OTPs suspended for ${durationLabel}.`,
@@ -1489,7 +1482,8 @@ type ThrottledEntry = {
 function maskIdentifier(id: string): string {
   if (id.includes("@")) {
     const [local, domain] = id.split("@");
-    return `${local!.slice(0, 2)}***@${domain}`;
+    if (!local || !domain) return id;
+    return `${local.slice(0, 2)}***@${domain}`;
   }
   if (id.length > 6) return `${id.slice(0, 4)}***${id.slice(-2)}`;
   return `${id.slice(0, 2)}***`;
@@ -1500,7 +1494,10 @@ function ExpiresIn({ iso }: { iso: string }) {
   useEffect(() => {
     const tick = () => {
       const ms = new Date(iso).getTime() - Date.now();
-      if (ms <= 0) { setLabel("Expired"); return; }
+      if (ms <= 0) {
+        setLabel("Expired");
+        return;
+      }
       const m = Math.floor(ms / 60000);
       const s = Math.floor((ms % 60000) / 1000);
       setLabel(m > 0 ? `${m}m ${s}s` : `${s}s`);
@@ -1528,7 +1525,7 @@ function LockedUsersPanel() {
         setThrottled((d.throttled as ThrottledEntry[]) ?? []);
         setMaxAttempts((d.maxAttempts as number) ?? 5);
       }
-    } catch {
+    } catch (_e) {
       /* silent — don't spam toasts on background poll */
     } finally {
       setLoading(false);
@@ -1571,14 +1568,14 @@ function LockedUsersPanel() {
 
   return (
     <ProCard>
-      <div className="border-b border-border/60 bg-gradient-to-r from-rose-50/80 to-slate-50 px-5 py-4">
+      <div className="border-border/60 border-b bg-gradient-to-r from-rose-50/80 to-slate-50 px-5 py-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/60 text-rose-600 backdrop-blur-sm">
               <LockKeyhole className="h-4 w-4" />
             </div>
             <div>
-              <h3 className="font-display text-sm font-bold leading-none text-gray-900">
+              <h3 className="font-display text-sm leading-none font-bold text-gray-900">
                 Rate-Limited Users
               </h3>
               <p className="mt-0.5 text-[11px] text-gray-500">
@@ -1588,7 +1585,7 @@ function LockedUsersPanel() {
           </div>
           <div className="flex items-center gap-2">
             {count > 0 && (
-              <span className="inline-flex items-center rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-700 border border-rose-200">
+              <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-700">
                 {count} throttled
               </span>
             )}
@@ -1645,7 +1642,7 @@ function LockedUsersPanel() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
                       {displayName && (
-                        <span className="text-sm font-semibold text-gray-900 truncate">
+                        <span className="truncate text-sm font-semibold text-gray-900">
                           {displayName}
                         </span>
                       )}
@@ -1670,11 +1667,11 @@ function LockedUsersPanel() {
                   </div>
 
                   {/* Attempt count badge */}
-                  <div className="hidden shrink-0 sm:flex flex-col items-center">
-                    <span className="rounded-lg bg-rose-100 border border-rose-200 px-2 py-1 text-xs font-bold text-rose-700 tabular-nums">
+                  <div className="hidden shrink-0 flex-col items-center sm:flex">
+                    <span className="rounded-lg border border-rose-200 bg-rose-100 px-2 py-1 text-xs font-bold text-rose-700 tabular-nums">
                       {entry.count}/{maxAttempts}
                     </span>
-                    <span className="mt-0.5 text-[9px] text-rose-400 uppercase tracking-wide">
+                    <span className="mt-0.5 text-[9px] tracking-wide text-rose-400 uppercase">
                       attempts
                     </span>
                   </div>
@@ -1696,7 +1693,7 @@ function LockedUsersPanel() {
               );
             })}
 
-            <p className="pt-1 text-[11px] text-muted-foreground">
+            <p className="text-muted-foreground pt-1 text-[11px]">
               Showing identifiers with ≥{maxAttempts} failed OTP attempts in the current window.
               Unlocking clears the counter immediately.
             </p>
@@ -1759,7 +1756,7 @@ function OtpChannelsSection() {
           setChannels(ch);
           setSaved(ch);
         }
-      } catch {
+      } catch (_e) {
         /* keep defaults */
       } finally {
         setLoading(false);
@@ -1773,7 +1770,8 @@ function OtpChannelsSection() {
     if (!result.destination) return;
     const next = [...channels];
     const [moved] = next.splice(result.source.index, 1);
-    next.splice(result.destination.index, 0, moved!);
+    if (!moved) return;
+    next.splice(result.destination.index, 0, moved);
     setChannels(next);
   }
 
@@ -1808,13 +1806,13 @@ function OtpChannelsSection() {
 
   return (
     <ProCard>
-      <div className="border-b border-border/60 bg-gradient-to-r from-sky-50/80 to-slate-50 px-5 py-4">
+      <div className="border-border/60 border-b bg-gradient-to-r from-sky-50/80 to-slate-50 px-5 py-4">
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/60 text-sky-600 backdrop-blur-sm">
             <ListChecks className="h-4 w-4" />
           </div>
           <div>
-            <h3 className="font-display text-sm font-bold leading-none text-gray-900">
+            <h3 className="font-display text-sm leading-none font-bold text-gray-900">
               OTP Channel Priority
             </h3>
             <p className="mt-0.5 text-[11px] text-gray-500">
@@ -1826,7 +1824,7 @@ function OtpChannelsSection() {
 
       <div className="p-5">
         {loading ? (
-          <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+          <div className="text-muted-foreground flex items-center gap-2 py-6 text-sm">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading channels…
           </div>
         ) : (
@@ -1834,11 +1832,7 @@ function OtpChannelsSection() {
             <DragDropContext onDragEnd={onDragEnd}>
               <Droppable droppableId="otp-channels">
                 {(provided) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className="space-y-2"
-                  >
+                  <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-2">
                     {channels.map((ch, idx) => {
                       const meta = CHANNEL_META[ch];
                       const isFirst = idx === 0;
@@ -1850,7 +1844,7 @@ function OtpChannelsSection() {
                               {...prov.draggableProps}
                               className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-shadow ${
                                 snapshot.isDragging
-                                  ? "shadow-lg ring-2 ring-sky-300 border-sky-200 bg-sky-50/60"
+                                  ? "border-sky-200 bg-sky-50/60 shadow-lg ring-2 ring-sky-300"
                                   : `${meta.ring} hover:shadow-sm`
                               }`}
                             >
@@ -1866,9 +1860,7 @@ function OtpChannelsSection() {
                               {/* Position number */}
                               <div
                                 className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
-                                  isFirst
-                                    ? "bg-sky-600 text-white"
-                                    : "bg-gray-100 text-gray-500"
+                                  isFirst ? "bg-sky-600 text-white" : "bg-gray-100 text-gray-500"
                                 }`}
                               >
                                 {idx + 1}
@@ -1878,7 +1870,9 @@ function OtpChannelsSection() {
                               <div
                                 className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${meta.ring}`}
                               >
-                                <meta.Icon className={`h-4 w-4 ${isFirst ? "opacity-100" : "opacity-60"}`} />
+                                <meta.Icon
+                                  className={`h-4 w-4 ${isFirst ? "opacity-100" : "opacity-60"}`}
+                                />
                               </div>
 
                               {/* Label + desc */}
@@ -1914,7 +1908,7 @@ function OtpChannelsSection() {
             </DragDropContext>
 
             {/* Arrow flow summary */}
-            <div className="mt-3 flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
+            <div className="text-muted-foreground mt-3 flex flex-wrap items-center gap-1 text-[11px]">
               <span className="font-medium text-gray-600">Delivery order:</span>
               {channels.map((ch, idx) => (
                 <span key={ch} className="flex items-center gap-1">
@@ -1923,9 +1917,7 @@ function OtpChannelsSection() {
                   >
                     {CHANNEL_META[ch].label}
                   </span>
-                  {idx < channels.length - 1 && (
-                    <ChevronRight className="h-3 w-3 text-gray-300" />
-                  )}
+                  {idx < channels.length - 1 && <ChevronRight className="h-3 w-3 text-gray-300" />}
                 </span>
               ))}
             </div>
@@ -1956,7 +1948,7 @@ function OtpChannelsSection() {
               </div>
             )}
             {!isDirty && (
-              <p className="mt-3 text-right text-[11px] text-muted-foreground">
+              <p className="text-muted-foreground mt-3 text-right text-[11px]">
                 Saved order: <span className="font-medium">{saved.join(" → ")}</span>
               </p>
             )}
@@ -1995,7 +1987,7 @@ function WhitelistSection() {
           setBypassFeatureStatus(res as { whitelistEnabled: boolean; environment: string });
         }
       })
-      .catch(() => {});
+      .catch((_e) => {});
   }, []);
 
   const entries: Array<OtpWhitelistEntry> = data?.entries ?? [];
@@ -2095,12 +2087,12 @@ function WhitelistSection() {
           <div className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
             <div className="flex-1">
-              <p className="font-semibold">
-                OTP whitelist bypass is disabled in production.
-              </p>
+              <p className="font-semibold">OTP whitelist bypass is disabled in production.</p>
               <p className="mt-0.5">
                 Entries in this list will not be used to bypass OTP in the live environment. Set{" "}
-                <code className="rounded bg-red-100 px-1 font-mono">ENABLE_OTP_BYPASS_PRODUCTION=true</code>{" "}
+                <code className="rounded bg-red-100 px-1 font-mono">
+                  ENABLE_OTP_BYPASS_PRODUCTION=true
+                </code>{" "}
                 in your server environment variables to re-enable.
               </p>
             </div>

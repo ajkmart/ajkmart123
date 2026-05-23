@@ -1,6 +1,6 @@
 import { db, pool } from "@workspace/db";
 import { platformSettingsTable } from "@workspace/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, _sql } from "drizzle-orm";
 import { Router, type Request, type Response } from "express";
 import { logger } from "../lib/logger.js";
 import { getDiskStats, getMemoryPct, getP95Ms } from "../lib/metrics/responseTime.js";
@@ -82,7 +82,10 @@ export async function handleHealthCheck(_req: Request, res: Response): Promise<v
       dbStatus = "error";
       dbQueryMs = null;
       logger.error(
-        { error: dbResult.reason instanceof Error ? dbResult.reason.message : String(dbResult.reason) },
+        {
+          error:
+            dbResult.reason instanceof Error ? dbResult.reason.message : String(dbResult.reason),
+        },
         "[health] DB check failed"
       );
     }
@@ -90,7 +93,12 @@ export async function handleHealthCheck(_req: Request, res: Response): Promise<v
       if (redisResult.status === "rejected") {
         redisStatus = "error";
         logger.warn(
-          { error: redisResult.reason instanceof Error ? redisResult.reason.message : String(redisResult.reason) },
+          {
+            error:
+              redisResult.reason instanceof Error
+                ? redisResult.reason.message
+                : String(redisResult.reason),
+          },
           "[health] Redis check failed"
         );
       } else {
