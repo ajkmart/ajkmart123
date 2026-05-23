@@ -47,6 +47,10 @@ Thumbs.db
 # ESLint cache
 .eslintcache
 
-# Replit
+# Replit — local config only, NOT committed to git.
+# Contains Replit-specific workflow config and may have env vars.
+# For cross-platform setup, use: pnpm install && pnpm dev
+# For Replit secrets, use the Secrets panel (left sidebar → Tools → Secrets)
+.replit
 .cache/
 .local/
