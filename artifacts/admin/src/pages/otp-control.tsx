@@ -337,8 +337,8 @@ export default function OtpControl() {
     setAuditLoading(true);
     try {
       const d = await api("GET", "/otp/audit?page=1");
-      if (d?.data?.entries) {
-        const bypass = (d.data.entries as AuditRow[])
+      if (d?.entries) {
+        const bypass = (d.entries as AuditRow[])
           .filter(
             (e) =>
               e.event === "login_otp_bypass" ||

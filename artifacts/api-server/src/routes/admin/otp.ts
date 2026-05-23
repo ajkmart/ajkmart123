@@ -1,5 +1,6 @@
 import { db } from "@workspace/db";
 import {
+  otpAttemptsTable,
   otpBypassAuditTable,
   ridesTable,
   usersTable,
@@ -440,6 +441,75 @@ router.delete("/users/:id/otp/bypass", async (req, res) => {
     });
   } catch (error) {
     sendServerError(res, error, "revoke per-user bypass");
+  }
+});
+
+/* ─── DELETE /admin/users/:id/otp/attempts ────────────────────────────────────
+   Clears the OTP rate-limit attempt counter for the user identified by :id.
+   The counter is keyed by phone (or email when no phone) in otp_attempts.
+   Used by the "Unlock" button in the OTP Control Center to unblock a user who
+   has been throttled after too many failed OTP requests.
+─────────────────────────────────────────────────────────────────────────────*/
+router.delete("/users/:id/otp/attempts", async (req, res) => {
+  const userId = req.params["id"] as string;
+  const adminReq = req as AdminRequest;
+
+  try {
+    const user = await db.query.usersTable.findFirst({
+      where: eq(usersTable.id, userId),
+      columns: { id: true, phone: true, email: true, name: true },
+    });
+
+    if (!user) {
+      return sendNotFound(res, "User not found");
+    }
+
+    /* Delete any otp_attempts rows keyed by this user's phone or email.
+       Both identifiers are cleared so the user is fully unblocked regardless
+       of which channel they used to request OTPs. */
+    const cleared: string[] = [];
+    if (user.phone) {
+      await db.delete(otpAttemptsTable).where(eq(otpAttemptsTable.key, user.phone));
+      cleared.push(user.phone);
+    }
+    if (user.email) {
+      await db.delete(otpAttemptsTable).where(eq(otpAttemptsTable.key, user.email));
+      cleared.push(user.email);
+    }
+
+    const ip = getClientIp(req);
+
+    await AuditService.executeWithAudit(
+      {
+        adminId: adminReq.adminId,
+        adminName: adminReq.adminName,
+        adminIp: ip,
+        action: "admin_clear_otp_attempts",
+        resourceType: "user",
+        resource: userId,
+        details: `Cleared OTP attempt counter for ${user.phone || user.email || userId}`,
+      },
+      async () => ({ success: true })
+    );
+
+    void writeAuthAuditLog("admin_clear_otp_attempts", {
+      userId,
+      ip,
+      userAgent: req.headers["user-agent"] ?? undefined,
+      metadata: { adminId: adminReq.adminId, clearedIdentifiers: cleared },
+    });
+
+    logger.info(
+      { adminId: adminReq.adminId, userId, cleared },
+      "[admin/otp] OTP attempt counter cleared by admin"
+    );
+
+    sendSuccess(res, {
+      message: `OTP attempt counter cleared for ${user.name ?? user.phone ?? userId}`,
+      clearedIdentifiers: cleared,
+    });
+  } catch (error) {
+    sendServerError(res, error, "clear OTP attempts");
   }
 });
 
