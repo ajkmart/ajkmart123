@@ -116,10 +116,7 @@ function OtpBoxes({
   };
 
   return (
-    <div
-      style={{ display: "flex", gap: 8, justifyContent: "center" }}
-      onPaste={handlePaste}
-    >
+    <div style={{ display: "flex", gap: 8, justifyContent: "center" }} onPaste={handlePaste}>
       {Array.from({ length: 6 }).map((_, i) => (
         <input
           key={i}
@@ -164,7 +161,7 @@ export default function ForgotPassword() {
   const theme = useTheme();
   const { config } = usePlatformConfig();
   const { language } = useLanguage();
-  const T = (key: TranslationKey) => tDual(key, language);
+  const T = useCallback((key: TranslationKey) => tDual(key, language), [language]);
   const auth = getRiderAuthConfig(config);
   const captchaSiteKey = config.auth?.captchaSiteKey;
   const phoneHint = config.regional?.phoneHint ?? "03XXXXXXXXX";
@@ -210,7 +207,7 @@ export default function ForgotPassword() {
       if (config.regional?.phoneFormat) {
         return new RegExp(config.regional.phoneFormat).test(p);
       }
-    } catch {
+    } catch (_e) {
       /* fall through */
     }
     return /^0?3\d{9}$/.test(p.replace(/[\s\-()+]/g, ""));
@@ -234,7 +231,7 @@ export default function ForgotPassword() {
       if (auth.captchaEnabled) {
         try {
           captchaToken = await executeCaptcha("forgot_password", captchaSiteKey);
-        } catch {
+        } catch (_e) {
           /* captcha optional */
         }
         if (!captchaToken) {
@@ -249,11 +246,7 @@ export default function ForgotPassword() {
         ...(captchaToken ? { captchaToken } : {}),
       } as Parameters<typeof api.forgotPassword>[0]);
       const resData = res as Record<string, unknown>;
-      if (
-        resData.otp &&
-        import.meta.env.DEV &&
-        import.meta.env.VITE_ALLOW_DEV_OTP === "true"
-      ) {
+      if (resData.otp && import.meta.env.DEV && import.meta.env.VITE_ALLOW_DEV_OTP === "true") {
         setDevOtp(resData.otp as string);
       }
       setOtp("");
@@ -294,7 +287,7 @@ export default function ForgotPassword() {
       if (auth.captchaEnabled) {
         try {
           captchaToken = await executeCaptcha("reset_password", captchaSiteKey);
-        } catch {
+        } catch (_e) {
           /* captcha optional */
         }
         if (!captchaToken) {
@@ -333,7 +326,7 @@ export default function ForgotPassword() {
         if (auth.captchaEnabled) {
           try {
             captchaToken = await executeCaptcha("reset_password_2fa", captchaSiteKey);
-          } catch {
+          } catch (_e) {
             /* captcha optional */
           }
         }
@@ -539,9 +532,7 @@ export default function ForgotPassword() {
         <h1 style={{ color: theme.text, fontSize: 24, fontWeight: 800, margin: "0 0 4px" }}>
           {T("forgotPassword")}
         </h1>
-        <p style={{ color: theme.textMuted, fontSize: 13, margin: 0 }}>
-          {T("forgotPasswordDesc")}
-        </p>
+        <p style={{ color: theme.textMuted, fontSize: 13, margin: 0 }}>{T("forgotPasswordDesc")}</p>
       </div>
 
       <div style={cardStyle}>
@@ -567,9 +558,7 @@ export default function ForgotPassword() {
               fontWeight: 500,
             }}
           >
-            {isRateLimited
-              ? `⏳ Too many attempts. Try again in ${secondsLeft}s`
-              : error}
+            {isRateLimited ? `⏳ Too many attempts. Try again in ${secondsLeft}s` : error}
           </div>
         )}
 
@@ -601,12 +590,8 @@ export default function ForgotPassword() {
                   padding: "0 16px",
                   transition: "border-color 0.15s",
                 }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.borderColor = theme.primary)
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.borderColor = theme.border)
-                }
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = theme.primary)}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = theme.border)}
               >
                 <Phone size={20} color={theme.primary} />
                 <div style={{ textAlign: "left" }}>
@@ -637,12 +622,8 @@ export default function ForgotPassword() {
                   padding: "0 16px",
                   transition: "border-color 0.15s",
                 }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.borderColor = theme.primary)
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.borderColor = theme.border)
-                }
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = theme.primary)}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = theme.border)}
               >
                 <Mail size={20} color={theme.primary} />
                 <div style={{ textAlign: "left" }}>
@@ -756,7 +737,13 @@ export default function ForgotPassword() {
               disabled={loading || isRateLimited}
               style={btnPrimary(loading || isRateLimited)}
             >
-              {loading ? <><Spin /> Sending…</> : "Send Reset OTP"}
+              {loading ? (
+                <>
+                  <Spin /> Sending…
+                </>
+              ) : (
+                "Send Reset OTP"
+              )}
             </button>
           </div>
         )}
@@ -769,7 +756,8 @@ export default function ForgotPassword() {
                 {T("enterResetOtp")}
               </h3>
               <p style={{ color: theme.textMuted, fontSize: 13, margin: 0 }}>
-                Sent to: <strong style={{ color: theme.text }}>
+                Sent to:{" "}
+                <strong style={{ color: theme.text }}>
                   {method === "phone" ? `+92${phone}` : email}
                 </strong>
               </p>
@@ -824,8 +812,7 @@ export default function ForgotPassword() {
             <div style={{ textAlign: "center" }}>
               {resendCooldown > 0 ? (
                 <span style={{ fontSize: 13, color: theme.textMuted }}>
-                  Resend OTP in{" "}
-                  <strong style={{ color: theme.primary }}>{resendCooldown}s</strong>
+                  Resend OTP in <strong style={{ color: theme.primary }}>{resendCooldown}s</strong>
                 </span>
               ) : (
                 <button
@@ -948,13 +935,10 @@ export default function ForgotPassword() {
                     fontSize: 12,
                     fontWeight: 600,
                     marginTop: 4,
-                    color:
-                      newPassword === confirmPw ? "#10b981" : "#f87171",
+                    color: newPassword === confirmPw ? "#10b981" : "#f87171",
                   }}
                 >
-                  {newPassword === confirmPw
-                    ? "✓ Passwords match"
-                    : "✗ Passwords do not match"}
+                  {newPassword === confirmPw ? "✓ Passwords match" : "✗ Passwords do not match"}
                 </div>
               )}
             </div>
@@ -964,7 +948,13 @@ export default function ForgotPassword() {
               disabled={loading}
               style={btnPrimary(loading)}
             >
-              {loading ? <><Spin /> Resetting…</> : "Reset Password"}
+              {loading ? (
+                <>
+                  <Spin /> Resetting…
+                </>
+              ) : (
+                "Reset Password"
+              )}
             </button>
           </div>
         )}

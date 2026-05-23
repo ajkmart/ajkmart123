@@ -166,7 +166,7 @@ export default function Home() {
   useEffect(() => {
     if (!user) return;
     setLastSeenOnlineAt((prev) => prev ?? new Date().toISOString());
-  }, [user?.id]);
+  }, [user]);
 
   const doActualToggle = useCallback(async () => {
     const now = Date.now();

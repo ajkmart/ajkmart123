@@ -1661,7 +1661,7 @@ router.get("/wallet/transactions", async (req, res, next) => {
 router.post("/wallet/withdraw", async (req, res, next) => {
   try {
     const vendorId = req.vendorId!;
-    const user = req.vendorUser!;
+    const _user = req.vendorUser!;
     const {
       amount,
       bankName,
@@ -1712,7 +1712,10 @@ router.post("/wallet/withdraw", async (req, res, next) => {
       reference: `WD-${id.slice(-8).toUpperCase()}`,
     });
   } catch (err) {
-    if (err instanceof Error && (err as NodeJS.ErrnoException & { code?: string }).code === "INSUFFICIENT") {
+    if (
+      err instanceof Error &&
+      (err as NodeJS.ErrnoException & { code?: string }).code === "INSUFFICIENT"
+    ) {
       sendError(res, err.message, 400);
       return;
     }
