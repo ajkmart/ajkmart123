@@ -1,165 +1,29 @@
-modules = ["nodejs-20", "web", "bash", "python-3.11", "postgresql-16"]
+modules = ["nodejs-20", "bash", "postgresql-16"]
 
-[[artifacts]]
-id = "artifacts/api-server"
+build = "pnpm install --no-frozen-lockfile"
+run = "pnpm dev"
 
-[[artifacts]]
-id = "artifacts/mockup-sandbox"
-
-[deployment]
-router = "application"
-deploymentTarget = "autoscale"
-
-[deployment.postBuild]
-args = ["pnpm", "store", "prune"]
-env = { "CI" = "true" }
-
-[workflows]
-runButton = "Project"
-
-  [[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "All Services"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "API Server"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Admin App"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Vendor App"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Rider App"
-
-  [[workflows.workflow]]
-  name = "All Services"
-  mode = "parallel"
-  author = "agent"
-
-  [[workflows.workflow.tasks]]
-  task = "workflow.run"
-  args = "API Server"
-
-  [[workflows.workflow.tasks]]
-  task = "workflow.run"
-  args = "Rider App"
-
-  [[workflows.workflow.tasks]]
-  task = "workflow.run"
-  args = "Vendor App"
-
-  [[workflows.workflow.tasks]]
-  task = "workflow.run"
-  args = "Admin App"
-
-  [[workflows.workflow.tasks]]
-  task = "workflow.run"
-  args = "AJKMart App"
-
-[[workflows.workflow]]
-name = "API Server"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "webview"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/api-server run dev"
-waitForPort = 5000
-
-[[workflows.workflow]]
-name = "Admin App"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/admin run dev"
-waitForPort = 3000
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "Vendor App"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/vendor-app run dev"
-waitForPort = 3001
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "Rider App"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/rider-app run dev"
-waitForPort = 3002
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-  [agent]
-stack = "BEST_EFFORT_FALLBACK"
-expertMode = true
-integrations = ["javascript_gemini_ai_integrations:2.0.0"]
-
-[postMerge]
-path = "scripts/post-merge.sh"
-timeoutMs = 60000
-
-[nix]
-channel = "stable-25_05"
-
-[userenv]
-
-[userenv.shared]
-NODE_ENV = "development"
-JWT_ISSUER = "ajkmart"
-VITE_API_PROXY_TARGET = "http://127.0.0.1:5000"
-VAPID_PUBLIC_KEY = "BEmlZZIGCb7ZhembOoH02qzZlnhkFrYkib27NwFgtXBFDcvtHhhWC2hfZEHU4JpDbfHIRgbrCiM_f9gEEc_JHLg"
-VAPID_CONTACT_EMAIL = "mailto:admin@ajkmart.app"
-ADMIN_ACCESS_TOKEN_SECRET = "10mRt9cLqIiVbeOmkm6ILl4WTqQyV85PPmsG0JzUS5F"
-ADMIN_CSRF_SECRET = "-rWir8D_I-L%}x/u[d3c$#x9bSZ,lBf!.L2s9HuU1sD"
-ADMIN_REFRESH_TOKEN_SECRET = "m9Ptbb2|<Hm_]FuLZ#82rN4%z6S&KJ#}7E>4i:O4(25"
-ADMIN_SEED_PASSWORD = "Admin@123"
-ENCRYPTION_MASTER_KEY = "PL}4kyr74D>BI>5(,*zS#_$yS-{fm[.?h8%XmdOng<6"
-ERROR_REPORT_HMAC_SECRET = "M7;B_bOKAYKZoktz>)}U]s6PFkt,U?p;w8G5*ITrrMw"
-JWT_SECRET = "rOg5FUY&D5A3!G6Yus#$s$;|DGe[Y3X*PM[8otK=lUC"
-VAPID_PRIVATE_KEY = "QGC5hBbO?uth)8[+<Y,pqNI{+-8<t=XUvFWHZfz!=C%"
-ALLOW_DEV_OTP = "true"
-DATABASE_URL = "postgresql://neondb_owner:npg_8CZnNQxSivM4@ep-withered-pond-aod3mqmg-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
-
-[userenv.development]
+[[ports]]
+localPort = 5000
+externalPort = 80
 
 [[ports]]
 localPort = 3000
 externalPort = 3000
 
 [[ports]]
+localPort = 3001
+externalPort = 3001
+
+[[ports]]
 localPort = 3002
 externalPort = 3002
 
-[[ports]]
-localPort = 3003
-externalPort = 3003
-
-[[ports]]
-localPort = 5000
-externalPort = 80
+[userenv.shared]
+NODE_ENV = "development"
+JWT_ISSUER = "ajkmart"
+VITE_API_PROXY_TARGET = "http://127.0.0.1:5000"
+ALLOW_DEV_OTP = "true"
+ADMIN_SEED_PASSWORD = "Admin@123"
+VAPID_CONTACT_EMAIL = "mailto:admin@ajkmart.app"
+VAPID_PUBLIC_KEY = "BEmlZZIGCb7ZhembOoH02qzZlnhkFrYkib27NwFgtXBFDcvtHhhWC2hfZEHU4JpDbfHIRgbrCiM_f9gEEc_JHLg"
