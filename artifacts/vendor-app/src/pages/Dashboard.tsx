@@ -388,6 +388,8 @@ export default function Dashboard() {
     isLoading,
     isError: statsError,
     refetch: refetchStats,
+    dataUpdatedAt: statsUpdatedAt,
+    isFetching: statsFetching,
   } = useQuery({
     queryKey: ["vendor-stats"],
     queryFn: () => api.getStats(),
@@ -539,9 +541,26 @@ export default function Dashboard() {
           </span>
         }
         subtitle={
-          user?.storeCategory
-            ? `${user.storeCategory} · ${config.platform.appName} Partner`
-            : `${config.platform.appName} Vendor Portal`
+          <span className="flex items-center gap-2">
+            <span>
+              {user?.storeCategory
+                ? `${user.storeCategory} · ${config.platform.appName} Partner`
+                : `${config.platform.appName} Vendor Portal`}
+            </span>
+            {statsUpdatedAt > 0 && (
+              <span className={`text-[10px] font-semibold ${statsFetching ? "text-blue-400" : "text-gray-400"}`}>
+                {statsFetching
+                  ? "Syncing…"
+                  : (() => {
+                      const diffMs = Date.now() - statsUpdatedAt;
+                      const diffMin = Math.floor(diffMs / 60000);
+                      if (diffMin < 1) return "Updated just now";
+                      if (diffMin === 1) return "Updated 1 min ago";
+                      return `Updated ${diffMin} min ago`;
+                    })()}
+              </span>
+            )}
+          </span>
         }
         actions={
           <div className="flex items-center gap-2">

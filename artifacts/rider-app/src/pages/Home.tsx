@@ -871,6 +871,7 @@ export default function Home() {
           unlockAudio();
           setAudioLocked(false);
         }}
+        onRetryConnect={() => sharedSocket?.connect()}
         T={T}
       />
 

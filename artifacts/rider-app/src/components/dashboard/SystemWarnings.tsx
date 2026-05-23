@@ -27,6 +27,7 @@ interface FixedBannersProps {
   onDismissWakeLock: () => void;
   audioLocked: boolean;
   onUnlockAudio: () => void;
+  onRetryConnect?: () => void;
   T: (key: TranslationKey) => string;
 }
 
@@ -39,6 +40,7 @@ export function FixedBanners({
   onDismissWakeLock,
   audioLocked,
   onUnlockAudio,
+  onRetryConnect,
   T,
 }: FixedBannersProps) {
   /* Build the ordered list of active top banners so we can stack them
@@ -65,7 +67,7 @@ export function FixedBanners({
       {/* ── Connection lost banner ── */}
       {showConnection && (
         <div
-          className="fixed right-0 left-0 z-[50] flex animate-pulse items-center justify-center gap-1.5 bg-red-600 text-center text-xs font-bold text-white shadow-lg"
+          className="fixed right-0 left-0 z-[50] flex animate-pulse items-center justify-center gap-2 bg-red-600 text-center text-xs font-bold text-white shadow-lg"
           style={{
             top: `calc(${safeTop} + ${connectionTop * BANNER_H}px)`,
             height: BANNER_H,
@@ -73,7 +75,17 @@ export function FixedBanners({
           role="alert"
           aria-live="assertive"
         >
-          <WifiOff size={13} /> {T("connectionLost")}
+          <WifiOff size={13} />
+          <span>{T("connectionLost")}</span>
+          {onRetryConnect && (
+            <button
+              onClick={onRetryConnect}
+              className="ml-1 rounded bg-white/20 px-2 py-0.5 text-[10px] font-extrabold text-white hover:bg-white/30 active:bg-white/40"
+              aria-label="Retry connection"
+            >
+              Retry sync
+            </button>
+          )}
         </div>
       )}
 

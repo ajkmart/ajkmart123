@@ -94,10 +94,11 @@ export function BottomNav() {
                     </span>
                   )}
                   {item.href === "/active" && hasActive && location !== "/active" && (
-                    <span className="absolute -top-1 -right-0.5 flex items-center justify-center">
-                      <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-green-500">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
-                        <span className="relative h-2.5 w-2.5 rounded-full bg-green-500"></span>
+                    <span className="absolute -top-1 -right-1 flex items-center justify-center">
+                      <span className="relative flex items-center gap-0.5 rounded-full bg-green-500 px-1.5 py-0.5">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-60"></span>
+                        <span className="relative h-1.5 w-1.5 rounded-full bg-white"></span>
+                        <span className="relative text-[8px] font-extrabold leading-none text-white tracking-wide">LIVE</span>
                       </span>
                     </span>
                   )}

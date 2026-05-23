@@ -680,6 +680,21 @@ export default function Orders({ targetOrderId }: { targetOrderId?: string } = {
           {!isError && isLoading ? (
             [1, 2, 3].map((i) => <div key={i} className="skeleton h-20 rounded-2xl" />)
           ) : !isError && orders.length === 0 ? (
+            searchQuery.trim() ? (
+              <div className={`${CARD} px-4 py-14 text-center`}>
+                <p className="mb-3 text-5xl">🔍</p>
+                <p className="text-base font-bold text-gray-700">No orders match your search</p>
+                <p className="mt-1 text-sm text-gray-400">
+                  No results for <strong>"{searchQuery}"</strong> in {tab === "all" ? "all" : tab} orders
+                </p>
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="mt-4 rounded-xl bg-blue-50 px-5 py-2 text-sm font-bold text-blue-600 hover:bg-blue-100"
+                >
+                  Clear search
+                </button>
+              </div>
+            ) : (
             <div className={`${CARD} px-4 py-16 text-center`}>
               <p className="mb-3 text-5xl">{TAB_KEYS.find((tb) => tb.key === tab)?.icon}</p>
               <p className="text-base font-bold text-gray-700">
@@ -709,6 +724,7 @@ export default function Orders({ targetOrderId }: { targetOrderId?: string } = {
                 )}
               </p>
             </div>
+            )
           ) : (
             <div className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
               {orders.map((o: any) => {
