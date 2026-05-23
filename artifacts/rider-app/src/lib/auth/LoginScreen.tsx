@@ -96,7 +96,8 @@ export default function LoginScreen({ onSuccess }: LoginScreenProps) {
   ) => {
     const roles = normalizeRoles(profile);
     if (roles.length > 0 && !roles.includes("rider")) {
-      setError("This app is for riders only");
+      const actualRole = roles[0] ?? "unknown";
+      setError(`Your account is registered as a ${actualRole}. This app is for riders only.`);
       return;
     }
     /* Persist both tokens before handing off to auth context so that the
@@ -256,7 +257,7 @@ export default function LoginScreen({ onSuccess }: LoginScreenProps) {
 
   /* ── Email OTP handlers ── */
   const sendEmailOtpHandler = async () => {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailAddress)) {
+    if (!/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/.test(emailAddress)) {
       setError("Enter a valid email address");
       return;
     }
@@ -301,7 +302,7 @@ export default function LoginScreen({ onSuccess }: LoginScreenProps) {
 
   /* ── Magic Link handler ── */
   const sendMagicLinkHandler = async () => {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(magicEmail)) {
+    if (!/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/.test(magicEmail)) {
       setError("Enter a valid email address");
       return;
     }
@@ -812,6 +813,9 @@ export default function LoginScreen({ onSuccess }: LoginScreenProps) {
                     outline: "none",
                   }}
                 />
+              </div>
+              <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 4 }}>
+                Format: 03XX-XXXXXXX or +923XX-XXXXXXX
               </div>
             </div>
             <button

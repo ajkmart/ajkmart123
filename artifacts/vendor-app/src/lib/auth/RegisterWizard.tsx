@@ -203,12 +203,15 @@ function DocumentsStep({ data, onChange, onError }: StepComponentProps) {
           inputMode="numeric"
         />
         {(data.cnic as string)?.length > 0 && !isValidCnic((data.cnic as string) ?? "") && (
-          <p style={{ color: "#6B7280", fontSize: 11, margin: "4px 0 0" }}>
-            Format: XXXXX-XXXXXXX-X
+          <p style={{ color: "#f87171", fontSize: 11, margin: "4px 0 0" }}>
+            Format must be: XXXXX-XXXXXXX-X (e.g. 12345-1234567-1)
           </p>
         )}
+        {(data.cnic as string)?.length > 0 && isValidCnic((data.cnic as string) ?? "") && (
+          <p style={{ color: "#10b981", fontSize: 11, margin: "4px 0 0" }}>✓ Valid CNIC format</p>
+        )}
         <p style={{ color: "#6B7280", fontSize: 11, margin: "4px 0 0" }}>
-          Optional — complete this in your profile after approval.
+          Optional — you can add this in your profile after approval.
         </p>
       </div>
       <div>
@@ -220,10 +223,24 @@ function DocumentsStep({ data, onChange, onError }: StepComponentProps) {
             onChange("phone", e.target.value);
             onError("");
           }}
+          onBlur={() => {
+            const phone = String(data.phone ?? "").trim();
+            if (phone && !isValidPhone(phone)) {
+              onError("Enter a valid Pakistani mobile number (03XXXXXXXXX or +92XXXXXXXXX)");
+            }
+          }}
           placeholder="03XXXXXXXXX or +92XXXXXXXXXX"
           inputMode="tel"
           maxLength={15}
         />
+        {(data.phone as string)?.length > 0 && !isValidPhone(String(data.phone ?? "")) && (
+          <p style={{ color: "#ef4444", fontSize: 11, margin: "4px 0 0" }}>
+            Enter a valid Pakistani mobile number (03XXXXXXXXX)
+          </p>
+        )}
+        {(data.phone as string)?.length > 0 && isValidPhone(String(data.phone ?? "")) && (
+          <p style={{ color: "#10b981", fontSize: 11, margin: "4px 0 0" }}>✓ Valid number</p>
+        )}
       </div>
       <div
         style={{
@@ -295,8 +312,22 @@ function BankStep({ data, onChange, onError }: StepComponentProps) {
             onChange("bankAccount", e.target.value);
             onError("");
           }}
-          placeholder="IBAN / Account number"
+          placeholder="PK00XXXX0000000000000000 or account number"
         />
+        {(() => {
+          const val = String(data.bankAccount ?? "").trim();
+          if (!val) return null;
+          const isPakIban = /^PK\d{2}[A-Z]{4}\d{16}$/.test(val.replace(/\s/g, "").toUpperCase());
+          const isAccountNum = /^\d{8,20}$/.test(val.replace(/[-\s]/g, ""));
+          if (!isPakIban && !isAccountNum) {
+            return (
+              <p style={{ color: "#f87171", fontSize: 11, margin: "4px 0 0" }}>
+                Enter a valid Pakistani IBAN (PK + 22 chars) or account number (8-20 digits)
+              </p>
+            );
+          }
+          return <p style={{ color: "#10b981", fontSize: 11, margin: "4px 0 0" }}>✓ Valid account</p>;
+        })()}
       </div>
     </div>
   );

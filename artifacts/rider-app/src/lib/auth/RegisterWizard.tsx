@@ -2,7 +2,7 @@ import { OtpInput } from "@workspace/auth-react";
 import { tDual, type TranslationKey } from "@workspace/i18n";
 import { isValidPhone } from "@workspace/phone-utils";
 import { ArrowLeft, CheckCircle, Eye, EyeOff, Shield, Smartphone, Upload } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { api } from "../api";
 import { useRiderAuthConfig } from "../AuthConfigContext";
@@ -89,6 +89,7 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
   const [usernameState, setUsernameState] = useState<"idle" | "checking" | "available" | "taken">(
     "idle"
   );
+  const usernameAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (otpCooldown <= 0) return;
@@ -111,12 +112,17 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
   const checkUsername = async () => {
     const username = (draft.username ?? "").trim();
     if (!username) return;
+    usernameAbortRef.current?.abort();
+    const controller = new AbortController();
+    usernameAbortRef.current = controller;
     setUsernameState("checking");
     try {
       const res = await api.checkAvailable({ username });
-      setUsernameState(res.username && !res.username.available ? "taken" : "available");
+      if (!controller.signal.aborted) {
+        setUsernameState(res.username && !res.username.available ? "taken" : "available");
+      }
     } catch {
-      setUsernameState("idle");
+      if (!controller.signal.aborted) setUsernameState("idle");
     }
   };
 
@@ -172,6 +178,7 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
       const stored = result.url ?? "";
       if (!stored) throw new Error("Server returned no URL for uploaded file");
       update(field, stored);
+      setUploadError((prev) => ({ ...prev, [fieldKey]: "" }));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Upload failed";
       setUploadError((prev) => ({ ...prev, [fieldKey]: msg }));
@@ -496,6 +503,12 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
                 <input
                   value={draft.cnic ?? ""}
                   onChange={(e) => update("cnic", e.target.value)}
+                  onBlur={() => {
+                    const v = (draft.cnic ?? "").trim();
+                    if (v && !/^\d{5}-\d{7}-\d{1}$/.test(v)) {
+                      setError("CNIC must be in format XXXXX-XXXXXXX-X (e.g. 12345-1234567-1)");
+                    }
+                  }}
                   placeholder="CNIC XXXXX-XXXXXXX-X *"
                   style={inputStyle}
                   maxLength={15}
@@ -531,24 +544,20 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
               </div>
               {pwStrength && (
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ height: 4, borderRadius: 999, background: theme.border }}>
                     <div
-                      style={{ flex: 1, height: 4, borderRadius: 999, background: theme.border }}
-                    >
-                      <div
-                        style={{
-                          width: `${pwStrength.pct}%`,
-                          height: "100%",
-                          background: pwStrength.color,
-                          borderRadius: 999,
-                          transition: "width 0.2s ease",
-                        }}
-                      />
-                    </div>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: pwStrength.color }}>
-                      {pwStrength.label}
-                    </span>
+                      style={{
+                        width: `${pwStrength.pct}%`,
+                        height: "100%",
+                        background: pwStrength.color,
+                        borderRadius: 999,
+                        transition: "width 0.2s ease",
+                      }}
+                    />
                   </div>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: pwStrength.color, display: "block", marginTop: 4 }}>
+                    {pwStrength.label}
+                  </span>
                 </div>
               )}
               <div style={{ position: "relative" }}>
@@ -557,7 +566,16 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
                   value={draft.confirmPassword ?? ""}
                   onChange={(e) => update("confirmPassword", e.target.value)}
                   placeholder="Confirm password *"
-                  style={{ ...inputStyle, paddingRight: 44 }}
+                  style={{
+                    ...inputStyle,
+                    paddingRight: 44,
+                    borderColor:
+                      draft.confirmPassword && draft.password
+                        ? draft.password === draft.confirmPassword
+                          ? "#10b981"
+                          : "#ef4444"
+                        : undefined,
+                  }}
                 />
                 <button
                   type="button"
@@ -576,6 +594,12 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
                   {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+              {draft.confirmPassword && draft.password && draft.password !== draft.confirmPassword && (
+                <div style={{ fontSize: 11, color: "#ef4444", marginTop: 4 }}>✗ Passwords do not match</div>
+              )}
+              {draft.confirmPassword && draft.password && draft.password === draft.confirmPassword && (
+                <div style={{ fontSize: 11, color: "#10b981", marginTop: 4 }}>✓ Passwords match</div>
+              )}
               <label
                 style={{
                   display: "flex",

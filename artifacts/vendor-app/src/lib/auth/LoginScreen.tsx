@@ -413,7 +413,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
     if (result.data?.otp) setDevOtp(result.data.otp as string);
     setLocalOtp("");
     setOtpStep("otp");
-    setResendCooldown(30);
+    setResendCooldown(60);
   };
 
   const handleVerifyOtp = async (otpOverride?: string) => {
@@ -428,6 +428,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
     setVerifying(false);
     if (!result.success) {
       setLoginError(translateApiError(result.error ?? ""));
+      setLocalOtp("");
       return;
     }
     const { token, refreshToken } = result.data!;
@@ -779,7 +780,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
         )}
 
         {/* Dev OTP hint */}
-        {import.meta.env.DEV && devOtp && otpStep === "otp" && (
+        {import.meta.env.DEV && import.meta.env.VITE_ALLOW_DEV_OTP === "true" && devOtp && otpStep === "otp" && (
           <div
             style={{
               background: "#1a2035",
@@ -1106,6 +1107,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
               {auth.google && (
                 <button
                   onClick={() => void handleGoogle()}
+                  disabled={socialLoading !== null}
                   style={{
                     width: "100%",
                     height: 44,
@@ -1115,7 +1117,8 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
                     color: theme.text,
                     fontSize: 13,
                     fontWeight: 600,
-                    cursor: "pointer",
+                    cursor: socialLoading !== null ? "not-allowed" : "pointer",
+                    opacity: socialLoading !== null ? 0.6 : 1,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -1146,6 +1149,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
               {auth.facebook && (
                 <button
                   onClick={() => void handleFacebook()}
+                  disabled={socialLoading !== null}
                   style={{
                     width: "100%",
                     height: 44,
@@ -1155,7 +1159,8 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
                     color: theme.text,
                     fontSize: 13,
                     fontWeight: 600,
-                    cursor: "pointer",
+                    cursor: socialLoading !== null ? "not-allowed" : "pointer",
+                    opacity: socialLoading !== null ? 0.6 : 1,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
