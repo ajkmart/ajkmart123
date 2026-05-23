@@ -3,7 +3,7 @@ import { tDual, type TranslationKey } from "@workspace/i18n";
 import { isValidPhone } from "@workspace/phone-utils";
 import { ArrowLeft, CheckCircle, Eye, EyeOff, Shield, Smartphone, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { api } from "../api";
 import { useRiderAuthConfig } from "../AuthConfigContext";
 import { useLanguage } from "../useLanguage";
@@ -884,6 +884,33 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
             </div>
           )}
         </div>
+
+        {step !== 5 && (
+          <p
+            style={{
+              textAlign: "center",
+              marginTop: 18,
+              marginBottom: 0,
+              fontSize: 13,
+              color: theme.textMuted,
+            }}
+          >
+            Already have an account?{" "}
+            <Link
+              href="/login"
+              style={{ color: theme.primary, fontWeight: 700, textDecoration: "none" }}
+            >
+              Sign in
+            </Link>
+            {" · "}
+            <Link
+              href="/forgot-password"
+              style={{ color: theme.primary, fontWeight: 600, textDecoration: "none" }}
+            >
+              Forgot Password?
+            </Link>
+          </p>
+        )}
       </div>
     </div>
   );

@@ -16,7 +16,7 @@ import { isValidCnic, isValidPhone } from "@workspace/phone-utils";
 import { PAKISTAN_CITIES } from "@workspace/service-constants";
 import { CheckCircle2, Clock, Eye, EyeOff, Lock, Shield } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { api } from "../api";
 import { usePlatformConfig } from "../useConfig";
 import { useLanguage } from "../useLanguage";
@@ -1202,7 +1202,7 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
         </p>
       </div>
 
-      <div style={{ maxWidth: 448, margin: "0 auto", padding: "0 16px 40px" }}>
+      <div style={{ maxWidth: 448, margin: "0 auto", padding: "0 16px 24px" }}>
         <RegisterScreen
           bare
           role="vendor"
@@ -1217,6 +1217,30 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
           }}
           title={T("vendorRegistration") as string}
         />
+        <p
+          style={{
+            textAlign: "center",
+            marginTop: 18,
+            marginBottom: 16,
+            fontSize: 13,
+            color: theme.textMuted,
+          }}
+        >
+          Already have an account?{" "}
+          <Link
+            href="/login"
+            style={{ color: theme.primary, fontWeight: 700, textDecoration: "none" }}
+          >
+            Sign in
+          </Link>
+          {" · "}
+          <Link
+            href="/forgot-password"
+            style={{ color: theme.primary, fontWeight: 600, textDecoration: "none" }}
+          >
+            Forgot Password?
+          </Link>
+        </p>
       </div>
     </div>
   );
