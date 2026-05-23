@@ -1,3 +1,4 @@
+complete full treqa btao ye current code hai .replit mein
 modules = ["nodejs-20", "web", "bash", "python-3.11", "postgresql-16"]
 
 [[artifacts]]
@@ -172,3 +173,80 @@ externalPort = 80
 [[ports]]
 localPort = 5001
 externalPort = 4200
+
+
+
+mein ne ye dia hai ai ne ye bola hai 
+
+Is .replit file mein Replit Agent ne poora system hardcode kar diya hai. Ise clean kar ke 100% Universal banane ka step-by-step complete tareeqa yeh hai:Step 1: .replit File BadleinApni mojuda .replit file ka saara text mita kar yeh code paste karein. Yeh file ab bina kisi hardcoded proxy ya unique urls ke har environment par chalaayegi:toml# 1. Base Environment
+modules = ["nodejs-20", "bash", "postgresql-16"]
+
+# 2. Build Step (Bina Agent ke automatically setup karega)
+[entrypoint]
+build = "pnpm install"
+
+# 3. Universal Run Process
+# Replit ka big green button direct is script ko run karega
+run = "pnpm dev"
+
+# 4. Standard Port Configurations
+[[ports]]
+localPort = 5000
+externalPort = 5000
+
+[[ports]]
+localPort = 3000
+externalPort = 3000
+
+[[ports]]
+localPort = 3001
+externalPort = 3001
+
+[[ports]]
+localPort = 3002
+externalPort = 3002
+
+# 5. Non-Sensitive Settings Only
+[userenv.shared]
+NODE_ENV = "development"
+JWT_ISSUER = "ajkmart"
+VITE_API_PROXY_TARGET = "http://127.0.0.1:5000"
+ALLOW_DEV_OTP = "true"
+ADMIN_SEED_PASSWORD = "Admin@123"
+VAPID_CONTACT_EMAIL = "mailto:admin@ajkmart.app"
+Use code with caution.Step 2: .npmrc File Check KareinAap ke root folder mein .npmrc naam ki file honi chahiye (agar nahi hai to banayein) aur us mein yeh lines lazmi add karein taake pnpm dependencies har platform par flat pattern mein install hon:inishamefully-hoist=true
+strict-peer-dependencies=false
+auto-install-peers=false
+child-concurrency=5
+network-timeout=100000
+Use code with caution.Step 3: Secrets ko .env File Mein Alag KareinAap ke tokens jo upar config mein leak ho rahe the, unhein GitHub par public nahi hona chahiye.Localhost aur Codespaces ke liye: Root folder mein .env file banayein.Replit ke liye: Replit ke left menu mein Tools -> Secrets par jayen.Wahan yeh saari keys aur unki values save karein:envDATABASE_URL=postgresql://neondb_owner:npg_8CZnNQxSivM4@ep-withered-pond-aod3mqmg-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+JWT_SECRET=rOg5FUY&D5A3!G6Yus#$s$;|DGe[Y3X*PM[8otK=lUC
+ADMIN_ACCESS_TOKEN_SECRET=10mRt9cLqIiVbeOmkm6ILl4WTqQyV85PPmsG0JzUS5F
+ADMIN_CSRF_SECRET=-rWir8D_I-L%}x/u[d3c$#x9bSZ,lBf!.L2s9HuU1sD
+ADMIN_REFRESH_TOKEN_SECRET=m9Ptbb2|<Hm_]FuLZ#82rN4%z6S&KJ#}7E>4i:O4(25"
+ENCRYPTION_MASTER_KEY=PL}4kyr74D>BI>5(,*zS#_$yS-{fm[.?h8%XmdOng<6
+ERROR_REPORT_HMAC_SECRET=M7;B_bOKAYKZoktz>)}U]s6PFkt,U?p;w8G5*ITrrMw
+VAPID_PUBLIC_KEY=BEmlZZIGCb7ZhembOoH02qzZlnhkFrYkib27NwFgtXBFDcvtHhhWC2hfZEHU4JpDbfHIRgbrCiM_f9gEEc_JHLg
+VAPID_PRIVATE_KEY=QGC5hBbO?uth)8[+<Y,pqNI{+-8<t=XUvFWHZfz!=C%
+Use code with caution.Step 4: Root package.json Scripts Update KareinAap ke root folder mein maujood package.json file ko open karein. Us ke "scripts" section ko check karein ke wahan "dev" aur "start" scripts standard monorepo design par hon:json"scripts": {
+  "dev": "pnpm --filter @workspace/api-server run dev & pnpm --filter @workspace/admin run dev & pnpm --filter @workspace/vendor-app run dev & pnpm --filter @workspace/rider-app run dev",
+  "start": "pnpm --filter @workspace/api-server start"
+}
+Use code with caution.(Agar aap ke filters ke naam alag hain jaise @workspace/admin ki jagah sirf admin, to use apne original folders ke mutabiq match kar lein).Step 5: Backend CORS Setup Fix (Sab se Zaroori)Express API server ke setup folder (e.g., server.js ya app.js) mein jayen. Agent ka hardcoded CORS filter hata kar dynamic matching apply karein taake origin localhost ho ya Replit ya Codespaces, block na ho:javascriptconst cors = require('cors');
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Agar local call ho, ya replit app ho, ya codespaces dev server ho—sab automatically allow honge
+    if (!origin || origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1') || origin.includes('.replit.dev') || origin.includes('.github.dev') || origin.includes('.replit.app')) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS Policy: URL not allowed.'));
+    }
+  },
+  credentials: true
+}));
+Use code with caution.🚀 Is Pure System ka Workflow:Localhost/Codespaces: Terminal open karke direct pnpm install aur pnpm dev likhein, poori monorepo active ho jayegi.Replit: Repo fresh import karein. Agent active ho to use Stop/Cancel kar dein. Replit back-end par build step run karega. Aap upar maujood Big Green Run Button dabayenge aur app on ho jayega bina credits zaya kiye.
+
+
+
+ab tum btao Kya kron kon sa teak hai 100% Kya krna chahiye Jo universal ho

@@ -1,0 +1,133 @@
+Bilkul, main samjha aapki problem:
+Jab aap code GitHub par push karte hain aur kisi naye Replit account (ya existing) mein pull karte hain, to Replit Agent dobara poora setup shuru kar deta hai — long process, steps, approvals.
+Aapko chahiye ek "zero agent intervention" wala setup, jo Replit mein instant run kare (green button se), aur wahi setup localhost / Codespaces / VPS mein bhi bina kisi extra config ke chal jaaye.
+
+Yahi cheez universal hoti hai: ek baar set karo, har jagah chalao, agent ko involve mat karo.
+
+🎯 Final Universal Formula – Bina Agent Ke, Har Platform Par Ek Click Run
+✅ Is Formula Mein Kya Hoga:
+Replit par: Repo import karte hi agent bilkul disturb nahi karega.
+Sirf pnpm install automatically hoga (build step), phir Run button dabao — 4 apps ek saath chalenge.
+
+Codespaces / Gitpod: Terminal open karo, pnpm install && pnpm dev — ho gaya.
+
+Localhost / VPS: Node.js aur pnpm install karo, .env file banao, pnpm dev — done.
+
+📦 Asli .replit jo Agent ko Bhaga Degi
+Aapki current file se sab kuch hata kar sirf yeh rakho. Koi workflow nahi, koi agent nahi, koi hardcoded URL nahi.
+
+toml
+# 1. Required modules
+modules = ["nodejs-20", "bash", "postgresql-16"]
+
+# 2. Build aur Run ke liye basic commands
+[entrypoint]
+build = "pnpm install --no-frozen-lockfile"
+run = "pnpm dev"
+
+# 3. Sirf service ports (jo tumhare apps use karte hain)
+[[ports]]
+localPort = 5000
+externalPort = 80   # agar public URL bina port chahiye, nahi to 5000 rakho
+
+[[ports]]
+localPort = 3000
+externalPort = 3000
+
+[[ports]]
+localPort = 3001
+externalPort = 3001
+
+[[ports]]
+localPort = 3002
+externalPort = 3002
+
+# 4. Sirf non‑sensitive environment variables (baaki Secrets mein)
+[userenv.shared]
+NODE_ENV = "development"
+JWT_ISSUER = "ajkmart"
+VITE_API_PROXY_TARGET = "http://127.0.0.1:5000"
+ALLOW_DEV_OTP = "true"
+ADMIN_SEED_PASSWORD = "Admin@123"
+VAPID_CONTACT_EMAIL = "mailto:admin@ajkmart.app"
+🔸 Agent ko kyun ignore karega?
+Isme [agent] ya integrations section nahi hai. Replit default behaviour: bas build → run. Agent sirf tab trigger hota hai jab aap explicitly "Ask Agent" karein ya .replit mein stack = "BEST_EFFORT_FALLBACK" ho. Ab wo nahi hoga.
+
+🔐 Secrets Ko Alag Karo – Har Platform Ke Liye Ready
+Replit par:
+Left panel → Tools → Secrets mein yeh sab daal do (exact keys):
+
+text
+DATABASE_URL=...
+JWT_SECRET=...
+ADMIN_ACCESS_TOKEN_SECRET=...
+ADMIN_CSRF_SECRET=...
+ADMIN_REFRESH_TOKEN_SECRET=...
+ENCRYPTION_MASTER_KEY=...
+ERROR_REPORT_HMAC_SECRET=...
+VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+Codespaces / Localhost / VPS ke liye:
+Root folder mein ek .env.example file banao, phir .env copy karke usme same keys daal do.
+Code pehle se process.env se padhta hoga, kyunki wo already environment variables use karta hai (agar nahi to turant dotenv setup karo).
+
+⚙️ Root package.json – Har Jagah Ek Hi Command
+json
+"scripts": {
+  "dev": "pnpm --parallel -r run dev",
+  "start": "pnpm --filter @workspace/api-server start"
+}
+Yeh command saare workspaces ki dev script ek saath launch karega. Har app (admin, vendor, rider, api) apne port par chalega.
+Koi platform‑specific script nahi.
+
+🧠 CORS Ko Dynamic Rakho (Pehle Se Sahi Hai)
+Aapne app.ts mein already origin.includes('.replit.dev') wagaira likha hai. Wo universal hai — isliye ALLOWED_ORIGINS ki zaroorat hi nahi. .replit se uss line ko hata do.
+
+🚫 Kya Bilkul Hata Dena Hai .replit File Se
+workflows ka pura section (ab zaroorat nahi)
+
+[agent] block
+
+integrations = ["javascript_gemini_ai_integrations:2.0.0"]
+
+ALLOWED_ORIGINS
+
+ADMIN_DEV_PORT, VENDOR_DEV_PORT, RIDER_DEV_PORT, MOCKUP_DEV_PORT
+
+Extra ports (3003, 4200, 5001)
+
+[deployment], [postMerge], [nix] (agar nahi chahiye to hatao)
+
+🟢 Ab Kya Hoga Replit Par
+GitHub se repo import karo.
+
+Replit ka default build step pnpm install chalega.
+
+Run button green hote hi click karo.
+
+4 apps apni‑apni port par start. Logs terminal mein saath aayenge.
+
+Agent ne haath bhi nahi lagaya.
+
+Agar kabhi kisi aur Replit account mein pull karoge to same behaviour — ekdum instant.
+
+💻 Localhost / Codespaces / VPS Par
+bash
+git clone <repo-url>
+pnpm install
+cp .env.example .env   # aur .env mein secrets set karo
+pnpm dev
+Bas itna. Vite proxy http://127.0.0.1:5000 automatically kaam karega.
+
+📌 Final Checklist
+.replit mein sirf upar wala minimal code
+
+.npmrc mein shamefully-hoist=true etc. (pehle se hai)
+
+Root package.json mein pnpm --parallel -r run dev script
+
+Sab secrets Replit Secrets mein (aur local ke liye .env)
+
+CORS dynamic *.replit.dev aur localhost allow kare
+
+Agent ke sab trigger (stack, integrations, expertMode) hata diye gaye

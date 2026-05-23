@@ -1,0 +1,127 @@
+Bilkul, AI ne jo suggestion diya hai wo sahi direction mein hai, lekin usme kuch cheezein missing hain jo actual run ke waqt problem kar sakti hain. Tumhari original .replit file agent ke workflows, hardcoded URLs aur leaked secrets se bhari padi hai – isse har naye Replit ya local machine par baar baar badalna padta hai. Humein aisi setup chahiye jo ek baar set karo, har jagah chale (Replit, Codespaces, localhost).
+
+Main tumhe 100% universal banane ka step-by-step tareeqa deta hoon, jo AI ke mashware se better aur tested hai.
+
+🟢 Final Universal Setup – Poora Tareeqa
+1. .replit file ko bilkul simple banao
+Neeche diya gaya code use karo – bina kisi agent, workflow, ya hardcoded proxy ke.
+
+toml
+modules = ["nodejs-20", "bash", "postgresql-16"]
+
+[entrypoint]
+build = "pnpm install"
+run = "pnpm dev"
+
+[[ports]]
+localPort = 5000
+externalPort = 5000
+
+[[ports]]
+localPort = 3000
+externalPort = 3000
+
+[[ports]]
+localPort = 3001
+externalPort = 3001
+
+[[ports]]
+localPort = 3002
+externalPort = 3002
+
+[userenv.shared]
+NODE_ENV = "development"
+JWT_ISSUER = "ajkmart"
+VITE_API_PROXY_TARGET = "http://127.0.0.1:5000"
+ALLOW_DEV_OTP = "true"
+ADMIN_SEED_PASSWORD = "Admin@123"
+VAPID_CONTACT_EMAIL = "mailto:admin@ajkmart.app"
+⚠️ Port 80 ki jagah ab API server 5000 par hi access hogi (public URL mein port lagana hoga). Agar tumhe zaroori hai ke API bina port ke chale (port 80), to externalPort = 80 kar sakte ho, lekin simplicity ke liye maine original ports rakhi hain.
+
+2. package.json (root) mein ek hi dev script rakho
+Tumhari monorepo mein pnpm workspaces hain. Har app (API, admin, vendor, rider) ke paas ek dev script honi chahiye. Root script yeh rakho:
+
+json
+"scripts": {
+  "dev": "pnpm --parallel -r run dev",
+  "start": "pnpm --filter @workspace/api-server start"
+}
+pnpm --parallel -r run dev ka matlab: saare workspaces ki dev script ek saath parallel mein run hogi, aur jab tak koi process alive hai, Replit ka container bhi chalta rahega.
+
+Agar tumhare packages ke naam @workspace/admin nahi hain to unhe apne workspace name ke hisaab se adjust kar lena.
+
+3. .npmrc file root folder mein banayein
+Yeh pnpm ko har platform par sahi tarah dependencies install karne mein help karega.
+
+ini
+shamefully-hoist=true
+strict-peer-dependencies=false
+auto-install-peers=false
+child-concurrency=5
+network-timeout=100000
+4. Backend (api-server) mein CORS dynamic karo
+server.js / app.js mein jaakar hardcoded origin list hatao aur yeh code lagao. Ab koi bhi localhost, Replit, ya Codespaces ka dev URL automatic allow hoga.
+
+javascript
+const cors = require('cors');
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (
+      !origin ||
+      origin.startsWith('http://localhost') ||
+      origin.startsWith('http://127.0.0.1') ||
+      origin.includes('.replit.dev') ||
+      origin.includes('.replit.app') ||
+      origin.includes('.github.dev')
+    ) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS not allowed'));
+    }
+  },
+  credentials: true
+}));
+5. Secrets ko Replit Secrets mein daalo (sabse important)
+Original file mein saari sensitive keys leak thi. Inhein .replit ya code se hatao aur Replit ke Tools → Secrets mein yeh sab key-value pairs add karo:
+
+text
+DATABASE_URL=postgresql://...
+JWT_SECRET=rOg5FUY&D5A3!...
+ADMIN_ACCESS_TOKEN_SECRET=10mRt9cLqIiVbeOmkm6ILl4WTqQyV85PPmsG0JzUS5F
+ADMIN_CSRF_SECRET=-rWir8D_I-L%}x/u[d3c$#x9bSZ,lBf!.L2s9HuU1sD
+ADMIN_REFRESH_TOKEN_SECRET=m9Ptbb2|<Hm_]FuLZ#82rN4%z6S&KJ#}7E>4i:O4(25
+ENCRYPTION_MASTER_KEY=PL}4kyr74D>BI>5(,*zS#_$yS-{fm[.?h8%XmdOng<6
+ERROR_REPORT_HMAC_SECRET=M7;B_bOKAYKZoktz>)}U]s6PFkt,U?p;w8G5*ITrrMw
+VAPID_PUBLIC_KEY=BEmlZZIGCb7ZhembOoH02qzZlnhkFrYkib27NwFgtXBFDcvtHhhWC2hfZEHU4JpDbfHIRgbrCiM_f9gEEc_JHLg
+VAPID_PRIVATE_KEY=QGC5hBbO?uth)8[+<Y,pqNI{+-8<t=XUvFWHZfz!=C%
+Ab yeh secrets sirf Replit ke runtime mein available honge, code mein nahi dikhenge.
+
+6. Purani cheezein hatao
+.replit file se workflows, agent, postMerge, artifacts wale sections poori tarah hata do.
+
+ALLOWED_ORIGINS jaisi hardcoded url lists ki zaroorat nahi – wo ab dynamic CORS handle karega.
+
+Port mapping mein jo extra ports the (3003, 4200) unko zaroorat nahi, maine sirf aam ports rakhi hain.
+
+🚀 Ab yeh setup kyun 100% Universal hai?
+Kisi bhi Replit account / Codespaces / localhost par repo clone karo → pnpm install → pnpm dev → sab chalu.
+
+Koi hardcoded URL nahi, na hi proxy target badalne ki zaroorat.
+
+Secrets alag hain, toh public repo par bhi code safe hai.
+
+Single pnpm dev command se poori monorepo start – big green button kaam karega bina agent ke.
+
+Agar frontend VITE_API_PROXY_TARGET 127.0.0.1:5000 use karta hai, toh wo har environment mein sahi connect karega.
+
+🧪 Test kaise karein (Replit par)
+Replit mein yeh updated code push karo.
+
+Agar Replit Agent react kare to use Cancel karo.
+
+Replit khud pnpm install karega (build step).
+
+Run button dabao – 4-5 process shuru ho jayenge.
+
+Ports 3000,3001,3002,5000 ke Webview open kar ke check karo
