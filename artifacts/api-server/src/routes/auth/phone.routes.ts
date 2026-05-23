@@ -300,6 +300,8 @@ router.post(
         const requireApproval = (settings["user_require_approval"] ?? "off") === "on";
         const newUserId = generateId();
 
+        const signupBonus = parseFloat(settings["customer_signup_bonus"] ?? "0");
+
         try {
           await db.transaction(async (tx) => {
             await tx.insert(usersTable).values({
@@ -313,6 +315,22 @@ router.post(
               approvalStatus: requireApproval ? "pending" : "approved",
               ...(deviceId ? { deviceId } : {}),
             });
+
+            // Signup bonus — kept inside the transaction so the balance update
+            // and transaction record are atomic with the user row insert.
+            if (signupBonus > 0) {
+              await tx
+                .update(usersTable)
+                .set({ walletBalance: sql`wallet_balance + ${signupBonus}` })
+                .where(eq(usersTable.id, newUserId));
+              await tx.insert(walletTransactionsTable).values({
+                id: generateId(),
+                userId: newUserId,
+                type: "bonus",
+                amount: signupBonus.toFixed(2),
+                description: "Welcome bonus — Thanks for joining!",
+              });
+            }
           });
         } catch (txErr: unknown) {
           const msg = txErr instanceof Error ? txErr.message : String(txErr);
@@ -334,22 +352,6 @@ router.post(
           userAgent: req.headers["user-agent"] ?? undefined,
           metadata: { phone },
         });
-
-        // Signup bonus
-        const signupBonus = parseFloat(settings["customer_signup_bonus"] ?? "0");
-        if (signupBonus > 0) {
-          await db
-            .update(usersTable)
-            .set({ walletBalance: sql`wallet_balance + ${signupBonus}` })
-            .where(eq(usersTable.id, newUserId));
-          await db.insert(walletTransactionsTable).values({
-            id: generateId(),
-            userId: newUserId,
-            type: "bonus",
-            amount: signupBonus.toFixed(2),
-            description: "Welcome bonus — Thanks for joining!",
-          });
-        }
 
         const accessToken = signAccessToken(newUserId, phone, "customer", "customer", 0);
         const { raw: refreshRaw, hash: refreshHash } = generateRefreshToken();
