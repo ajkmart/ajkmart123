@@ -72,6 +72,7 @@ export default function Home() {
       return false;
     }
   });
+  const [lastSeenOnlineAt, setLastSeenOnlineAt] = useState<string | null>(null);
 
   const [audioLocked, setAudioLocked] = useState(false);
 
@@ -162,6 +163,11 @@ export default function Home() {
   const [showOfflineConfirm, setShowOfflineConfirm] = useState(false);
   const [zoneWarning, setZoneWarning] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!user) return;
+    setLastSeenOnlineAt((prev) => prev ?? new Date().toISOString());
+  }, [user?.id]);
+
   const doActualToggle = useCallback(async () => {
     const now = Date.now();
     lastToggleRef.current = now;
@@ -177,12 +183,16 @@ export default function Home() {
       } else {
         setZoneWarning(null);
       }
-      await refreshUser().catch((err) => {
-        log.error(
-          { err: err instanceof Error ? err.message : String(err) },
-          "[Home] refreshUser failed"
-        );
-      });
+      await refreshUser()
+        .then(() => {
+          setLastSeenOnlineAt(new Date().toISOString());
+        })
+        .catch((err) => {
+          log.error(
+            { err: err instanceof Error ? err.message : String(err) },
+            "[Home] refreshUser failed"
+          );
+        });
       if (!isMountedRef.current) return;
       succeeded = true;
       showToast(newStatus ? T("youAreNowOnline") : T("youAreNowOffline"), "success");
@@ -846,6 +856,15 @@ export default function Home() {
     if (h < 17) return T("goodAfternoon");
     return T("goodEvening");
   })();
+  const lastSeenOnlineLabel = lastSeenOnlineAt
+    ? new Date(lastSeenOnlineAt).toLocaleString("en-PK", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "Syncing profile…";
 
   /* Count how many top-fixed banners are currently active (28 px each).
      This must mirror the logic in FixedBanners so the header always sits
@@ -896,6 +915,9 @@ export default function Home() {
               >
                 {greeting}, {user?.name?.split(" ")[0] || "Rider"} 👋
               </h1>
+              <p className="mt-1 text-[11px] font-medium text-white/65">
+                Last seen online • {lastSeenOnlineLabel}
+              </p>
               {newFlash && (
                 <p className="mt-0.5 flex animate-pulse items-center gap-1 text-[11px] font-bold text-green-400">
                   <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
