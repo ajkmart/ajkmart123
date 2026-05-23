@@ -1,0 +1,168 @@
+B-021 — API Server | Medium
+Title: Export-data endpoint returns raw CNIC (sensitive national ID unmasked)
+
+Description:
+POST /api/users/export-data returns the user's CNIC (National Identity Card number) in plaintext in the JSON export:
+
+const exportData = {
+  profile: {
+    id: user.id,
+    phone: user.phone,
+    name: user.name,
+    cnic: user.cnic,          // ← full CNIC returned as-is
+    walletBalance: ...,
+  },
+  ...
+};
+
+The endpoint correctly masks the phone number in the admin alert email (maskedPhone) and logs a GDPR audit trail, but the actual JSON response sent to the user contains the full raw CNIC. If this endpoint is ever called via a compromised session (XSS, CSRF, or stolen token), the attacker receives the user's national ID number in full — a document used for identity theft in Pakistan.
+
+Expected: CNIC is masked in the export response (e.g., ****-*******-*) or omitted from the direct JSON response, available only through secure admin download.
+Actual: Full CNIC string is included in the JSON response to the end-user client.
+
+Affected Files:
+
+artifacts/api-server/src/routes/users.ts — POST /export-data (~line 315–330)
+Suggested Fix:
+
+cnic: user.cnic ? user.cnic.replace(/^(\d{5})\d+(\d{1})$/, "$1*******$2") : null,
+
+Or remove CNIC from the export payload entirely and include only masked last 4 digits.
+
+B-022 — API Server | Medium
+Title: Background scheduler jobs have no distributed lock (duplicate execution on multi-instance deployment)
+
+Description:
+artifacts/api-server/src/scheduler.ts registers 10 cleanup jobs (OTP expiry, ride bid cleanup, refresh token purge, etc.) using setInterval. Each API Server instance that starts runs all jobs independently on its own schedule. In a multi-instance deployment (horizontal scaling or a restart overlap), every instance fires the same DELETE queries at the same interval, causing:
+
+Redundant DB load — all instances delete the same already-expired rows simultaneously.
+Race conditions — two instances can both read a "should be cleaned" record and attempt to act on it concurrently (e.g., purgeExpiredIdempotencyKeys), potentially interfering with in-flight idempotency guards.
+Dispatch engine conflict — startDispatchEngine() is also called from startScheduler(). Multiple instances each running the dispatch engine can assign the same ride to multiple riders simultaneously.
+// Every instance independently starts the dispatch engine
+function register(label, fn, intervalMs) {
+  _registeredJobs.push(...);
+  executeWithRetry();          // runs immediately on every instance
+  setInterval(fn, intervalMs); // no Redis-based leader election
+}
+
+Expected: Exactly one instance holds a distributed lock (e.g., a Redis SET NX PX leader-election key) and runs scheduled jobs. Others skip the job silently.
+Actual: Every instance runs every job; under horizontal scaling this causes redundant work and potential dispatch-engine conflicts.
+
+Affected Files:
+
+artifacts/api-server/src/scheduler.ts — register() and startScheduler()
+artifacts/api-server/src/routes/rides/dispatch.ts — startDispatchEngine()
+Suggested Fix:
+Add a Redis leader-election guard before running each job:
+
+async function withDistributedLock(label: string, fn: () => Promise<void>): Promise<void> {
+  const lockKey = `scheduler:lock:${label}`;
+  const acquired = await redis.set(lockKey, "1", "NX", "PX", intervalMs * 0.9);
+  if (!acquired) return; // another instance is running this job
+  try { await fn(); } finally { await redis.del(lockKey); }
+}
+
+B-023 — CRITICAL — Order Item Price is 100% Client-Controlled (Price Manipulation)
+Severity: Critical
+Category: Business Logic / Authorization
+App: api-server → artifacts/api-server/src/routes/orders.ts
+
+Description:
+POST /orders accepts an items array from the client where each element includes a price field. The server uses this client-supplied price directly to calculate the order subtotal — with no database lookup to verify the price against the actual product price. A customer can submit price: 0 (or any arbitrary value) for every item and be charged only the delivery fee.
+
+Proof of Concept (Zod schema, line 699):
+
+const orderItemSchema = z.object({
+  productId: z.string().min(1),
+  quantity: z.coerce.number().int().min(1).max(99),
+  price: z.coerce.number().min(0),   // ← min is 0 — allows free items
+  ...
+});
+
+Proof of Concept (subtotal calculation, lines 753–759):
+
+let subtotal = 0;
+const orderItems = items.map((item) => {
+  const price = Number(item.price ?? 0);   // ← taken directly from request body
+  const qty   = Math.min(Math.max(1, Number(item.quantity ?? 1)), 99);
+  subtotal += price * qty;                  // ← client-controlled subtotal
+  return { ...item, quantity: qty, price: price.toString() };
+});
+
+decrementStock() (lines 39–134) selects:
+
+SELECT id, stock, name, vendor_id FROM products WHERE id = $productId FOR UPDATE
+
+price is never fetched; only stock is verified.
+
+Attack scenario:
+
+Customer calls POST /orders with items: [{ productId: "abc", price: 0, quantity: 5 }].
+Server calculates subtotal = 0; total = delivery fee only (e.g., Rs. 50).
+For wallet payment the customer pays Rs. 50 and receives Rs. 5,000 worth of goods.
+For COD, the vendor's dashboard shows Rs. 50 as the order total; vendor ships goods expecting Rs. 50 on delivery.
+Expected: Server fetches authoritative prices from the products (or product_variants) table inside the transaction before calculating the subtotal. Client-supplied price is ignored.
+Actual: Client-supplied item.price is used unconditionally.
+
+Affected Files:
+
+artifacts/api-server/src/routes/orders.ts — orderItemSchema (line 699), subtotal loop (lines 753–759), decrementStock (lines 39–134)
+Suggested Fix:
+
+// Inside the transaction, after decrementStock:
+const productIds = orderItems.map(i => i.productId).filter(Boolean);
+const dbProducts = await tx
+  .select({ id: productsTable.id, price: productsTable.price, vendorId: productsTable.vendorId })
+  .from(productsTable)
+  .where(inArray(productsTable.id, productIds));
+const priceMap = Object.fromEntries(dbProducts.map(p => [p.id, parseFloat(p.price)]));
+let subtotal = 0;
+const verifiedItems = orderItems.map(item => {
+  const dbPrice = priceMap[item.productId ?? ""];
+  if (dbPrice === undefined) throw new Error(`Unknown product: ${item.productId}`);
+  const qty = item.quantity;
+  subtotal += dbPrice * qty;
+  return { ...item, price: dbPrice.toString() };
+});
+
+Repeat the same pattern for product_variants when variantId is present.
+
+B-024 — Medium — Avatar Base64 Upload Trusts Client-Supplied MIME Type (No Magic-Bytes Check)
+Severity: Medium
+Category: File Upload Security
+App: api-server → artifacts/api-server/src/routes/users.ts
+
+Description:
+POST /api/users/avatar supports two upload paths — multipart (via multer) and base64 JSON body. In the base64 path the server trusts the mimeType field from the request body without performing any magic-byte (file-signature) verification. A user can upload a file containing arbitrary content (HTML, SVG, XML, binary exploit payload) while claiming it is image/jpeg, and the server will store it under a .jpg extension.
+
+By contrast, the KYC upload endpoint (artifacts/api-server/src/routes/kyc.ts) correctly uses detectMime() which reads the actual first bytes of the buffer before accepting the file.
+
+Vulnerable code (lines 517–532):
+
+// base64 path
+mime = mimeType || "image/jpeg";          // ← taken entirely from request body
+if (!ALLOWED_AVATAR_TYPES.includes(mime)) {
+  sendValidationError(res, "Only JPEG, PNG, and WebP images are allowed");
+  return;
+}
+const base64Data = (file as string).replace(/^data:image\/\w+;base64,/, "");
+buffer = Buffer.from(base64Data, "base64");
+// ← no magic-bytes check before writeFile()
+
+Secure pattern already used in KYC (kyc.ts lines 440, 701):
+
+const actualMime = detectMime(buffer);
+if (!actualMime || actualMime !== declaredMime) {
+  sendValidationError(res, "File content does not match the declared type");
+  return;
+}
+
+Risk: The stored file is served with X-Content-Type-Options: nosniff, which prevents browsers from executing a JPEG-named HTML file. However the file is persisted on the server filesystem and could be processed by downstream image-processing pipelines (resize, thumbnail generation, virus scanner) that may crash or be exploited via malformed headers.
+
+Affected Files:
+
+artifacts/api-server/src/routes/users.ts — avatar upload handler (lines 505–532)
+artifacts/api-server/src/routes/kyc.ts — reference for correct pattern (detectMime)
+Suggested Fix:
+After decoding the base64 buffer, call the same detectMime() function used in kyc.ts and reject if it does not match the declared MIME type.
+
