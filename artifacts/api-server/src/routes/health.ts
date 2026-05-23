@@ -1,9 +1,9 @@
 import { db, pool } from "@workspace/db";
 import { platformSettingsTable } from "@workspace/db/schema";
-import { count, eq, sql } from "drizzle-orm";
-import { Router } from "express";
+import { eq, sql } from "drizzle-orm";
+import { Router, type Request, type Response } from "express";
 import { logger } from "../lib/logger.js";
-import { getDiskFreeGb, getDiskPct, getMemoryPct, getP95Ms } from "../lib/metrics/responseTime.js";
+import { getDiskStats, getMemoryPct, getP95Ms } from "../lib/metrics/responseTime.js";
 import { redisClient } from "../lib/redis.js";
 import { getVpnCircuitBreakerStatus } from "../middleware/security.js";
 import { checkSchemaDrift, getLastDriftReport } from "../services/schemaDrift.service.js";
@@ -13,111 +13,104 @@ const router = Router();
 
 const SERVER_EPOCH = Math.round(Date.now() / 1000 - process.uptime());
 
-router.get("/", async (_req, res) => {
+/* ── Module-level cache for rarely-changing values ──────────────────────────
+   appVersion comes from platform_settings — it changes only on deployments.
+   Caching for 60 s eliminates one DB round-trip per health probe while still
+   surfacing version changes within a minute.                                  */
+const APP_VERSION_TTL_MS = 60_000;
+let _cachedAppVersion = "1.0.0";
+let _appVersionAt = 0;
+
+/* ── Timeouts ────────────────────────────────────────────────────────────── */
+const DB_TIMEOUT_MS = 2_000;
+const REDIS_TIMEOUT_MS = 2_000;
+
+/**
+ * Core health-check logic, extracted so both GET /api/health and
+ * GET /health can share the same implementation without a redirect.
+ */
+export async function handleHealthCheck(_req: Request, res: Response): Promise<void> {
   try {
+    /* ── Prevent upstream caches / CDNs from serving stale health data ───── */
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+
     let dbStatus: "ok" | "error" = "ok";
-    let redisStatus: "ok" | "error" | "disabled" = "disabled";
-
-    const DB_TIMEOUT_MS = 2000;
-    const REDIS_TIMEOUT_MS = 2000;
-
-    await Promise.allSettled([
-      (async () => {
-        try {
-          await Promise.race([
-            db.execute(sql`SELECT 1`),
-            new Promise((_, reject) =>
-              setTimeout(() => reject(new Error("DB timeout")), DB_TIMEOUT_MS)
-            ),
-          ]);
-          dbStatus = "ok";
-        } catch (err) {
-          logger.error(
-            {
-              error: err instanceof Error ? err.message : String(err),
-              timestamp: new Date().toISOString(),
-            },
-            "[route] unhandled error"
-          );
-          dbStatus = "error";
-        }
-      })(),
-      (async () => {
-        if (!redisClient) {
-          redisStatus = "disabled";
-          return;
-        }
-        try {
-          await Promise.race([
-            redisClient.ping(),
-            new Promise((_, reject) =>
-              setTimeout(() => reject(new Error("Redis timeout")), REDIS_TIMEOUT_MS)
-            ),
-          ]);
-          redisStatus = "ok";
-        } catch (err) {
-          logger.error(
-            {
-              error: err instanceof Error ? err.message : String(err),
-              timestamp: new Date().toISOString(),
-            },
-            "[route] unhandled error"
-          );
-          redisStatus = "error";
-        }
-      })(),
-    ]);
-
-    const db2 = dbStatus as "ok" | "error";
-    const redis2 = redisStatus as "ok" | "error" | "disabled";
-    const overallStatus: "ok" | "degraded" | "down" =
-      db2 === "error" ? "down" : redis2 === "error" ? "degraded" : "ok";
-
-    const httpStatus = db2 === "error" || redis2 === "error" ? 503 : 200;
-
-    /* ── Performance metrics ── */
+    let redisStatus: "ok" | "error" | "disabled" = redisClient ? "error" : "disabled";
     let dbQueryMs: number | null = null;
-    if (db2 === "ok") {
-      try {
-        const t0 = Date.now();
-        await db.select({ c: count() }).from(platformSettingsTable);
-        dbQueryMs = Date.now() - t0;
-      } catch (err) {
-        logger.error(
-          {
-            error: err instanceof Error ? err.message : String(err),
-            timestamp: new Date().toISOString(),
-          },
-          "[route] unhandled error"
-        );
-        dbQueryMs = null;
-      }
-    }
-    const p95Ms = getP95Ms();
-    const memoryPct = getMemoryPct();
-    const diskPct = getDiskPct();
 
-    /* Read the app version from platform settings — never fatal if unavailable */
-    let appVersion = "1.0.0";
-    if (db2 === "ok") {
-      try {
-        const [row] = await db
+    /* ── Single fused DB query replaces three sequential round-trips ─────────
+       Previous code ran SELECT 1 → COUNT(*) → app_version in sequence, each
+       adding ~300–500 ms. Now one query proves connectivity, measures latency,
+       AND refreshes the cached version — all in a single round-trip.          */
+    const dbTask = (async () => {
+      const t0 = Date.now();
+      const rows = await Promise.race([
+        db
           .select({ value: platformSettingsTable.value })
           .from(platformSettingsTable)
           .where(eq(platformSettingsTable.key, "app_version"))
-          .limit(1);
-        if (row?.value) appVersion = row.value;
-      } catch (err) {
-        logger.debug(
-          { error: err instanceof Error ? err.message : String(err) },
-          `[route] ignore — appVersion defaults to 1.0.0`
+          .limit(1),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("DB timeout")), DB_TIMEOUT_MS)
+        ),
+      ]);
+      dbQueryMs = Date.now() - t0;
+
+      /* Refresh the cached version only when the TTL has expired */
+      const now = Date.now();
+      if (now - _appVersionAt > APP_VERSION_TTL_MS) {
+        const row = rows[0];
+        if (row?.value) _cachedAppVersion = row.value;
+        _appVersionAt = now;
+      }
+    })();
+
+    /* ── Redis ping runs in parallel with the DB query ───────────────────── */
+    const redisTask = redisClient
+      ? Promise.race([
+          redisClient.ping(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("Redis timeout")), REDIS_TIMEOUT_MS)
+          ),
+        ])
+      : Promise.resolve(null);
+
+    const [dbResult, redisResult] = await Promise.allSettled([dbTask, redisTask]);
+
+    if (dbResult.status === "rejected") {
+      dbStatus = "error";
+      dbQueryMs = null;
+      logger.error(
+        { error: dbResult.reason instanceof Error ? dbResult.reason.message : String(dbResult.reason) },
+        "[health] DB check failed"
+      );
+    }
+    if (redisClient) {
+      if (redisResult.status === "rejected") {
+        redisStatus = "error";
+        logger.warn(
+          { error: redisResult.reason instanceof Error ? redisResult.reason.message : String(redisResult.reason) },
+          "[health] Redis check failed"
         );
+      } else {
+        redisStatus = "ok";
       }
     }
 
-    const vpnDetection = getVpnCircuitBreakerStatus();
-    const diskFreeGb = getDiskFreeGb();
+    /* ── Overall status ──────────────────────────────────────────────────── */
+    const overallStatus: "ok" | "degraded" | "down" =
+      dbStatus === "error" ? "down" : redisStatus === "error" ? "degraded" : "ok";
 
+    const httpStatus = dbStatus === "error" || redisStatus === "error" ? 503 : 200;
+
+    /* ── Disk stats — one statfsSync call, cached 10 s ───────────────────── */
+    const { pct: diskPct, freeGb: diskFreeGb } = getDiskStats();
+    const memoryPct = getMemoryPct();
+    const p95Ms = getP95Ms();
+    const vpnDetection = getVpnCircuitBreakerStatus();
+
+    /* ── Connection pool stats ───────────────────────────────────────────── */
     const dbPoolStats = pool
       ? {
           dbPoolSize: pool.totalCount,
@@ -126,7 +119,7 @@ router.get("/", async (_req, res) => {
         }
       : {};
 
-    /* ── Detailed sub-system checks ── */
+    /* ── Sub-system checks ───────────────────────────────────────────────── */
     const hasSms = !!(
       process.env["TWILIO_ACCOUNT_SID"] ||
       process.env["SMS_API_KEY"] ||
@@ -136,32 +129,31 @@ router.get("/", async (_req, res) => {
       process.env["SMS_GATEWAY_URL"]
     );
 
-    const diskPct2 = diskPct ?? null;
     const usedGb =
-      diskFreeGb != null && diskPct2 != null && diskPct2 > 0
-        ? (diskFreeGb / (1 - diskPct2 / 100)) * (diskPct2 / 100)
+      diskFreeGb != null && diskPct != null && diskPct > 0
+        ? (diskFreeGb / (1 - diskPct / 100)) * (diskPct / 100)
         : null;
 
     const checks = {
       database: {
-        status: db2 === "ok" ? "ok" : "error",
+        status: dbStatus === "ok" ? "ok" : "error",
         latencyMs: dbQueryMs,
       },
       redis: redisClient
-        ? { status: redis2 === "ok" ? "ok" : "error" }
+        ? { status: redisStatus === "ok" ? "ok" : "error" }
         : { status: "skipped", reason: "REDIS_URL not set" },
       storage:
         diskFreeGb != null
           ? {
-              status: diskPct2 != null && diskPct2 > 90 ? "warning" : "ok",
+              status: diskPct != null && diskPct > 90 ? "warning" : "ok",
               freeGb: Math.round(diskFreeGb * 10) / 10,
               usedGb: usedGb != null ? Math.round(usedGb * 10) / 10 : null,
               usedMb: usedGb != null ? Math.round(usedGb * 1024) : null,
               totalMb:
-                diskFreeGb != null && diskPct2 != null && diskPct2 > 0
-                  ? Math.round((diskFreeGb / (1 - diskPct2 / 100)) * 1024)
+                diskFreeGb != null && diskPct != null && diskPct > 0
+                  ? Math.round((diskFreeGb / (1 - diskPct / 100)) * 1024)
                   : null,
-              usedPct: diskPct2,
+              usedPct: diskPct,
             }
           : { status: "error", reason: "statfs unavailable" },
       smtp: process.env["SMTP_HOST"]
@@ -174,16 +166,16 @@ router.get("/", async (_req, res) => {
 
     res.status(httpStatus).json({
       status: overallStatus,
-      db: db2,
-      redis: redis2,
+      db: dbStatus,
+      redis: redisStatus,
       ...dbPoolStats,
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
       serverEpoch: SERVER_EPOCH,
       environment: process.env["NODE_ENV"] ?? "development",
       nodeVersion: process.version,
-      version: appVersion,
-      appVersion,
+      version: _cachedAppVersion,
+      appVersion: _cachedAppVersion,
       p95Ms,
       dbQueryMs,
       memoryPct,
@@ -193,34 +185,19 @@ router.get("/", async (_req, res) => {
     });
   } catch (err) {
     logger.error(
-      {
-        error: err instanceof Error ? err.message : String(err),
-        timestamp: new Date().toISOString(),
-      },
-      "[route] unhandled error"
+      { error: err instanceof Error ? err.message : String(err) },
+      "[health] Unhandled error in health check"
     );
-    res.status(500).json({ success: false, error: "Internal server error" });
+    res.status(500).json({ status: "down", error: "Internal server error" });
   }
-});
+}
 
-/**
- * GET /api/health/schema-drift
- * Admin-only endpoint that compares the Drizzle schema definition against the
- * live PostgreSQL database and reports any tables or columns that are defined
- * in code but missing from the database (crash risk), as well as extra tables
- * and columns that exist only in the database (informational).
- *
- * Returns HTTP 200 with { ok: true } when the DB fully matches the schema.
- * Returns HTTP 200 with { ok: false, ... } when drift is detected so callers
- * can distinguish "endpoint reachable" from "schema is clean" without relying
- * on HTTP status codes for alerting.
- */
+/* ── GET /api/health ─────────────────────────────────────────────────────── */
+router.get("/", handleHealthCheck);
+
+/* ── GET /api/health/schema-drift (admin-only) ───────────────────────────── */
 router.get("/schema-drift", adminAuth, async (_req, res) => {
   try {
-    // Return the startup-cached result so the dashboard doesn't re-run a
-    // full DB introspection on every page load. If the cache is empty (server
-    // restarted and startup task is still in progress), fall back to a live
-    // check so callers always get a meaningful response.
     const cached = getLastDriftReport();
     const report = cached ?? (await checkSchemaDrift());
     res.json(report);

@@ -20,6 +20,7 @@ import { sanitizeBody } from "./middleware/sanitize.js";
 import { suspiciousPatternDetector } from "./middleware/suspiciousPatternDetector.js";
 import { DEFAULT_PLATFORM_SETTINGS, getCachedSettings } from "./routes/admin-shared.js";
 import { ensureErrorResolutionTables } from "./routes/error-reports.js";
+import { handleHealthCheck } from "./routes/health.js";
 import router from "./routes/index.js";
 import { detectAndNotifyOutOfBandPasswordResets } from "./services/admin-password-watch.service.js";
 import { purgeStaleAdminPasswordResetTokens } from "./services/admin-password.service.js";
@@ -908,10 +909,8 @@ export async function createServer() {
 
   /* ── Root /health — rich DB+Redis check (same as /api/health) ───────────
      Uptime monitors and load balancers often probe the root /health path.
-     We proxy to the full /api/health logic so both endpoints are meaningful. */
-  app.get("/health", (_req, res) => {
-    res.redirect(307, "/api/health");
-  });
+     Runs the same handler directly — no redirect round-trip overhead.       */
+  app.get("/health", handleHealthCheck);
 
   /* ── Dev-only: hub landing page at exact "/" with one-click cards for
         every sibling app. Registered AFTER the prefix proxies so links to

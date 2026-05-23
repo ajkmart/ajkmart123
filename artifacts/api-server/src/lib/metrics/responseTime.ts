@@ -81,42 +81,59 @@ export function getRssMemoryPct(): number {
   return Math.round((m.rss / total) * 100);
 }
 
+/* ── Disk stats cache ────────────────────────────────────────────────────
+   getDiskPct() and getDiskFreeGb() both called statfsSync("/") separately,
+   doubling the syscall cost on every health probe. getDiskStats() calls
+   statfsSync once per TTL window and memoises both values together.        */
+
+interface DiskStats {
+  pct: number | null;
+  freeGb: number | null;
+}
+
+const DISK_TTL_MS = 10_000; // 10 second TTL — filesystem stats are stable
+let _diskCache: DiskStats = { pct: null, freeGb: null };
+let _diskCachedAt = 0;
+
 /**
- * Disk usage % for the partition containing the given path.
- * Defaults to "/" (the root / data volume).
- * Returns null if statfsSync is unavailable or fails.
+ * Returns disk used-% and free-GB for the root partition.
+ * Calls statfsSync exactly once per 10-second window. Subsequent calls
+ * within the window return the cached value without a syscall.
  */
-export function getDiskPct(mountPath = "/"): number | null {
+export function getDiskStats(mountPath = "/"): DiskStats {
+  const now = Date.now();
+  if (now - _diskCachedAt < DISK_TTL_MS) return _diskCache;
+
   try {
     const s = statfsSync(mountPath);
     const used = s.blocks - s.bfree;
-    if (s.blocks === 0) return null;
-    return Math.round((used / s.blocks) * 100);
+    const pct = s.blocks === 0 ? null : Math.round((used / s.blocks) * 100);
+    const freeGb = Math.round(((s.bavail * s.bsize) / 1_073_741_824) * 10) / 10;
+    _diskCache = { pct, freeGb };
   } catch (err) {
-    logger.error(
-      {
-        error: err instanceof Error ? err.message : String(err),
-        timestamp: new Date().toISOString(),
-      },
-      "[route] unhandled error"
+    logger.debug(
+      { error: err instanceof Error ? err.message : String(err) },
+      "[metrics] statfsSync failed — returning null disk stats"
     );
-    return null;
+    _diskCache = { pct: null, freeGb: null };
   }
+
+  _diskCachedAt = now;
+  return _diskCache;
 }
 
-/** Return disk free bytes for diagnostics. */
+/**
+ * Disk usage % for the partition containing the given path.
+ * @deprecated Use getDiskStats() to avoid a double statfsSync call.
+ */
+export function getDiskPct(mountPath = "/"): number | null {
+  return getDiskStats(mountPath).pct;
+}
+
+/**
+ * Disk free GB for the partition containing the given path.
+ * @deprecated Use getDiskStats() to avoid a double statfsSync call.
+ */
 export function getDiskFreeGb(mountPath = "/"): number | null {
-  try {
-    const s = statfsSync(mountPath);
-    return Math.round(((s.bavail * s.bsize) / (1024 * 1024 * 1024)) * 10) / 10;
-  } catch (err) {
-    logger.error(
-      {
-        error: err instanceof Error ? err.message : String(err),
-        timestamp: new Date().toISOString(),
-      },
-      "[route] unhandled error"
-    );
-    return null;
-  }
+  return getDiskStats(mountPath).freeGb;
 }
