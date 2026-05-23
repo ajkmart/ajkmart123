@@ -23,7 +23,7 @@ import { useLocation } from "wouter";
 const log = createLogger("[CommandPalette]");
 
 import { getAdminTiming } from "@/lib/adminTiming";
-import { escapeHtml } from "@/lib/escapeHtml";
+import DOMPurify from "dompurify";
 import { matchesKeywords } from "@/lib/romanUrdu";
 import { safeLocalGet, safeLocalSet } from "@/lib/safeStorage";
 import { SEARCH_INDEX, type SearchCategory, type SearchEntry } from "@/lib/searchIndex";
@@ -128,22 +128,20 @@ const STATUS_ALIASES: Record<StatusFilter, string[]> = {
 /**
  * Renders `text` with the substring matching `query` wrapped in a `<mark>`.
  *
- * Defence-in-depth: even though React would auto-escape JSX text children,
- * this implementation uses `dangerouslySetInnerHTML` so it can wrap the
- * highlighted slice in a real `<mark>` tag. To stay safe, BOTH the source
- * text and the query are run through `escapeHtml` before any string
- * concatenation, and only the literal `<mark>` open/close tags we control
- * are emitted as raw HTML — user-controlled bytes can therefore never
- * reach the DOM as markup.
+ * The assembled HTML string is passed through DOMPurify before being set via
+ * `dangerouslySetInnerHTML`. Only the `<mark>` tag and its `class` attribute
+ * are allowed — everything else is stripped, so no user-controlled content
+ * can reach the DOM as markup.
  */
 function Highlight({ text, query }: { text: string; query: string }) {
   if (!query || query.length < 2) return <span>{text}</span>;
   const idx = text.toLowerCase().indexOf(query.toLowerCase());
   if (idx < 0) return <span>{text}</span>;
-  const before = escapeHtml(text.slice(0, idx));
-  const match = escapeHtml(text.slice(idx, idx + query.length));
-  const after = escapeHtml(text.slice(idx + query.length));
-  const html = `${before}<mark class="bg-yellow-200 text-yellow-900 rounded px-0.5">${match}</mark>${after}`;
+  const before = text.slice(0, idx);
+  const match = text.slice(idx, idx + query.length);
+  const after = text.slice(idx + query.length);
+  const raw = `${before}<mark class="bg-yellow-200 text-yellow-900 rounded px-0.5">${match}</mark>${after}`;
+  const html = DOMPurify.sanitize(raw, { ALLOWED_TAGS: ["mark"], ALLOWED_ATTR: ["class"] });
   return <span dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
