@@ -1166,7 +1166,21 @@ export default function LoginScreen({ onSuccess }: LoginScreenProps) {
               </label>
               <input
                 value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const digitsOnly = raw.replace(/\D/g, "");
+                  const looksLikePhone =
+                    digitsOnly.length >= 10 &&
+                    (digitsOnly.startsWith("92") || digitsOnly.startsWith("0"));
+                  if (looksLikePhone) {
+                    let v = digitsOnly;
+                    if (v.startsWith("92")) v = v.slice(2);
+                    setIdentifier(v.slice(0, 11));
+                  } else {
+                    setIdentifier(raw);
+                  }
+                  setError(null);
+                }}
                 placeholder="03XXXXXXXXX or username"
                 style={{
                   width: "100%",
