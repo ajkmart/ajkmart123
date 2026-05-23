@@ -15,6 +15,12 @@ export interface LoginScreenProps {
 }
 
 export default function LoginScreen({ onSuccess }: LoginScreenProps) {
+  useEffect(() => {
+    const prev = document.title;
+    document.title = "AJKMart Rider — Sign In";
+    return () => { document.title = prev; };
+  }, []);
+
   const theme = useTheme();
   const { language } = useLanguage();
   const T = (key: TranslationKey) => tDual(key, language);

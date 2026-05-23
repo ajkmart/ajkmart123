@@ -159,6 +159,12 @@ function normalizeRoles(u: AuthUser): string[] {
 }
 
 export function LoginScreen({ onSuccess }: LoginScreenProps) {
+  useEffect(() => {
+    const prev = document.title;
+    document.title = "AJKMart Vendor — Sign In";
+    return () => { document.title = prev; };
+  }, []);
+
   const { sendOtp, verifyOtp, loginWithPassword } = useAuth();
   const { maintenance, maintenanceMsg, supportPhone, supportEmail } = useAppStatus();
   const theme = useTheme();

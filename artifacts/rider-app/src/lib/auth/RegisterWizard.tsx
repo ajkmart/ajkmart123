@@ -52,6 +52,12 @@ export interface RegisterWizardProps {
 }
 
 export function RegisterWizard({ onDone }: RegisterWizardProps) {
+  useEffect(() => {
+    const prev = document.title;
+    document.title = "AJKMart Rider — Create Account";
+    return () => { document.title = prev; };
+  }, []);
+
   const theme = useTheme();
   const { language } = useLanguage();
   const T = (key: TranslationKey) => tDual(key, language);
@@ -90,6 +96,7 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
     "idle"
   );
   const usernameAbortRef = useRef<AbortController | null>(null);
+  const usernameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (otpCooldown <= 0) return;
@@ -111,7 +118,10 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
 
   const checkUsername = async () => {
     const username = (draft.username ?? "").trim();
-    if (!username) return;
+    if (!username || username.length < 3) {
+      setUsernameState("idle");
+      return;
+    }
     usernameAbortRef.current?.abort();
     const controller = new AbortController();
     usernameAbortRef.current = controller;
@@ -179,6 +189,7 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
       if (!stored) throw new Error("Server returned no URL for uploaded file");
       update(field, stored);
       setUploadError((prev) => ({ ...prev, [fieldKey]: "" }));
+      setUploadPct((prev) => ({ ...prev, [fieldKey]: 100 }));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Upload failed";
       setUploadError((prev) => ({ ...prev, [fieldKey]: msg }));
@@ -409,7 +420,11 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
               </div>
               <input
                 value={draft.username ?? ""}
-                onChange={(e) => update("username", e.target.value)}
+                onChange={(e) => {
+                  update("username", e.target.value);
+                  if (usernameDebounceRef.current) clearTimeout(usernameDebounceRef.current);
+                  usernameDebounceRef.current = setTimeout(() => void checkUsername(), 500);
+                }}
                 onBlur={() => void checkUsername()}
                 placeholder="Username (optional)"
                 style={inputStyle}
@@ -502,7 +517,17 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
               <div>
                 <input
                   value={draft.cnic ?? ""}
-                  onChange={(e) => update("cnic", e.target.value)}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/[^\d-]/g, "");
+                    const digits = raw.replace(/-/g, "");
+                    let formatted = digits;
+                    if (digits.length > 5 && digits.length <= 12) {
+                      formatted = `${digits.slice(0, 5)}-${digits.slice(5)}`;
+                    } else if (digits.length > 12) {
+                      formatted = `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12, 13)}`;
+                    }
+                    update("cnic", formatted);
+                  }}
                   onBlur={() => {
                     const v = (draft.cnic ?? "").trim();
                     if (v && !/^\d{5}-\d{7}-\d{1}$/.test(v)) {
@@ -512,10 +537,17 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
                   placeholder="CNIC XXXXX-XXXXXXX-X *"
                   style={inputStyle}
                   maxLength={15}
+                  inputMode="numeric"
                 />
                 <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 4 }}>
-                  Format: 12345-1234567-1 (dashes required)
+                  Format: 12345-1234567-1 (auto-formatted)
                 </div>
+                {(draft.cnic ?? "").length === 15 && !/^\d{5}-\d{7}-\d{1}$/.test(draft.cnic ?? "") && (
+                  <div style={{ fontSize: 11, color: "#f87171", marginTop: 2 }}>✗ Invalid CNIC format</div>
+                )}
+                {(draft.cnic ?? "").length === 15 && /^\d{5}-\d{7}-\d{1}$/.test(draft.cnic ?? "") && (
+                  <div style={{ fontSize: 11, color: "#10b981", marginTop: 2 }}>✓ Valid CNIC</div>
+                )}
               </div>
               <div style={{ position: "relative" }}>
                 <input

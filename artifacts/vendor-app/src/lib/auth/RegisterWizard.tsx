@@ -980,6 +980,12 @@ export interface RegisterWizardProps {
 }
 
 export function RegisterWizard({ onDone }: RegisterWizardProps) {
+  useEffect(() => {
+    const prev = document.title;
+    document.title = "AJKMart Vendor — Create Account";
+    return () => { document.title = prev; };
+  }, []);
+
   const theme = useTheme();
   const { sendOtp } = useAuth();
   const [, navigate] = useLocation();
