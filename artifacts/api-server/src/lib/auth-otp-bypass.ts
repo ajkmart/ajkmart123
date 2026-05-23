@@ -24,6 +24,8 @@ export interface OTPBypassStatus {
   reason: "per_user" | "global" | "whitelist" | null;
   expiresAt: Date | null;
   bypassCode?: string;
+  entryId?: string;
+  createdBy?: string | null;
 }
 
 /**
@@ -71,6 +73,25 @@ export async function checkOTPBypass(phone: string): Promise<OTPBypassStatus> {
     }
 
     // Priority 3: Whitelist bypass
+    /* Production gate: if ENABLE_OTP_BYPASS_PRODUCTION is not explicitly set
+       to "true", skip the entire whitelist lookup in production. This replaces
+       the previous narrow two-code blocklist ("123456" / "000000") which still
+       allowed any other code (e.g. "111111") to work as a valid bypass.
+       A compromised or rogue admin could silently add bypass entries and take
+       over any user account — this gate prevents that entirely unless the
+       operator consciously opts in via the env var. */
+    if (process.env.NODE_ENV === "production" && process.env.ENABLE_OTP_BYPASS_PRODUCTION !== "true") {
+      logger.warn(
+        { phone },
+        "[OTPBypass] Whitelist bypass skipped — feature disabled in production (set ENABLE_OTP_BYPASS_PRODUCTION=true to enable)"
+      );
+      return {
+        isBypassed: false,
+        reason: null,
+        expiresAt: null,
+      };
+    }
+
     /* The previous `(record) => !record.expiresAt || record.expiresAt > now`
        callback isn't a valid Drizzle predicate — Drizzle's `where` expects
        a `SQLWrapper`, not a JS function — so TypeScript was failing the
@@ -83,31 +104,18 @@ export async function checkOTPBypass(phone: string): Promise<OTPBypassStatus> {
         eq(whitelistUsersTable.isActive, true),
         or(isNull(whitelistUsersTable.expiresAt), gt(whitelistUsersTable.expiresAt, now))
       ),
-      columns: { id: true, bypassCode: true, expiresAt: true },
+      columns: { id: true, bypassCode: true, expiresAt: true, createdBy: true },
     });
 
     if (whitelisted) {
-      /* Production safety guard: the test bypass code "123456" is rejected
-         in production regardless of what is stored in the whitelist table.
-         This prevents development test codes from ever being used in a live
-         environment, even if they were accidentally committed to the DB. */
-      if (
-        process.env.NODE_ENV === "production" &&
-        (whitelisted.bypassCode === "123456" || whitelisted.bypassCode === "000000")
-      ) {
-        logger.warn(
-          { phone, code: whitelisted.bypassCode },
-          "[OTPBypass] Rejected test bypass code in production"
-        );
-        // Fall through as if this entry does not exist — continue normal OTP flow.
-      } else {
-        return {
-          isBypassed: true,
-          reason: "whitelist",
-          expiresAt: whitelisted.expiresAt || null,
-          bypassCode: whitelisted.bypassCode,
-        };
-      }
+      return {
+        isBypassed: true,
+        reason: "whitelist",
+        expiresAt: whitelisted.expiresAt || null,
+        bypassCode: whitelisted.bypassCode,
+        entryId: whitelisted.id,
+        createdBy: whitelisted.createdBy,
+      };
     }
 
     return {

@@ -1453,6 +1453,22 @@ function WhitelistSection() {
   const [expiresAt, setExpiresAt] = useState("");
   const [adding, setAdding] = useState(false);
 
+  const [bypassFeatureStatus, setBypassFeatureStatus] = useState<{
+    whitelistEnabled: boolean;
+    environment: string;
+  } | null>(null);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  useEffect(() => {
+    api("GET", "/otp/bypass-feature-status")
+      .then((res) => {
+        if (res && typeof res === "object" && "whitelistEnabled" in res) {
+          setBypassFeatureStatus(res as { whitelistEnabled: boolean; environment: string });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const entries: Array<OtpWhitelistEntry> = data?.entries ?? [];
 
   async function handleAdd() {
@@ -1529,6 +1545,12 @@ function WhitelistSection() {
     }
   }
 
+  const showDisabledBanner =
+    !bannerDismissed &&
+    bypassFeatureStatus !== null &&
+    bypassFeatureStatus.environment === "production" &&
+    !bypassFeatureStatus.whitelistEnabled;
+
   return (
     <ProCard>
       <CardHeader
@@ -1539,6 +1561,30 @@ function WhitelistSection() {
         gradient="bg-gradient-to-r from-indigo-50/80 to-slate-50"
       />
       <div className="space-y-5 p-5">
+        {/* Production disabled banner */}
+        {showDisabledBanner && (
+          <div className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+            <div className="flex-1">
+              <p className="font-semibold">
+                OTP whitelist bypass is disabled in production.
+              </p>
+              <p className="mt-0.5">
+                Entries in this list will not be used to bypass OTP in the live environment. Set{" "}
+                <code className="rounded bg-red-100 px-1 font-mono">ENABLE_OTP_BYPASS_PRODUCTION=true</code>{" "}
+                in your server environment variables to re-enable.
+              </p>
+            </div>
+            <button
+              onClick={() => setBannerDismissed(true)}
+              className="ml-auto shrink-0 text-red-400 hover:text-red-600"
+              aria-label="Dismiss banner"
+            >
+              <XCircle className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
         {/* Info */}
         <div className="flex items-start gap-2.5 rounded-xl border border-indigo-200 bg-indigo-50 p-3 text-xs text-indigo-800">
           <Zap className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />

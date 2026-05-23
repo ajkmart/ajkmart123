@@ -71,6 +71,15 @@ function sendServerError(res: import("express").Response, error: unknown, contex
   });
 }
 
+/* ─── GET /admin/otp/bypass-feature-status ────────────────────────────────── */
+router.get("/otp/bypass-feature-status", (_req, res) => {
+  res.json({
+    success: true,
+    whitelistEnabled: process.env.ENABLE_OTP_BYPASS_PRODUCTION === "true",
+    environment: process.env.NODE_ENV ?? "development",
+  });
+});
+
 /* ─── GET /admin/otp/status ───────────────────────────────────────────────── */
 router.get("/otp/status", async (_req, res) => {
   try {
@@ -501,6 +510,25 @@ router.post("/whitelist", async (req, res) => {
       async () => ({ success: true })
     );
 
+    try {
+      const s = await getPlatformSettings();
+      const appName = s["app_name"] ?? "AJKMart";
+      const adminName = adminReq.adminName ?? adminReq.adminId ?? "Unknown admin";
+      await NotificationService.sendSecurityAlert({
+        subject: `[${appName}] OTP Whitelist Entry Added`,
+        headline: "⚠️ OTP Whitelist Bypass Entry Created",
+        paragraphs: [
+          `Admin ${adminName} (ID: ${adminReq.adminId}) added a new OTP whitelist bypass entry.`,
+          `Identifier: ${identifier}${label ? ` (${label})` : ""}`,
+          `Expires: ${expires ? expires.toUTCString() : "Never"}`,
+          `This entry allows the configured bypass code to be used instead of a real OTP for this identifier. If this was not intentional, remove it immediately.`,
+        ],
+        settings: s,
+      });
+    } catch (alertErr) {
+      logger.warn({ err: alertErr }, "[admin/otp] whitelist add security alert failed (non-fatal)");
+    }
+
     sendSuccess(res, {
       entry: {
         id,
@@ -574,6 +602,31 @@ router.patch("/whitelist/:id", async (req, res) => {
       },
       async () => ({ success: true })
     );
+
+    try {
+      const s = await getPlatformSettings();
+      const appName = s["app_name"] ?? "AJKMart";
+      const adminName = adminReq.adminName ?? adminReq.adminId ?? "Unknown admin";
+      const changedFields = Object.keys(updateData)
+        .filter((k) => k !== "updatedAt")
+        .join(", ");
+      await NotificationService.sendSecurityAlert({
+        subject: `[${appName}] OTP Whitelist Entry Modified`,
+        headline: "⚠️ OTP Whitelist Bypass Entry Updated",
+        paragraphs: [
+          `Admin ${adminName} (ID: ${adminReq.adminId}) modified an OTP whitelist bypass entry.`,
+          `Identifier: ${existing.identifier} | Entry ID: ${id}`,
+          `Changed fields: ${changedFields || "none"}`,
+          `If this change was not intentional, review the entry and revoke access immediately.`,
+        ],
+        settings: s,
+      });
+    } catch (alertErr) {
+      logger.warn(
+        { err: alertErr },
+        "[admin/otp] whitelist update security alert failed (non-fatal)"
+      );
+    }
 
     sendSuccess(res, { message: "Whitelist entry updated" });
   } catch (error) {

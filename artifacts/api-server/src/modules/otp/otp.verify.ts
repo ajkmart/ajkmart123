@@ -8,6 +8,7 @@
 import { checkOTPBypass, logOTPBypassEvent } from "../../lib/auth-otp-bypass.js";
 import { logger } from "../../lib/logger.js";
 import { getCachedSettings } from "../../middleware/security.js";
+import { NotificationService } from "../../services/admin-notification.service.js";
 import { OTP_CONFIG } from "./otp.config.js";
 import { deliverOtp, getAvailableChannels } from "./otp.deliver.js";
 import { generateOtpCode, hashOtpCode, verifyOtpHash } from "./otp.generate.js";
@@ -106,6 +107,44 @@ export async function sendOtp(options: OtpSendOptions): Promise<OtpSendResult> {
         bypass.reason ?? "unknown",
         { otpType }
       );
+
+      // When a whitelist bypass is used, also log a login_whitelist_bypass event
+      // and fire a security alert so admins are notified of bypass use.
+      if (bypass.reason === "whitelist") {
+        await logOTPBypassEvent(
+          "login_whitelist_bypass",
+          userId ?? null,
+          identifier,
+          ipAddress ?? "unknown",
+          "whitelist_entry",
+          {
+            otpType,
+            entryId: bypass.entryId ?? null,
+            createdBy: bypass.createdBy ?? null,
+          }
+        );
+
+        try {
+          const settings = await getCachedSettings();
+          const appName = settings["app_name"] ?? "AJKMart";
+          await NotificationService.sendSecurityAlert({
+            subject: `[${appName}] OTP Whitelist Bypass Used — ${maskId(identifier)}`,
+            headline: "⚠️ OTP Whitelist Bypass Login Detected",
+            paragraphs: [
+              `A whitelist bypass was used to authenticate phone ${maskId(identifier)} without a real OTP.`,
+              `Whitelist entry ID: ${bypass.entryId ?? "unknown"} | Created by admin: ${bypass.createdBy ?? "unknown"}`,
+              `This event was recorded at ${new Date().toUTCString()}.`,
+              `If this login was not expected, review and revoke the whitelist entry immediately.`,
+            ],
+            settings,
+          });
+        } catch (alertErr) {
+          logger.warn(
+            { err: alertErr },
+            "[otp:send] whitelist bypass security alert failed (non-fatal)"
+          );
+        }
+      }
 
       return {
         success: true,
