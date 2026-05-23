@@ -2,7 +2,7 @@ import { db } from "@workspace/db";
 import { liveLocationsTable, platformSettingsTable } from "@workspace/db/schema";
 import { and, count, eq, gte, sql } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
-import { getDiskPct, getMemoryPct, getP95Ms } from "../lib/metrics/responseTime.js";
+import { getDiskStats, getMemoryPct, getP95Ms } from "../lib/metrics/responseTime.js";
 import { getCachedSettings } from "../routes/admin-shared.js";
 import { sendAdminAlert } from "./email.js";
 
@@ -153,7 +153,8 @@ async function checkPerformanceMetrics(s: Record<string, string>): Promise<Healt
   const issues: HealthIssue[] = [];
 
   const thresholdP95Ms = Math.max(1, parseInt(s["perf_alert_p95_ms"] ?? "500", 10));
-  const thresholdDbMs = Math.max(1, parseInt(s["perf_alert_db_query_ms"] ?? "1000", 10));
+  /* Use the same key as the dashboard (perf_alert_db_ms) so admin-set thresholds are respected */
+  const thresholdDbMs = Math.max(1, parseInt(s["perf_alert_db_ms"] ?? "1000", 10));
   const thresholdMemPct = Math.max(1, parseInt(s["perf_alert_memory_pct"] ?? "80", 10));
   const thresholdDiskPct = Math.max(1, parseInt(s["perf_alert_disk_pct"] ?? "80", 10));
 
@@ -196,8 +197,8 @@ async function checkPerformanceMetrics(s: Record<string, string>): Promise<Healt
     });
   }
 
-  /* ── Disk usage ── */
-  const diskPct = getDiskPct();
+  /* ── Disk usage — use cached getDiskStats to avoid a redundant statfsSync call ── */
+  const diskPct = getDiskStats().pct;
   if (diskPct != null && diskPct > thresholdDiskPct) {
     issues.push({
       key: "perf_disk_high",

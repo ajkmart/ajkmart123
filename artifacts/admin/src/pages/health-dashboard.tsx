@@ -1107,7 +1107,7 @@ export default function HealthDashboard() {
 
         {/* auto-refresh notice */}
         <p className="text-center text-xs text-slate-600">
-          Auto-refreshes every 10 seconds · Last updated{" "}
+          Auto-refreshes every 30 seconds · Last updated{" "}
           {dataUpdatedAt > 0 ? updatedAgo(new Date(dataUpdatedAt).toISOString()) : "—"}
         </p>
       </div>

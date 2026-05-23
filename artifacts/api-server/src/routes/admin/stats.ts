@@ -14,8 +14,7 @@ import { Router } from "express";
 import http from "http";
 import { promisify } from "util";
 import {
-  getDiskFreeGb,
-  getDiskPct,
+  getDiskStats,
   getMemoryPct,
   getP50Ms,
   getP95Ms,
@@ -97,14 +96,29 @@ router.get("/system/health-dashboard", adminAuth, async (_req, res, next) => {
     const issues: Array<{ level: "error" | "warning" | "info"; message: string; code?: string }> =
       [];
 
-    /* ── DB check ── */
+    /* ── DB check: ping (SELECT 1) + separate real-query timing in parallel ── */
     let dbStatus: "ok" | "error" = "ok";
+    let dbLatencyMs: number | null = null;
     let dbQueryMs: number | null = null;
     try {
-      const t0 = Date.now();
-      await db.execute(sql`SELECT 1`);
-      const t1 = Date.now();
-      dbQueryMs = t1 - t0;
+      const [pingResult, queryResult] = await Promise.allSettled([
+        (async () => {
+          const t0 = Date.now();
+          await db.execute(sql`SELECT 1`);
+          return Date.now() - t0;
+        })(),
+        (async () => {
+          const t0 = Date.now();
+          await db.select({ c: count() }).from(usersTable);
+          return Date.now() - t0;
+        })(),
+      ]);
+      if (pingResult.status === "fulfilled") dbLatencyMs = pingResult.value;
+      else {
+        dbStatus = "error";
+        issues.push({ level: "error", message: "Database connection failed", code: "DB_DOWN" });
+      }
+      if (queryResult.status === "fulfilled") dbQueryMs = queryResult.value;
     } catch (_e) {
       dbStatus = "error";
       issues.push({ level: "error", message: "Database connection failed", code: "DB_DOWN" });
@@ -120,9 +134,9 @@ router.get("/system/health-dashboard", adminAuth, async (_req, res, next) => {
         code: "HIGH_MEMORY",
       });
 
-    /* ── Disk ── */
-    const diskPct = getDiskPct() ?? 0;
-    const diskFreeGb = getDiskFreeGb();
+    /* ── Disk — one statfsSync call via getDiskStats() ── */
+    const { pct: diskPctRaw, freeGb: diskFreeGb } = getDiskStats();
+    const diskPct = diskPctRaw ?? 0;
     if (diskPct > 90)
       issues.push({
         level: "error",
@@ -213,9 +227,14 @@ router.get("/system/health-dashboard", adminAuth, async (_req, res, next) => {
         settings["health_monitor_enabled"] === "true",
       intervalMin: parseInt(settings["health_monitor_interval_min"] ?? "5", 10),
       snoozeMin: parseInt(settings["health_monitor_snooze_min"] ?? "60", 10),
-      emailConfigured: !!(settings["alert_email"] ?? process.env["SMTP_HOST"]),
-      alertEmail: settings["alert_email"] ?? "",
-      slackConfigured: !!(settings["slack_webhook_url"] ?? process.env["SLACK_WEBHOOK_URL"]),
+      /* emailConfigured: requires BOTH an SMTP host AND a recipient address */
+      emailConfigured: !!(
+        process.env["SMTP_HOST"] &&
+        (settings["smtp_admin_alert_email"] || settings["alert_email"])
+      ),
+      alertEmail: settings["smtp_admin_alert_email"] ?? settings["alert_email"] ?? "",
+      /* slackConfigured: must match the key the actual health monitor reads */
+      slackConfigured: !!(settings["health_alert_slack_webhook"]?.trim()),
     };
 
     /* ── Performance ── */
@@ -323,7 +342,7 @@ router.get("/system/health-dashboard", adminAuth, async (_req, res, next) => {
         p50Ms: getP50Ms(),
         p95Ms: getP95Ms(),
         p99Ms: getP99Ms(),
-        dbLatencyMs: dbQueryMs,
+        dbLatencyMs,
         dbQueryMs,
         redisCacheHitRate: null,
         queueDepth: getIO()?.engine.clientsCount ?? 0,
@@ -349,8 +368,11 @@ router.get("/system/health-dashboard", adminAuth, async (_req, res, next) => {
 ─────────────────────────────────────────────────────────────────────────── */
 router.get("/system/diagnostics", adminAuth, async (_req, res, next) => {
   try {
+    /* API port is configured via PORT env var — defaults to 8080 in Replit.
+       Using the hardcoded 5000 caused the API service card to always show "down". */
+    const apiPort = parseInt(process.env["PORT"] ?? "8080", 10);
     const serviceDefs = [
-      { key: "api", name: "API Server", port: 5000, path: "/api/health" },
+      { key: "api", name: "API Server", port: apiPort, path: "/api/health" },
       { key: "admin", name: "Admin Panel", port: 3000, path: "/" },
       { key: "vendor", name: "Vendor App", port: 3001, path: "/" },
       { key: "rider", name: "Rider App", port: 5173, path: "/" },
@@ -403,12 +425,10 @@ router.get("/system/diagnostics", adminAuth, async (_req, res, next) => {
 /* ─── GET /stats/active-users ───────────────────────────────────────────── */
 router.get("/stats/active-users", adminAuth, async (_req, res, next) => {
   try {
-    const [onlineRow] = await db
-      .select({ c: count() })
-      .from(usersTable)
-      .where(eq(usersTable.isOnline, true));
-    const [totalRow] = await db.select({ c: count() }).from(usersTable);
-
+    const [[onlineRow], [totalRow]] = await Promise.all([
+      db.select({ c: count() }).from(usersTable).where(eq(usersTable.isOnline, true)),
+      db.select({ c: count() }).from(usersTable),
+    ]);
     sendSuccess(res, {
       online: Number(onlineRow?.c ?? 0),
       total: Number(totalRow?.c ?? 0),
@@ -432,8 +452,7 @@ router.get("/stats/socket-connections", adminAuth, (_req, res, next) => {
 /* ─── GET /stats/storage ────────────────────────────────────────────────── */
 router.get("/stats/storage", adminAuth, (_req, res, next) => {
   try {
-    const freeGb = getDiskFreeGb();
-    const pct = getDiskPct();
+    const { pct, freeGb } = getDiskStats();
     const totalGb = freeGb != null && pct != null && pct > 0 ? freeGb / (1 - pct / 100) : null;
     const usedGb = totalGb != null && freeGb != null ? totalGb - freeGb : null;
     const status = pct == null ? "unknown" : pct > 90 ? "critical" : pct > 80 ? "warning" : "ok";
@@ -502,8 +521,8 @@ router.get("/stats/performance", adminAuth, async (_req, res, next) => {
       p99Ms: getP99Ms(),
       dbQueryMs,
       memoryPct: getMemoryPct(),
-      diskPct: getDiskPct(),
-      diskFreeGb: getDiskFreeGb(),
+      diskPct: getDiskStats().pct,
+      diskFreeGb: getDiskStats().freeGb,
       socketConnections: getIO()?.engine.clientsCount ?? 0,
       dbPool: dbPoolStats,
       thresholds: { p95Ms: p95Alert, dbMs: dbMsAlert, memoryPct: memAlert, diskPct: diskAlert },
