@@ -15,7 +15,12 @@ import { writeAuthAuditLog } from "../../middleware/security.js";
 import { AuditService } from "../../services/admin-audit.service.js";
 import { NotificationService } from "../../services/admin-notification.service.js";
 import { UserService } from "../../services/admin-user.service.js";
-import { getClientIp, getPlatformSettings, type AdminRequest } from "../admin-shared.js";
+import {
+  getClientIp,
+  getPlatformSettings,
+  invalidatePlatformSettingsCache,
+  type AdminRequest,
+} from "../admin-shared.js";
 
 const router = Router();
 
@@ -149,6 +154,10 @@ router.post("/otp/disable", async (req, res) => {
       logger.warn({ err: alertErr }, "[admin/otp] admin notification send failed (non-fatal)");
     }
 
+    /* Invalidate in-process settings cache so the next login request
+       picks up the suspension immediately without waiting for TTL expiry. */
+    invalidatePlatformSettingsCache();
+
     sendSuccess(res, result);
   } catch (error: unknown) {
     const errMsg = error instanceof Error ? error.message : String(error);
@@ -179,6 +188,9 @@ router.delete("/otp/disable", async (req, res) => {
       userAgent: req.headers["user-agent"] ?? undefined,
       metadata: { adminId: adminReq.adminId, result: "success" },
     });
+
+    /* Invalidate cache so suspended-OTP state clears immediately. */
+    invalidatePlatformSettingsCache();
 
     sendSuccess(res, result);
   } catch (error: unknown) {

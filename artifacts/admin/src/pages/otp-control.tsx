@@ -399,26 +399,23 @@ export default function OtpControl() {
     if (!suspendReason.trim()) return;
     setSuspendPending(true);
     try {
-      const d = await api("POST", "/otp/disable", {
+      await api("POST", "/otp/disable", {
         minutes: suspendModal.mins,
         reason: suspendReason.trim(),
       });
-      if (d?.data) {
-        toast({
-          title: "OTP Suspended",
-          description: `All OTPs suspended for ${suspendModal.mins} minute(s).`,
-        });
-        void loadStatus();
-        void loadAudit();
-        setSuspendModal({ open: false, mins: 0 });
-        setSuspendReason("");
-      } else {
-        toast({
-          title: "Error",
-          description: d?.error ?? "Failed",
-          variant: "destructive",
-        });
-      }
+      const mins = suspendModal.mins;
+      const durationLabel =
+        mins >= 60 && mins % 60 === 0
+          ? `${mins / 60} hour(s)`
+          : `${mins} minute(s)`;
+      toast({
+        title: "OTP Suspended",
+        description: `All OTPs suspended for ${durationLabel}.`,
+      });
+      void loadStatus();
+      void loadAudit();
+      setSuspendModal({ open: false, mins: 0 });
+      setSuspendReason("");
     } catch (e: unknown) {
       toast({
         title: "Error",
@@ -473,8 +470,8 @@ export default function OtpControl() {
     setOtpVisible(false);
     try {
       const d = await api("GET", `/otp/delivery-otp/${encodeURIComponent(id)}`);
-      if (d?.data) {
-        setOtpLookupResult(d.data);
+      if (d?.rideId || d?.otp !== undefined) {
+        setOtpLookupResult(d);
       } else {
         setOtpLookupError(d?.error ?? "Ride not found.");
       }
@@ -544,13 +541,13 @@ export default function OtpControl() {
       const d = await api("POST", `/users/${userId}/otp/bypass`, {
         minutes: mins,
       });
-      if (d?.data?.bypassUntil) {
+      if (d?.bypassUntil) {
         toast({
           title: "Bypass Granted",
           description: `OTP bypass active for ${mins} minute(s).`,
         });
         setUsers((prev) =>
-          prev.map((u) => (u.id === userId ? { ...u, otpBypassUntil: d.data.bypassUntil } : u))
+          prev.map((u) => (u.id === userId ? { ...u, otpBypassUntil: d.bypassUntil } : u))
         );
         void loadStatus();
       } else {
@@ -604,8 +601,8 @@ export default function OtpControl() {
     setGeneratingOtpFor(userId);
     try {
       const d = await api("POST", `/users/${userId}/otp/generate`);
-      if (d?.data?.code) {
-        setGeneratedOtp({ userId, code: d.data.code, copiedCode: false });
+      if (d?.otp || d?.code) {
+        setGeneratedOtp({ userId, code: d.otp ?? d.code, copiedCode: false });
       } else {
         toast({
           title: "Error",

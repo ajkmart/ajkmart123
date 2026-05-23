@@ -559,7 +559,7 @@ export class UserService {
    * Restore OTP globally
    */
   static async restoreOtpGlobally() {
-    await this.upsertSetting("otp_global_disabled_until", "");
+    await this.upsertSetting("otp_global_disabled_until", new Date(0).toISOString());
     return { success: true };
   }
 
