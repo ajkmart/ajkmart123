@@ -15,6 +15,12 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { adminFetch } from "@/lib/adminFetcher";
 import {
+  DragDropContext,
+  Draggable,
+  Droppable,
+  type DropResult,
+} from "@hello-pangea/dnd";
+import {
   Activity,
   AlertTriangle,
   CalendarDays,
@@ -26,13 +32,18 @@ import {
   Eye,
   EyeOff,
   Gauge,
+  GripVertical,
   Info,
   KeyRound,
   ListChecks,
   LockKeyhole,
   Loader2,
+  Mail,
+  MessageCircle,
+  MessageSquare,
   Plus,
   RefreshCw,
+  RotateCcw,
   Search,
   Shield,
   ShieldCheck,
@@ -1002,7 +1013,10 @@ export default function OtpControl() {
           </DialogContent>
         </Dialog>
 
-        {/* ── 2. PER-USER BYPASS ── */}
+        {/* ── 2. OTP CHANNEL PRIORITY ── */}
+        <OtpChannelsSection />
+
+        {/* ── 3. PER-USER BYPASS ── */}
         <ProCard>
           <CardHeader
             icon={Users}
@@ -1687,6 +1701,266 @@ function LockedUsersPanel() {
               Unlocking clears the counter immediately.
             </p>
           </div>
+        )}
+      </div>
+    </ProCard>
+  );
+}
+
+/* ── OTP Channel Priority (drag-and-drop reorder) ───────────────────────── */
+
+type OtpChannel = "sms" | "whatsapp" | "email";
+
+const CHANNEL_META: Record<
+  OtpChannel,
+  { label: string; desc: string; Icon: ElementType; dot: string; ring: string; badge: string }
+> = {
+  sms: {
+    label: "SMS",
+    desc: "Standard text message via your SMS provider",
+    Icon: MessageSquare,
+    dot: "bg-blue-500",
+    ring: "border-blue-200 bg-blue-50",
+    badge: "bg-blue-100 text-blue-700 border-blue-200",
+  },
+  whatsapp: {
+    label: "WhatsApp",
+    desc: "WhatsApp Business API message",
+    Icon: MessageCircle,
+    dot: "bg-green-500",
+    ring: "border-green-200 bg-green-50",
+    badge: "bg-green-100 text-green-700 border-green-200",
+  },
+  email: {
+    label: "Email",
+    desc: "Email delivery — slowest but most reliable fallback",
+    Icon: Mail,
+    dot: "bg-orange-500",
+    ring: "border-orange-200 bg-orange-50",
+    badge: "bg-orange-100 text-orange-700 border-orange-200",
+  },
+};
+
+function OtpChannelsSection() {
+  const { toast } = useToast();
+  const [channels, setChannels] = useState<OtpChannel[]>(["whatsapp", "sms", "email"]);
+  const [saved, setSaved] = useState<OtpChannel[]>(["whatsapp", "sms", "email"]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const d = await api("GET", "/otp/channels");
+        if (d?.channels) {
+          const ch = (d.channels as string[]).filter((c): c is OtpChannel =>
+            ["sms", "whatsapp", "email"].includes(c)
+          );
+          setChannels(ch);
+          setSaved(ch);
+        }
+      } catch {
+        /* keep defaults */
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const isDirty = channels.join(",") !== saved.join(",");
+
+  function onDragEnd(result: DropResult) {
+    if (!result.destination) return;
+    const next = [...channels];
+    const [moved] = next.splice(result.source.index, 1);
+    next.splice(result.destination.index, 0, moved);
+    setChannels(next);
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      const d = await api("PATCH", "/otp/channels", { channels });
+      if (d?.channels) {
+        const ch = (d.channels as string[]).filter((c): c is OtpChannel =>
+          ["sms", "whatsapp", "email"].includes(c)
+        );
+        setChannels(ch);
+        setSaved(ch);
+      } else {
+        setSaved(channels);
+      }
+      toast({ title: "Channel order saved", description: `Priority: ${channels.join(" → ")}` });
+    } catch (e: unknown) {
+      toast({
+        title: "Failed to save",
+        description: errorMessage(e, "Could not update channel priority."),
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function revert() {
+    setChannels([...saved]);
+  }
+
+  return (
+    <ProCard>
+      <div className="border-b border-border/60 bg-gradient-to-r from-sky-50/80 to-slate-50 px-5 py-4">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/60 text-sky-600 backdrop-blur-sm">
+            <ListChecks className="h-4 w-4" />
+          </div>
+          <div>
+            <h3 className="font-display text-sm font-bold leading-none text-gray-900">
+              OTP Channel Priority
+            </h3>
+            <p className="mt-0.5 text-[11px] text-gray-500">
+              Drag to reorder. First channel is tried first; others are automatic fallbacks.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-5">
+        {loading ? (
+          <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading channels…
+          </div>
+        ) : (
+          <>
+            <DragDropContext onDragEnd={onDragEnd}>
+              <Droppable droppableId="otp-channels">
+                {(provided) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className="space-y-2"
+                  >
+                    {channels.map((ch, idx) => {
+                      const meta = CHANNEL_META[ch];
+                      const isFirst = idx === 0;
+                      return (
+                        <Draggable key={ch} draggableId={ch} index={idx}>
+                          {(prov, snapshot) => (
+                            <div
+                              ref={prov.innerRef}
+                              {...prov.draggableProps}
+                              className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-shadow ${
+                                snapshot.isDragging
+                                  ? "shadow-lg ring-2 ring-sky-300 border-sky-200 bg-sky-50/60"
+                                  : `${meta.ring} hover:shadow-sm`
+                              }`}
+                            >
+                              {/* Drag handle */}
+                              <div
+                                {...prov.dragHandleProps}
+                                className="shrink-0 cursor-grab text-gray-300 hover:text-gray-500 active:cursor-grabbing"
+                                title="Drag to reorder"
+                              >
+                                <GripVertical className="h-5 w-5" />
+                              </div>
+
+                              {/* Position number */}
+                              <div
+                                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                                  isFirst
+                                    ? "bg-sky-600 text-white"
+                                    : "bg-gray-100 text-gray-500"
+                                }`}
+                              >
+                                {idx + 1}
+                              </div>
+
+                              {/* Channel icon */}
+                              <div
+                                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${meta.ring}`}
+                              >
+                                <meta.Icon className={`h-4 w-4 ${isFirst ? "opacity-100" : "opacity-60"}`} />
+                              </div>
+
+                              {/* Label + desc */}
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-semibold text-gray-900">
+                                    {meta.label}
+                                  </span>
+                                  <span
+                                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold ${meta.badge}`}
+                                  >
+                                    {isFirst ? "Primary" : `Fallback ${idx + 1}`}
+                                  </span>
+                                </div>
+                                <p className="mt-0.5 text-[11px] text-gray-400">{meta.desc}</p>
+                              </div>
+
+                              {/* Active dot */}
+                              <div
+                                className={`h-2 w-2 shrink-0 rounded-full ${meta.dot} ${
+                                  isFirst ? "opacity-100" : "opacity-30"
+                                }`}
+                              />
+                            </div>
+                          )}
+                        </Draggable>
+                      );
+                    })}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
+
+            {/* Arrow flow summary */}
+            <div className="mt-3 flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
+              <span className="font-medium text-gray-600">Delivery order:</span>
+              {channels.map((ch, idx) => (
+                <span key={ch} className="flex items-center gap-1">
+                  <span
+                    className={`rounded-md border px-1.5 py-0.5 font-semibold ${CHANNEL_META[ch].badge}`}
+                  >
+                    {CHANNEL_META[ch].label}
+                  </span>
+                  {idx < channels.length - 1 && (
+                    <ChevronRight className="h-3 w-3 text-gray-300" />
+                  )}
+                </span>
+              ))}
+            </div>
+
+            {/* Actions */}
+            {isDirty && (
+              <div className="mt-4 flex items-center justify-end gap-2">
+                <button
+                  onClick={revert}
+                  disabled={saving}
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  Revert
+                </button>
+                <button
+                  onClick={() => void save()}
+                  disabled={saving}
+                  className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-sky-700 disabled:opacity-60"
+                >
+                  {saving ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <CheckCheck className="h-3 w-3" />
+                  )}
+                  Save Order
+                </button>
+              </div>
+            )}
+            {!isDirty && (
+              <p className="mt-3 text-right text-[11px] text-muted-foreground">
+                Saved order: <span className="font-medium">{saved.join(" → ")}</span>
+              </p>
+            )}
+          </>
         )}
       </div>
     </ProCard>
