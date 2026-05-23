@@ -20,6 +20,7 @@ import {
 } from "../lib/response.js";
 import { storageDownloadPrivate, storageUpload, storageUploadPrivate } from "../lib/storage.js";
 import { registerUploadLimiter } from "../middleware/rate-limit.js";
+import { redisClient } from "../lib/redis.js";
 import {
   customerAuth,
   getCachedSettings,
@@ -30,71 +31,179 @@ import {
 import { verifyAccessToken } from "../utils/admin-jwt.js";
 
 /* ── Server-side registration upload nonce store ─────────────────────────
-   Each call to POST /uploads/register-token issues a UUID nonce stored in
-   this in-memory Map. The nonce is ONE-TIME USE: consumed on the first
-   successful POST /uploads/register and deleted from the map.
-   A second Map records which nonce owns each uploaded document so that
-   GET /uploads/reg/:key can enforce owner-or-admin access.
+   Each call to POST /uploads/register-token issues a UUID nonce. When Redis
+   is available the nonce lives in a Redis string key with a TTL so it is
+   shared across instances and survives a single-instance restart gracefully.
+   When Redis is unavailable (local dev without Redis configured) the helpers
+   fall back to in-memory Maps — upload flows still work, but nonces are lost
+   on restart and not shared across instances.
+
+   Redis key scheme:
+     upload:nonce:{nonce}  → JSON { exp, consumed }  TTL = REG_TOKEN_TTL_MS
+     upload:doc:{docKey}   → nonce string             TTL = 24 h (doc lifetime)
 */
 const REG_TOKEN_TTL_MS = 30 * 60 * 1000; /* 30 minutes */
-const MAX_PENDING_NONCES = 500;
+const DOC_TTL_MS = 24 * 60 * 60 * 1000; /* 24 hours */
 
 interface PendingNonce {
   exp: number;
   consumed: boolean;
 }
-const pendingNonces = new Map<string, PendingNonce>();
-const docNonces = new Map<string, string>(); /* docKey → nonce */
 
-function pruneNonces(): void {
-  const now = Date.now();
-  for (const [nonce, info] of pendingNonces) {
-    if (info.exp < now) pendingNonces.delete(nonce);
-  }
-  for (const [key, nonce] of docNonces) {
-    if (!pendingNonces.has(nonce)) docNonces.delete(key);
-  }
+/* ── In-memory fallback (used when Redis is not configured) ─────────────── */
+const _memNonces = new Map<string, PendingNonce>();
+const _memDocNonces = new Map<string, string>(); /* docKey → nonce */
+
+let _warnedNoRedis = false;
+function _warnFallback() {
+  if (_warnedNoRedis) return;
+  _warnedNoRedis = true;
+  logger.warn(
+    "[uploads] Redis unavailable — upload nonces stored in-memory. " +
+      "Nonces will not be shared across instances and will be lost on restart. " +
+      "Set REDIS_URL to enable persistent shared nonce storage."
+  );
 }
 
-function issueNonce(): string {
-  if (pendingNonces.size >= MAX_PENDING_NONCES) pruneNonces();
+function _memIssueNonce(): string {
+  const now = Date.now();
+  /* Prune expired entries to prevent unbounded growth */
+  for (const [n, info] of _memNonces) {
+    if (info.exp < now) _memNonces.delete(n);
+  }
+  for (const [k, n] of _memDocNonces) {
+    if (!_memNonces.has(n)) _memDocNonces.delete(k);
+  }
   const nonce = randomUUID();
-  pendingNonces.set(nonce, { exp: Date.now() + REG_TOKEN_TTL_MS, consumed: false });
+  _memNonces.set(nonce, { exp: now + REG_TOKEN_TTL_MS, consumed: false });
   return nonce;
 }
 
-/** Validate and atomically consume a nonce (one-time use). */
-function consumeNonce(nonce: string): boolean {
+function _memConsumeNonce(nonce: string): boolean {
   if (!nonce) return false;
-  const info = pendingNonces.get(nonce);
+  const info = _memNonces.get(nonce);
   if (!info) return false;
-  if (info.exp < Date.now()) {
-    pendingNonces.delete(nonce);
-    return false;
-  }
+  if (info.exp < Date.now()) { _memNonces.delete(nonce); return false; }
   if (info.consumed) return false;
   info.consumed = true;
   return true;
 }
 
-/** Associate docKey with the nonce that uploaded it (used for access check). */
-function bindDocToNonce(docKey: string, nonce: string): void {
-  /* Keep the nonce entry alive (even though consumed) for the doc lifetime.
-     Reset consumed flag so the GET endpoint can re-validate without re-issuing. */
-  const info = pendingNonces.get(nonce);
+function _memBindDocToNonce(docKey: string, nonce: string): void {
+  const info = _memNonces.get(nonce);
   if (info) {
-    docNonces.set(docKey, nonce);
-    /* extend expiry 24h so admins can review before cleanup */
-    info.exp = Date.now() + 24 * 60 * 60 * 1000;
+    _memDocNonces.set(docKey, nonce);
+    info.exp = Date.now() + DOC_TTL_MS;
   }
 }
 
-/** Returns true if the supplied nonce is authorised to read the given docKey. */
-function nonceCanReadDoc(docKey: string, nonce: string): boolean {
-  const stored = docNonces.get(docKey);
+function _memNonceCanReadDoc(docKey: string, nonce: string): boolean {
+  const stored = _memDocNonces.get(docKey);
   if (!stored || stored !== nonce) return false;
-  const info = pendingNonces.get(nonce);
+  const info = _memNonces.get(nonce);
   return info !== undefined && info.exp > Date.now();
+}
+
+/* ── Public async nonce API ─────────────────────────────────────────────── */
+
+async function issueNonce(): Promise<string> {
+  const nonce = randomUUID();
+  if (!redisClient) {
+    _warnFallback();
+    return _memIssueNonce();
+  }
+  const payload: PendingNonce = { exp: Date.now() + REG_TOKEN_TTL_MS, consumed: false };
+  await redisClient.set(
+    `upload:nonce:${nonce}`,
+    JSON.stringify(payload),
+    "PX",
+    REG_TOKEN_TTL_MS
+  );
+  return nonce;
+}
+
+/** Validate and atomically consume a nonce (one-time use). */
+async function consumeNonce(nonce: string): Promise<boolean> {
+  if (!nonce) return false;
+  if (!redisClient) {
+    _warnFallback();
+    return _memConsumeNonce(nonce);
+  }
+  const key = `upload:nonce:${nonce}`;
+  /* Lua script: atomic read-check-update to prevent races */
+  const CONSUME_LUA = `
+    local raw = redis.call('GET', KEYS[1])
+    if not raw then return 0 end
+    local data = cjson.decode(raw)
+    if data.consumed then return 0 end
+    local now = tonumber(ARGV[1])
+    if data.exp < now then
+      redis.call('DEL', KEYS[1])
+      return 0
+    end
+    data.consumed = true
+    local pttl = redis.call('PTTL', KEYS[1])
+    if pttl < 1 then pttl = 1 end
+    redis.call('SET', KEYS[1], cjson.encode(data), 'PX', pttl)
+    return 1
+  `;
+  const result = await (redisClient as import("ioredis").Redis).eval(
+    CONSUME_LUA,
+    1,
+    key,
+    String(Date.now())
+  ) as number;
+  return result === 1;
+}
+
+/** Associate docKey with the nonce that uploaded it (used for access check). */
+async function bindDocToNonce(docKey: string, nonce: string): Promise<void> {
+  if (!redisClient) {
+    _warnFallback();
+    _memBindDocToNonce(docKey, nonce);
+    return;
+  }
+  const nonceKey = `upload:nonce:${nonce}`;
+  const docKey_ = `upload:doc:${docKey}`;
+  /* Extend the nonce TTL to doc lifetime so admins can review. */
+  const BIND_LUA = `
+    local raw = redis.call('GET', KEYS[1])
+    if not raw then return 0 end
+    local data = cjson.decode(raw)
+    data.exp = tonumber(ARGV[1])
+    redis.call('SET', KEYS[1], cjson.encode(data), 'PX', tonumber(ARGV[2]))
+    redis.call('SET', KEYS[2], ARGV[3], 'PX', tonumber(ARGV[2]))
+    return 1
+  `;
+  const expAt = Date.now() + DOC_TTL_MS;
+  await (redisClient as import("ioredis").Redis).eval(
+    BIND_LUA,
+    2,
+    nonceKey,
+    docKey_,
+    String(expAt),
+    String(DOC_TTL_MS),
+    nonce
+  );
+}
+
+/** Returns true if the supplied nonce is authorised to read the given docKey. */
+async function nonceCanReadDoc(docKey: string, nonce: string): Promise<boolean> {
+  if (!redisClient) {
+    _warnFallback();
+    return _memNonceCanReadDoc(docKey, nonce);
+  }
+  const stored = await redisClient.get(`upload:doc:${docKey}`);
+  if (!stored || stored !== nonce) return false;
+  /* Verify the nonce key itself still exists and isn't expired */
+  const raw = await redisClient.get(`upload:nonce:${nonce}`);
+  if (!raw) return false;
+  try {
+    const data = JSON.parse(raw) as PendingNonce;
+    return data.exp > Date.now();
+  } catch {
+    return false;
+  }
 }
 
 /* ── Combined user + admin auth for the registration-doc proxy ────────────
@@ -434,9 +543,9 @@ router.post(
    mintable stateless token.
    Rate-limited by registerUploadLimiter (10 req/60 min/IP).
 */
-router.post("/register-token", registerUploadLimiter, (_req, res) => {
+router.post("/register-token", registerUploadLimiter, async (_req, res) => {
   try {
-    const nonce = issueNonce();
+    const nonce = await issueNonce();
     res.status(200).json({ success: true, token: nonce, expiresIn: REG_TOKEN_TTL_MS / 1000 });
   } catch (e: unknown) {
     sendError(res, e instanceof Error ? e.message : "Failed to generate token");
@@ -474,7 +583,7 @@ router.post(
        Each nonce is issued by POST /uploads/register-token, tracked in memory,
        and can only be used once. Replay or forged tokens are rejected. */
     const uploadToken = req.headers["x-upload-token"] as string | undefined;
-    if (!uploadToken || !consumeNonce(uploadToken)) {
+    if (!uploadToken || !await consumeNonce(uploadToken)) {
       res.status(403).json({
         success: false,
         error:
@@ -518,7 +627,7 @@ router.post(
       await storageUploadPrivate(processed, key, mimetype);
 
       /* Bind the doc key to the nonce so the GET proxy can enforce ownership. */
-      bindDocToNonce(key, uploadToken);
+      await bindDocToNonce(key, uploadToken);
 
       /* Return an opaque server-relative path AND the download nonce.
          The client must pass the nonce as x-doc-nonce when retrieving the doc.
@@ -578,7 +687,7 @@ router.get("/reg/:key", async (req, res) => {
   }
 
   /* Check owner nonce (required for non-admin callers) */
-  const isOwner = docNonce ? nonceCanReadDoc(key, docNonce) : false;
+  const isOwner = docNonce ? await nonceCanReadDoc(key, docNonce) : false;
 
   if (!isAdmin && !isOwner) {
     res.status(403).json({
