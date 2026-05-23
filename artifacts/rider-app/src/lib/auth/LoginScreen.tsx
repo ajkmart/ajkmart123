@@ -72,6 +72,9 @@ export default function LoginScreen({ onSuccess }: LoginScreenProps) {
   /* ── Social ── */
   const [socialLoading, setSocialLoading] = useState<"google" | "facebook" | null>(null);
 
+  /* ── Dev OTP display (only when DEV + VITE_ALLOW_DEV_OTP=true) ── */
+  const [devOtp, setDevOtp] = useState("");
+
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const timer = setTimeout(() => setResendCooldown((v) => v - 1), 1000);
@@ -130,6 +133,14 @@ export default function LoginScreen({ onSuccess }: LoginScreenProps) {
       setError(result.error ?? (T("sendOtpFailed") as string));
       return;
     }
+    const resData = result.data as Record<string, unknown> | undefined;
+    setDevOtp(
+      resData?.otp &&
+      import.meta.env.DEV &&
+      import.meta.env.VITE_ALLOW_DEV_OTP === "true"
+        ? String(resData.otp)
+        : ""
+    );
     setOtp("");
     setOtpSent(true);
     setResendCooldown(60);
@@ -804,7 +815,13 @@ export default function LoginScreen({ onSuccess }: LoginScreenProps) {
                 </div>
                 <input
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => {
+                    let v = e.target.value.replace(/\D/g, "");
+                    if (v.startsWith("92")) v = v.slice(2);
+                    if (v.startsWith("0") && v.length > 1) v = v;
+                    setPhone(v.slice(0, 11));
+                    setError(null);
+                  }}
                   placeholder="03XXXXXXXXX"
                   maxLength={11}
                   style={{
@@ -843,6 +860,19 @@ export default function LoginScreen({ onSuccess }: LoginScreenProps) {
             >
               {sending ? "Sending OTP…" : "Send OTP"}
             </button>
+            <div style={{ textAlign: "right", marginTop: -4 }}>
+              <Link
+                href="/forgot-password"
+                style={{
+                  fontSize: 12,
+                  color: theme.primary,
+                  textDecoration: "none",
+                  fontWeight: 600,
+                }}
+              >
+                Forgot Password?
+              </Link>
+            </div>
           </div>
         )}
 
@@ -854,6 +884,22 @@ export default function LoginScreen({ onSuccess }: LoginScreenProps) {
                 {phone}
               </p>
             </div>
+            {devOtp && import.meta.env.DEV && import.meta.env.VITE_ALLOW_DEV_OTP === "true" && (
+              <div
+                style={{
+                  background: "#1a2035",
+                  border: "1px solid #2d3a55",
+                  borderRadius: 8,
+                  padding: "8px 12px",
+                  fontSize: 12,
+                  color: "#94a3b8",
+                  textAlign: "center",
+                }}
+              >
+                🔧 Dev Mode — OTP:{" "}
+                <strong style={{ color: theme.primary, fontSize: 14 }}>{devOtp}</strong>
+              </div>
+            )}
             <OtpInput
               onComplete={(v) => {
                 setOtp(v);
@@ -906,6 +952,7 @@ export default function LoginScreen({ onSuccess }: LoginScreenProps) {
               <button
                 onClick={() => {
                   setOtp("");
+                  setDevOtp("");
                   setOtpSent(false);
                 }}
                 style={{
@@ -918,6 +965,19 @@ export default function LoginScreen({ onSuccess }: LoginScreenProps) {
               >
                 Change Number
               </button>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <Link
+                href="/forgot-password"
+                style={{
+                  fontSize: 12,
+                  color: theme.textMuted,
+                  textDecoration: "none",
+                  fontWeight: 500,
+                }}
+              >
+                Forgot Password?
+              </Link>
             </div>
           </div>
         )}
@@ -983,6 +1043,19 @@ export default function LoginScreen({ onSuccess }: LoginScreenProps) {
                   <Mail size={17} />
                   {emailSending ? "Sending…" : "Send OTP"}
                 </button>
+                <div style={{ textAlign: "right", marginTop: -4 }}>
+                  <Link
+                    href="/forgot-password"
+                    style={{
+                      fontSize: 12,
+                      color: theme.primary,
+                      textDecoration: "none",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Forgot Password?
+                  </Link>
+                </div>
               </>
             ) : (
               <>
@@ -1056,6 +1129,19 @@ export default function LoginScreen({ onSuccess }: LoginScreenProps) {
                   >
                     Change Email
                   </button>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <Link
+                    href="/forgot-password"
+                    style={{
+                      fontSize: 12,
+                      color: theme.textMuted,
+                      textDecoration: "none",
+                      fontWeight: 500,
+                    }}
+                  >
+                    Forgot Password?
+                  </Link>
                 </div>
               </>
             )}
