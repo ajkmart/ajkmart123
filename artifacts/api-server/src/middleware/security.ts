@@ -46,6 +46,9 @@ export async function isAdminIpWhitelisted(ip: string): Promise<boolean> {
   try {
     const settings = await getCachedSettings();
     const raw = (settings["security_admin_ip_whitelist"] ?? "").trim();
+    // Empty whitelist = no IP restriction (allow all). This is the deliberate
+    // opt-in design: admins must explicitly list IPs/CIDRs to restrict access.
+    // Non-empty = restrict to listed IPs/CIDRs only.
     if (!raw) return true;
     if (ip === "unknown") return false;
     const entries = raw
