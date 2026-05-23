@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import { db } from "@workspace/db";
 import {
   liveLocationsTable,
@@ -50,6 +51,12 @@ interface RegisteredJob {
    only one server instance runs each cleanup job at a time in a multi-instance
    deployment.  When Redis is unavailable (redisClient === null) the lock is
    skipped and the job runs normally — graceful single-node degradation. */
+/* Lua script: atomically delete the key ONLY if its value matches our token.
+   This prevents an expiry-then-reacquire race where Instance A's blind DEL
+   would remove Instance B's freshly-acquired lock. */
+const LUA_RELEASE_LOCK =
+  'if redis.call("get",KEYS[1])==ARGV[1] then return redis.call("del",KEYS[1]) else return 0 end';
+
 async function withDistributedLock(
   label: string,
   intervalMs: number,
@@ -60,13 +67,16 @@ async function withDistributedLock(
     return;
   }
   const lockKey = `scheduler:lock:${label}`;
-  /* TTL = 80% of the interval so the lock always expires before the next tick,
-     with a minimum of 30 s so fast jobs don't release the lock too early. */
-  const ttlMs = Math.max(30_000, Math.floor(intervalMs * 0.8));
+  /* TTL = 2× interval — safely exceeds worst-case job duration while keeping
+     crash-recovery lag bounded to at most two missed ticks.
+     Minimum 60 s so very-frequent jobs also get a safe window. */
+  const ttlMs = Math.max(60_000, intervalMs * 2);
+  /* Unique token prevents blind-DEL race: only the holder can release its lock. */
+  const lockToken = randomBytes(16).toString("hex");
   let acquired = false;
   let result: string | null = null;
   try {
-    result = await redisClient.set(lockKey, "1", "PX", ttlMs, "NX");
+    result = await redisClient.set(lockKey, lockToken, "PX", ttlMs, "NX");
   } catch (redisErr) {
     /* Redis command failed (connection drop / timeout) — run without lock so
        the job still executes in degraded mode rather than being silently skipped. */
@@ -85,9 +95,12 @@ async function withDistributedLock(
   try {
     await fn();
   } finally {
-    redisClient.del(lockKey).catch((e: Error) =>
-      logger.warn({ err: e.message, job: label }, "[scheduler] lock release failed")
-    );
+    /* Compare-and-delete: only removes the lock when it still holds our token */
+    redisClient
+      .eval(LUA_RELEASE_LOCK, 1, lockKey, lockToken)
+      .catch((e: Error) =>
+        logger.warn({ err: e.message, job: label }, "[scheduler] lock release failed")
+      );
   }
 }
 

@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import { rideNotifiedRidersTable } from "@workspace/db/schema";
 import { Router } from "express";
 import { redisClient } from "../../lib/redis.js";
@@ -344,16 +345,24 @@ async function runDispatchCycle() {
    lock is skipped and the cycle runs normally (graceful degradation). */
 const DISPATCH_INTERVAL_MS = 10_000;
 const DISPATCH_LOCK_KEY = "scheduler:lock:dispatch-engine";
-const DISPATCH_LOCK_TTL_MS = 8_000; // shorter than interval so lock always expires
+/* TTL = 60 s — 6× the interval, comfortably exceeds worst-case cycle execution
+   (up to 50 rides × DB + socket work) while still recovering within 6 ticks on crash.
+   Compare-and-delete via Lua ensures an expired+reacquired lock is never blindly removed. */
+const DISPATCH_LOCK_TTL_MS = 60_000;
+const LUA_RELEASE_DISPATCH_LOCK =
+  'if redis.call("get",KEYS[1])==ARGV[1] then return redis.call("del",KEYS[1]) else return 0 end';
 
 async function runDispatchCycleWithLock(): Promise<void> {
   if (!redisClient) {
     await runDispatchCycle();
     return;
   }
+  /* Unique ownership token per acquisition — prevents blind-DEL from removing
+     a lock that expired and was reacquired by another instance mid-run. */
+  const lockToken = randomBytes(16).toString("hex");
   let result: string | null = null;
   try {
-    result = await redisClient.set(DISPATCH_LOCK_KEY, "1", "PX", DISPATCH_LOCK_TTL_MS, "NX");
+    result = await redisClient.set(DISPATCH_LOCK_KEY, lockToken, "PX", DISPATCH_LOCK_TTL_MS, "NX");
   } catch (redisErr) {
     /* Redis command failed — run the cycle without a lock so dispatch continues
        in degraded single-node mode rather than being silently dropped. */
@@ -372,9 +381,12 @@ async function runDispatchCycleWithLock(): Promise<void> {
   try {
     await runDispatchCycle();
   } finally {
-    redisClient.del(DISPATCH_LOCK_KEY).catch((e: Error) =>
-      logger.warn({ err: e.message }, "[dispatch-engine] lock release failed")
-    );
+    /* Atomically release only if we still own the lock */
+    redisClient
+      .eval(LUA_RELEASE_DISPATCH_LOCK, 1, DISPATCH_LOCK_KEY, lockToken)
+      .catch((e: Error) =>
+        logger.warn({ err: e.message }, "[dispatch-engine] lock release failed")
+      );
   }
 }
 
