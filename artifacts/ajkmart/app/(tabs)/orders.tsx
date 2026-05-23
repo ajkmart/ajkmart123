@@ -755,9 +755,9 @@ function ReviewModal({ target, userId, apiBase, token, language, onClose, onDone
       if (!res.ok) {
         const body = await res.json().catch(() => ({})) as Record<string, unknown>;
         if (body["expired"]) {
-          setError(tDual("reviewWindowExpired", language));
+          setError(t("reviewWindowExpired"));
         } else {
-          setError(tDual("reviewSubmitError", language));
+          setError(t("reviewSubmitError"));
         }
         return;
       }
@@ -765,7 +765,7 @@ function ReviewModal({ target, userId, apiBase, token, language, onClose, onDone
       onDone(String(target.id));
       onClose();
     } catch {
-      setError(tDual("reviewSubmitError", language));
+      setError(t("reviewSubmitError"));
     } finally {
       setLoading(false);
     }

@@ -52,6 +52,8 @@ function EditProfileModal({ visible, onClose }: { visible: boolean; onClose: () 
   const { user, updateUser, token } = useAuth();
   const { showToast } = useToast();
   const { config: platformConfig } = usePlatformConfig();
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
   const [name,        setName]       = useState(user?.name  || "");
   const [email,       setEmail]      = useState(user?.email || "");
   const [cnic,        setCnic]       = useState(user?.cnic  || "");
@@ -558,6 +560,7 @@ function PrivacyModal({ visible, userId, token, onClose }: { visible: boolean; u
   const { biometricEnabled, setBiometricEnabled, user, updateUser } = useAuth();
   const { config } = usePlatformConfig();
   const { language: currentLang, setLanguage, loading: langLoading } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, currentLang);
   const [cfg,     setCfg]     = useState<Record<string, boolean>>({});
   const cfgRef = React.useRef<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
@@ -1007,6 +1010,8 @@ const AJK_CITIES = ["Muzaffarabad","Mirpur","Rawalakot","Bagh","Kotli","Bhimber"
 
 function AddressesModal({ visible, userId, token, onClose }: { visible: boolean; userId: string; token?: string; onClose: () => void }) {
   const { showToast } = useToast();
+  const { language } = useLanguage();
+  const T = (key: TranslationKey) => tDual(key, language);
   const [list,    setList]    = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
