@@ -325,7 +325,7 @@ export default function OtpControl() {
     setStatusLoading(true);
     try {
       const d = await api("GET", "/otp/status");
-      if (d?.data) setStatus(d.data);
+      if (d) setStatus(d as OTPStatus);
     } catch (_err) {
       toast({ title: "Failed to load OTP status", variant: "destructive" });
     } finally {

@@ -7,7 +7,7 @@
 
 import { checkOTPBypass, logOTPBypassEvent } from "../../lib/auth-otp-bypass.js";
 import { logger } from "../../lib/logger.js";
-import { getCachedSettings } from "../../middleware/security.js";
+import { getCachedSettings, writeAuthAuditLog } from "../../middleware/security.js";
 import { NotificationService } from "../../services/admin-notification.service.js";
 import { OTP_CONFIG } from "./otp.config.js";
 import { deliverOtp, getAvailableChannels } from "./otp.deliver.js";
@@ -107,6 +107,20 @@ export async function sendOtp(options: OtpSendOptions): Promise<OtpSendResult> {
         bypass.reason ?? "unknown",
         { otpType }
       );
+
+      /* Also mirror the event into authAuditLogTable so the admin OTP audit
+         log (which reads that table) can display otp_send_bypassed rows.
+         logOTPBypassEvent writes to otpBypassAuditTable only; without this
+         second write the event is invisible to the audit log UI. */
+      void writeAuthAuditLog("otp_send_bypassed", {
+        userId: userId ?? undefined,
+        ip: ipAddress ?? "unknown",
+        metadata: {
+          reason: bypass.reason,
+          otpType,
+          channel: bypass.reason === "whitelist" ? "whitelist" : "bypass",
+        },
+      });
 
       // When a whitelist bypass is used, also log a login_whitelist_bypass event
       // and fire a security alert so admins are notified of bypass use.

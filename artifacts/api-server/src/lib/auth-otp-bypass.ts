@@ -170,7 +170,14 @@ export async function logOTPBypassEvent(
 export function createBypassResponse(bypassed: OTPBypassStatus) {
   return {
     otpRequired: !bypassed.isBypassed,
-    message: bypassed.isBypassed ? "OTP sent successfully" : "OTP verification required",
+    /* Message is what the customer-facing client should display.
+       When bypass is active no OTP was actually sent, so "OTP sent" would be
+       misleading — the app should skip OTP entry entirely.
+       When bypass is NOT active an OTP was just dispatched to the user's
+       phone/email, so "OTP sent successfully" is accurate there. */
+    message: bypassed.isBypassed
+      ? "OTP bypass active — no verification code required"
+      : "OTP sent successfully",
     channel: bypassed.reason === "whitelist" ? "whitelist" : "sms",
     fallbackChannels: bypassed.isBypassed ? [] : ["email", "whatsapp"],
     bypass: bypassed.isBypassed
