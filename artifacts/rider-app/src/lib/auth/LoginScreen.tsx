@@ -1194,6 +1194,9 @@ export default function LoginScreen({ onSuccess }: LoginScreenProps) {
                   outline: "none",
                 }}
               />
+              <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 4 }}>
+                Format: 03XX-XXXXXXX or username
+              </div>
             </div>
             <div>
               <label

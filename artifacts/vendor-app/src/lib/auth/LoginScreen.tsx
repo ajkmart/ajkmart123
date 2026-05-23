@@ -1046,6 +1046,9 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
                 autoFocus
                 style={inputStyle}
               />
+              <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 4 }}>
+                Format: 03XX-XXXXXXX or username
+              </div>
             </div>
             <div>
               <label
