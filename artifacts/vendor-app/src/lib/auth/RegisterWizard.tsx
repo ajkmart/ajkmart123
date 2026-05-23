@@ -202,40 +202,64 @@ function DocumentsStep({ data, onChange, onError }: StepComponentProps) {
           maxLength={15}
           inputMode="numeric"
         />
+        <p style={{ color: "#6B7280", fontSize: 11, margin: "4px 0 0" }}>
+          Format: 12345-1234567-1 (auto-formatted) · Optional
+        </p>
         {(data.cnic as string)?.length > 0 && !isValidCnic((data.cnic as string) ?? "") && (
-          <p style={{ color: "#f87171", fontSize: 11, margin: "4px 0 0" }}>
-            Format must be: XXXXX-XXXXXXX-X (e.g. 12345-1234567-1)
+          <p style={{ color: "#f87171", fontSize: 11, margin: "2px 0 0" }}>
+            ✗ Format must be: XXXXX-XXXXXXX-X (e.g. 12345-1234567-1)
           </p>
         )}
         {(data.cnic as string)?.length > 0 && isValidCnic((data.cnic as string) ?? "") && (
-          <p style={{ color: "#10b981", fontSize: 11, margin: "4px 0 0" }}>✓ Valid CNIC format</p>
+          <p style={{ color: "#10b981", fontSize: 11, margin: "2px 0 0" }}>✓ Valid CNIC format</p>
         )}
-        <p style={{ color: "#6B7280", fontSize: 11, margin: "4px 0 0" }}>
-          Optional — you can add this in your profile after approval.
-        </p>
       </div>
       <div>
         <label style={labelStyle(pr)}>{T("phoneNumber")} *</label>
-        <input
-          style={darkInput()}
-          value={(data.phone as string) ?? ""}
-          onChange={(e) => {
-            onChange("phone", e.target.value);
-            onError("");
-          }}
-          onBlur={() => {
-            const phone = String(data.phone ?? "").trim();
-            if (phone && !isValidPhone(phone)) {
-              onError("Enter a valid Pakistani mobile number (03XXXXXXXXX or +92XXXXXXXXX)");
-            }
-          }}
-          placeholder="03XXXXXXXXX or +92XXXXXXXXXX"
-          inputMode="tel"
-          maxLength={15}
-        />
+        <div style={{ display: "flex", gap: 8 }}>
+          <div
+            style={{
+              height: 48,
+              padding: "0 12px",
+              background: "#0F1117",
+              border: "1.5px solid #252D3A",
+              borderRadius: 12,
+              display: "flex",
+              alignItems: "center",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#6B7280",
+              flexShrink: 0,
+            }}
+          >
+            +92
+          </div>
+          <input
+            style={darkInput({ flex: 1 } as React.CSSProperties)}
+            value={(data.phone as string) ?? ""}
+            onChange={(e) => {
+              let v = e.target.value.replace(/\D/g, "");
+              if (v.startsWith("92")) v = v.slice(2);
+              onChange("phone", v.slice(0, 11));
+              onError("");
+            }}
+            onBlur={() => {
+              const phone = String(data.phone ?? "").trim();
+              if (phone && !isValidPhone(phone)) {
+                onError("Enter a valid Pakistani mobile number (03XXXXXXXXX)");
+              }
+            }}
+            placeholder="03XXXXXXXXX"
+            inputMode="tel"
+            maxLength={11}
+          />
+        </div>
+        <p style={{ color: "#6B7280", fontSize: 11, margin: "4px 0 0" }}>
+          Format: 03XX-XXXXXXX or +923XX-XXXXXXX (auto-cleaned)
+        </p>
         {(data.phone as string)?.length > 0 && !isValidPhone(String(data.phone ?? "")) && (
           <p style={{ color: "#ef4444", fontSize: 11, margin: "4px 0 0" }}>
-            Enter a valid Pakistani mobile number (03XXXXXXXXX)
+            ✗ Enter a valid Pakistani mobile number (03XXXXXXXXX)
           </p>
         )}
         {(data.phone as string)?.length > 0 && isValidPhone(String(data.phone ?? "")) && (
@@ -783,7 +807,7 @@ function OtpPasswordStep({ data, onChange, onError }: StepComponentProps) {
               </button>
             </div>
             {passwordsMismatch && (
-              <p style={{ fontSize: 10, color: "#ef4444", marginTop: 4 }}>Passwords do not match</p>
+              <p style={{ fontSize: 10, color: "#ef4444", marginTop: 4 }}>✗ Passwords do not match</p>
             )}
             {passwordsMatch && (
               <p style={{ fontSize: 10, color: "#10b981", marginTop: 4 }}>✓ Passwords match</p>
