@@ -592,6 +592,7 @@ export class UserService {
       "admin_otp_generate",
       "admin_otp_global_disable",
       "admin_otp_global_restore",
+      "admin_clear_otp_attempts",
     ];
 
     const conditions: any[] = [

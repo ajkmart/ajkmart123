@@ -142,7 +142,16 @@ type OtpWhitelistEntry = {
   updatedAt: string;
 };
 
-type OtpAuditEvent = "login_otp_bypass" | "login_global_otp_bypass" | "otp_send_bypassed";
+type OtpAuditEvent =
+  | "admin_otp_bypass_set"
+  | "admin_otp_bypass_cancel"
+  | "admin_otp_generate"
+  | "admin_otp_global_disable"
+  | "admin_otp_global_restore"
+  | "admin_clear_otp_attempts"
+  | "login_otp_bypass"
+  | "login_global_otp_bypass"
+  | "otp_send_bypassed";
 
 type AuditRow = {
   id: string;
@@ -340,15 +349,7 @@ export default function OtpControl() {
     try {
       const d = await api("GET", "/otp/audit?page=1");
       if (d?.entries) {
-        const bypass = (d.entries as AuditRow[])
-          .filter(
-            (e) =>
-              e.event === "login_otp_bypass" ||
-              e.event === "login_global_otp_bypass" ||
-              e.event === "otp_send_bypassed"
-          )
-          .slice(0, 20);
-        setAuditRows(bypass);
+        setAuditRows((d.entries as AuditRow[]).slice(0, 20));
       }
     } catch (err) {
       toast({
@@ -659,18 +660,36 @@ export default function OtpControl() {
   };
 
   const eventLabel: Record<OtpAuditEvent, string> = {
-    login_otp_bypass: "Per-user bypass",
-    login_global_otp_bypass: "Global suspension",
+    admin_otp_bypass_set: "Bypass granted",
+    admin_otp_bypass_cancel: "Bypass revoked",
+    admin_otp_generate: "OTP generated",
+    admin_otp_global_disable: "OTP suspended",
+    admin_otp_global_restore: "Suspension lifted",
+    admin_clear_otp_attempts: "Rate-limit cleared",
+    login_otp_bypass: "Per-user bypass used",
+    login_global_otp_bypass: "Global bypass used",
     otp_send_bypassed: "OTP send bypassed",
   };
 
   const eventColors: Record<OtpAuditEvent, string> = {
-    login_otp_bypass: "bg-blue-500",
-    login_global_otp_bypass: "bg-orange-500",
-    otp_send_bypassed: "bg-purple-500",
+    admin_otp_bypass_set: "bg-blue-500",
+    admin_otp_bypass_cancel: "bg-gray-400",
+    admin_otp_generate: "bg-purple-500",
+    admin_otp_global_disable: "bg-orange-500",
+    admin_otp_global_restore: "bg-green-500",
+    admin_clear_otp_attempts: "bg-teal-500",
+    login_otp_bypass: "bg-blue-400",
+    login_global_otp_bypass: "bg-orange-400",
+    otp_send_bypassed: "bg-purple-400",
   };
 
   const eventBadgeColors: Record<OtpAuditEvent, string> = {
+    admin_otp_bypass_set: "bg-blue-50 text-blue-700 border-blue-200",
+    admin_otp_bypass_cancel: "bg-gray-50 text-gray-600 border-gray-200",
+    admin_otp_generate: "bg-purple-50 text-purple-700 border-purple-200",
+    admin_otp_global_disable: "bg-orange-50 text-orange-700 border-orange-200",
+    admin_otp_global_restore: "bg-green-50 text-green-700 border-green-200",
+    admin_clear_otp_attempts: "bg-teal-50 text-teal-700 border-teal-200",
     login_otp_bypass: "bg-blue-50 text-blue-700 border-blue-200",
     login_global_otp_bypass: "bg-orange-50 text-orange-700 border-orange-200",
     otp_send_bypassed: "bg-purple-50 text-purple-700 border-purple-200",

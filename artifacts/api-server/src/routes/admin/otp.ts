@@ -374,6 +374,19 @@ router.post("/users/:id/otp/bypass", async (req, res) => {
       async () => ({ success: true })
     );
 
+    void writeAuthAuditLog("admin_otp_bypass_set", {
+      userId: adminReq.adminId,
+      ip,
+      userAgent,
+      metadata: {
+        targetUserId: userId,
+        phone: user.phone,
+        minutes,
+        bypassUntil: bypassUntil.toISOString(),
+        adminId: adminReq.adminId,
+      },
+    });
+
     sendSuccess(res, {
       bypassUntil: bypassUntil.toISOString(),
       minutesGranted: minutes,
@@ -435,6 +448,17 @@ router.delete("/users/:id/otp/bypass", async (req, res) => {
       },
       async () => ({ success: true })
     );
+
+    void writeAuthAuditLog("admin_otp_bypass_cancel", {
+      userId: adminReq.adminId,
+      ip,
+      userAgent,
+      metadata: {
+        targetUserId: userId,
+        phone: user.phone,
+        adminId: adminReq.adminId,
+      },
+    });
 
     sendSuccess(res, {
       message: `Bypass revoked for ${user.phone || user.email}`,
