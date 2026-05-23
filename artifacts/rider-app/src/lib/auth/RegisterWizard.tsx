@@ -136,16 +136,22 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
   };
 
   /* ── Step 1: verify OTP → advance to step 2 ── */
-  const verifyPhoneOtp = () => {
-    if ((draft.otp ?? "").length !== 6) {
+  const verifyPhoneOtp = async () => {
+    const otp = draft.otp ?? "";
+    if (otp.length !== 6) {
       setError("Enter the complete 6-digit OTP");
       return;
     }
-    /* OTP is verified by the server at registration time — we just advance the
-       wizard here. The OTP code is stored in draft and submitted with the final
-       registerRider call so the server can validate it atomically. */
+    setOtpVerifying(true);
     setError(null);
-    setStep(2);
+    try {
+      await api.verifyOtp(draft.phone ?? "", otp);
+      setStep(2);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Invalid OTP. Please try again.");
+    } finally {
+      setOtpVerifying(false);
+    }
   };
 
   /* ── Step 4: upload a document ── */
@@ -173,29 +179,40 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
   };
 
   /* ── Step 4: submit application → advance to step 5 ── */
+  const CNIC_REGEX = /^\d{5}-\d{7}-\d{1}$/;
   const submit = async () => {
     if (!draft.vehiclePhoto || !draft.licensePhoto || !draft.cnicFrontPhoto || !draft.cnicBackPhoto)
       return setError("Please upload all required documents");
 
+    const cnicValue = draft.cnic?.trim() ?? "";
+    if (cnicValue && !CNIC_REGEX.test(cnicValue))
+      return setError("CNIC must be in format XXXXX-XXXXXXX-X (e.g. 12345-1234567-1)");
+
+    const usernameValue = draft.username?.trim() || undefined;
+    if (usernameValue && usernameValue.length < 3)
+      return setError("Username must be at least 3 characters");
+
     setError(null);
     setSubmitting(true);
     try {
+      const documents = JSON.stringify({
+        licensePhoto: draft.licensePhoto,
+        cnicFrontPhoto: draft.cnicFrontPhoto,
+        cnicBackPhoto: draft.cnicBackPhoto,
+      });
       await api.registerRider({
         name: draft.name?.trim() ?? "",
         phone: draft.phone?.trim() ?? "",
-        username: draft.username?.trim() || undefined,
-        otp: draft.otp,
-        cnic: draft.cnic?.trim() ?? "",
+        username: usernameValue,
+        cnic: cnicValue,
         vehicleType: draft.vehicleType?.trim() ?? "",
         vehiclePlate: draft.vehiclePlate?.trim() ?? "",
         drivingLicense: draft.drivingLicense?.trim() ?? "",
         vehicleRegistration: draft.vehicleRegistration?.trim() ?? "",
         vehiclePhoto: draft.vehiclePhoto,
-        licensePhoto: draft.licensePhoto,
-        cnicFrontPhoto: draft.cnicFrontPhoto,
-        cnicBackPhoto: draft.cnicBackPhoto,
+        documents,
         password: draft.password,
-      } as never);
+      });
       localStorage.removeItem(DRAFT_KEY);
       onDone?.();
       setStep(5);
@@ -431,11 +448,7 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
                 disabled={otpVerifying}
               />
               <button
-                onClick={() => {
-                  setOtpVerifying(true);
-                  verifyPhoneOtp();
-                  setOtpVerifying(false);
-                }}
+                onClick={() => void verifyPhoneOtp()}
                 disabled={otpVerifying || (draft.otp ?? "").length !== 6}
                 style={{
                   ...nextBtnStyle((draft.otp ?? "").length === 6 && !otpVerifying),
@@ -476,12 +489,18 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
           {/* ── Step 2: Personal Details ── */}
           {step === 2 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <input
-                value={draft.cnic ?? ""}
-                onChange={(e) => update("cnic", e.target.value)}
-                placeholder="CNIC XXXXX-XXXXXXX-X *"
-                style={inputStyle}
-              />
+              <div>
+                <input
+                  value={draft.cnic ?? ""}
+                  onChange={(e) => update("cnic", e.target.value)}
+                  placeholder="CNIC XXXXX-XXXXXXX-X *"
+                  style={inputStyle}
+                  maxLength={15}
+                />
+                <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 4 }}>
+                  Format: 12345-1234567-1 (dashes required)
+                </div>
+              </div>
               <div style={{ position: "relative" }}>
                 <input
                   type={showPassword ? "text" : "password"}
