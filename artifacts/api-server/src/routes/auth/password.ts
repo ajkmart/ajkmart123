@@ -459,6 +459,21 @@ router.post(
         return;
       }
 
+      const settings = await getCachedSettings();
+      const maxAttempts = parseInt(settings["security_login_max_attempts"] ?? "5", 10);
+      const lockoutMinutes = parseInt(settings["security_lockout_minutes"] ?? "30", 10);
+
+      // Fix B: IP-based lockout checked before DB lookup — prevents enumeration brute-force
+      const ipLockoutKey = `reset_ip:${ip}`;
+      const ipLockout = await checkLockout(ipLockoutKey, maxAttempts, lockoutMinutes);
+      if (ipLockout.locked) {
+        sendTooManyRequests(
+          res,
+          `Too many attempts. Try again in ${ipLockout.minutesLeft} minute(s).`
+        );
+        return;
+      }
+
       let user: typeof usersTable.$inferSelect | undefined;
       if (phone) {
         const canonPhone = canonicalizePhone(phone);
@@ -479,15 +494,14 @@ router.post(
       }
 
       if (!user) {
+        // Fix B: record IP attempt when identifier does not exist — prevents enumeration
+        await recordFailedAttempt(ipLockoutKey, maxAttempts, lockoutMinutes);
         sendError(res, "Invalid or expired code", 422);
         return;
       }
 
-      const settings = await getCachedSettings();
-      const maxAttempts = parseInt(settings["security_login_max_attempts"] ?? "5", 10);
-      const lockoutMinutes = parseInt(settings["security_lockout_minutes"] ?? "30", 10);
+      // Per-user lockout key checked after user is confirmed to exist
       const lockoutKey = `reset:${user.id}`;
-
       const lockout = await checkLockout(lockoutKey, maxAttempts, lockoutMinutes);
       if (lockout.locked) {
         sendTooManyRequests(
@@ -501,7 +515,15 @@ router.post(
       const identifierType = phone ? "phone" : "email";
       const activeToken = await getActiveOtpToken({ identifier, identifierType, otpType: "reset" });
       if (!activeToken || !verifyOtpHash(otp, activeToken.otpHash)) {
+        // Fix A (part 1): record failed attempt on wrong OTP
         await recordFailedAttempt(lockoutKey, maxAttempts, lockoutMinutes);
+        AuditService.log({
+          action: "verify_reset_otp_failed",
+          userId: user.id,
+          ip,
+          details: "Invalid or expired OTP supplied during password reset",
+          result: "fail",
+        });
         sendError(res, "Invalid or expired verification code", 422);
         return;
       }
@@ -516,6 +538,10 @@ router.post(
           updatedAt: new Date(),
         })
         .catch(() => undefined);
+
+      // Fix A (part 2): clear failed-attempt counter on successful OTP verification
+      await resetAttempts(lockoutKey);
+
       void writeAuthAuditLog("verify_reset_otp", {
         userId: user.id,
         ip,
