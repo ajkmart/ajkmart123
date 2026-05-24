@@ -172,6 +172,20 @@ router.post(
         return;
       }
 
+      const setPassSettings = await getCachedSettings();
+      const spMaxAttempts = parseInt(setPassSettings["security_login_max_attempts"] ?? "5", 10);
+      const spLockoutMinutes = parseInt(setPassSettings["security_lockout_minutes"] ?? "30", 10);
+      const spLockoutKey = `set_password:${userId}`;
+
+      const spLockout = await checkLockout(spLockoutKey, spMaxAttempts, spLockoutMinutes);
+      if (spLockout.locked) {
+        sendTooManyRequests(
+          res,
+          `Too many failed attempts. Try again in ${spLockout.minutesLeft} minute(s).`
+        );
+        return;
+      }
+
       /* If user has a non-temporary password, ALWAYS require the current password — no bypass.
      If requirePasswordChange is true (admin set a temp password), skip current-password
      check to allow the user to change it on first login without knowing the old hash. */
@@ -182,6 +196,14 @@ router.post(
           return;
         }
         if (!verifyPassword(currentPassword, user.passwordHash)) {
+          await recordFailedAttempt(spLockoutKey, spMaxAttempts, spLockoutMinutes);
+          AuditService.log({
+            action: "set_password_wrong_current",
+            userId,
+            ip: getClientIp(req),
+            details: "Wrong current password supplied during set-password",
+            result: "fail",
+          });
           const lang = await getPlatformDefaultLanguage();
           sendUnauthorized(res, t("currentPasswordIncorrect", lang));
           return;
@@ -212,6 +234,10 @@ router.post(
       await revokeAllUserRefreshTokens(userId, "PASSWORD_CHANGED").catch((err: unknown) => {
         logger.warn({ userId, err }, "[auth] revokeAllUserRefreshTokens after set-password failed");
       });
+
+      // Clear failed-attempt counter on successful password change
+      await resetAttempts(spLockoutKey);
+
       void writeAuthAuditLog("password_changed", {
         userId,
         ip: getClientIp(req),

@@ -28,9 +28,12 @@ import {
 import { emailOtpLimiter } from "../../middleware/rate-limit.js";
 import {
   addSecurityEvent,
+  checkLockout,
   getAccessTokenTtlSec,
   getCachedSettings,
   getClientIp,
+  recordFailedAttempt,
+  resetAttempts,
   sign2faChallengeToken,
   verifyCaptcha,
   writeAuthAuditLog,
@@ -112,22 +115,34 @@ router.post(
       }
 
       if (!isAuthMethodEnabled(settings, "auth_email_otp_enabled", user.roles ?? "customer")) {
-        sendErrorWithData(
-          res,
-          "Email OTP login is currently disabled for your account type.",
-          { code: "AUTH_METHOD_DISABLED" },
-          400
-        );
+        // Silent 200 — don't reveal that account exists but method is disabled for this role
+        sendSuccess(res, {
+          message: "If an account exists with this email, an OTP has been sent.",
+          channel: "email",
+        });
         return;
       }
 
-      if (user.isBanned) {
-        sendForbidden(res, "Your account has been suspended.");
+      const isPending = user.approvalStatus === "pending";
+      if (user.isBanned || (!user.isActive && !isPending)) {
+        // Normalize to silent 200 — prevents user enumeration via 403 status code
+        sendSuccess(res, {
+          message: "If an account exists with this email, an OTP has been sent.",
+          channel: "email",
+        });
         return;
       }
-      const isPending = user.approvalStatus === "pending";
-      if (!user.isActive && !isPending) {
-        sendForbidden(res, "Your account is inactive. Contact support.");
+
+      // Per-identifier send rate limit — prevents multi-IP OTP flooding
+      const emailSendKey = `email_otp_send:${normalized}`;
+      const EMAIL_SEND_MAX = 3;
+      const EMAIL_SEND_WINDOW_MIN = 30;
+      const emailSendLockout = await checkLockout(emailSendKey, EMAIL_SEND_MAX, EMAIL_SEND_WINDOW_MIN);
+      if (emailSendLockout.locked) {
+        sendTooManyRequests(
+          res,
+          `Too many requests. Try again in ${emailSendLockout.minutesLeft} minute(s).`
+        );
         return;
       }
 
@@ -139,6 +154,9 @@ router.post(
         userId: user.id,
         ipAddress: ip,
       });
+
+      // Record send against per-identifier counter
+      await recordFailedAttempt(emailSendKey, EMAIL_SEND_MAX, EMAIL_SEND_WINDOW_MIN);
 
       AuditService.log({
         action: "email_otp_sent",
@@ -435,6 +453,9 @@ router.post(
         userAgent: req.headers["user-agent"] ?? undefined,
         metadata: { method: "email_otp" },
       });
+
+      // Clear per-identifier send counter on successful login
+      await resetAttempts(`email_otp_send:${normalized}`).catch(() => undefined);
 
       // Post-OTP cross-app check
       const userRoles = (user.roles || "customer").split(",").map((r: string) => r.trim());
