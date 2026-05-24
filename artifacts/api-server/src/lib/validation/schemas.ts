@@ -563,15 +563,10 @@ export const VerifyResetOtpSchema = z
 /* ── Auth: reset-password ──────────────────────────────────────────── */
 export const ResetPasswordSchema = z
   .object({
-    phone: z.string().optional(),
-    email: z.string().email().optional(),
-    identifier: z.string().optional(),
-    otp: z
-      .string()
-      .length(6, "OTP must be exactly 6 digits")
-      .regex(/^\d{6}$/, "OTP must be 6 digits"),
+    resetToken: z.string().min(1, "Reset token is required"),
     newPassword: z.string().min(1, "New password is required"),
     totpCode: z.string().optional(),
+    captchaToken: z.string().optional(),
   })
   .strip();
 

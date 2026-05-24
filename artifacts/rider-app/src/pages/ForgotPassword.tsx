@@ -194,6 +194,7 @@ export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [devOtp, setDevOtp] = useState("");
+  const [resetToken, setResetToken] = useState("");
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
@@ -236,7 +237,10 @@ export default function ForgotPassword() {
         try {
           captchaToken = await executeCaptcha("forgot_password", captchaSiteKey);
         } catch (_e) {
-          log.debug({ err: _e }, "[ForgotPassword] captcha failed (send-otp) — proceeding without token");
+          log.debug(
+            { err: _e },
+            "[ForgotPassword] captcha failed (send-otp) — proceeding without token"
+          );
         }
         if (!captchaToken) {
           setError(String(T("captchaRequired")));
@@ -270,11 +274,46 @@ export default function ForgotPassword() {
     setLoading(false);
   };
 
-  /* ── Reset password ── */
-  const resetPassword = async (totpCode?: string) => {
+  /* ── Verify OTP and get reset token ── */
+  const verifyOtp = async () => {
     clearError();
     if (otp.length !== 6) {
       setError(String(T("enterOtpDigits")));
+      return;
+    }
+    setLoading(true);
+    try {
+      let captchaToken: string | undefined;
+      if (auth.captchaEnabled) {
+        try {
+          captchaToken = await executeCaptcha("verify_reset_otp", captchaSiteKey);
+        } catch (_e) {
+          log.debug(
+            { err: _e },
+            "[ForgotPassword] captcha failed (verify-otp) — proceeding without token"
+          );
+        }
+      }
+      const res = (await api.verifyResetOtp({
+        ...(method === "phone" ? { phone: formatPhoneForApi(phone) } : { email }),
+        otp,
+        ...(captchaToken ? { captchaToken } : {}),
+      })) as Record<string, unknown>;
+      const token = res.resetToken as string | undefined;
+      if (!token) throw new Error("No reset token received");
+      setResetToken(token);
+      setStep("new-password");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(T("verificationFailed")));
+    }
+    setLoading(false);
+  };
+
+  /* ── Reset password ── */
+  const resetPassword = async (totpCode?: string) => {
+    clearError();
+    if (!resetToken) {
+      setError("Session expired. Please try again.");
       return;
     }
     if (newPassword.length < 8) {
@@ -292,17 +331,14 @@ export default function ForgotPassword() {
         try {
           captchaToken = await executeCaptcha("reset_password", captchaSiteKey);
         } catch (_e) {
-          log.debug({ err: _e }, "[ForgotPassword] captcha failed (reset-password) — proceeding without token");
-        }
-        if (!captchaToken) {
-          setError(String(T("captchaRequired")));
-          setLoading(false);
-          return;
+          log.debug(
+            { err: _e },
+            "[ForgotPassword] captcha failed (reset-password) — proceeding without token"
+          );
         }
       }
       await api.resetPassword({
-        ...(method === "phone" ? { phone: formatPhoneForApi(phone) } : { email }),
-        otp,
+        resetToken,
         newPassword,
         ...(totpCode ? { totpCode } : {}),
         ...(captchaToken ? { captchaToken } : {}),
@@ -331,12 +367,14 @@ export default function ForgotPassword() {
           try {
             captchaToken = await executeCaptcha("reset_password_2fa", captchaSiteKey);
           } catch (_e) {
-            log.debug({ err: _e }, "[ForgotPassword] captcha failed (reset-2fa) — proceeding without token");
+            log.debug(
+              { err: _e },
+              "[ForgotPassword] captcha failed (reset-2fa) — proceeding without token"
+            );
           }
         }
         await api.resetPassword({
-          ...(method === "phone" ? { phone: formatPhoneForApi(phone) } : { email }),
-          otp,
+          resetToken,
           newPassword,
           totpCode: code,
           ...(captchaToken ? { captchaToken } : {}),
@@ -347,7 +385,7 @@ export default function ForgotPassword() {
       }
       setTwoFaLoading(false);
     },
-    [method, phone, email, otp, newPassword, auth.captchaEnabled, captchaSiteKey, T]
+    [resetToken, newPassword, auth.captchaEnabled, captchaSiteKey, T]
   );
 
   const handle2faBackup = useCallback(
@@ -798,18 +836,11 @@ export default function ForgotPassword() {
             />
 
             <button
-              onClick={() => {
-                if (otp.length !== 6) {
-                  setError(String(T("enterOtpDigits")));
-                  return;
-                }
-                clearError();
-                setStep("new-password");
-              }}
-              disabled={otp.length !== 6}
-              style={btnPrimary(otp.length !== 6)}
+              onClick={() => void verifyOtp()}
+              disabled={otp.length !== 6 || loading}
+              style={btnPrimary(otp.length !== 6 || loading)}
             >
-              Continue
+              {loading ? "Verifying..." : "Continue"}
             </button>
 
             {/* Resend button with countdown */}

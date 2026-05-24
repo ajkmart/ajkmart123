@@ -545,91 +545,65 @@ router.post(
   sharedValidateBody(ResetPasswordSchema),
   async (req, res) => {
     try {
-      let { phone, email } = req.body as { phone?: string; email?: string };
-      const { identifier, resetToken, newPassword, totpCode } = req.body as {
-        identifier?: string;
-        resetToken?: string;
-        newPassword?: string;
+      const { resetToken, newPassword, totpCode } = req.body as {
+        resetToken: string;
+        newPassword: string;
         totpCode?: string;
       };
       const ip = getClientIp(req);
       const settings = await getCachedSettings();
 
-      if (!resetToken || typeof resetToken !== "string") {
-        sendError(res, "resetToken is required", 400);
-        return;
-      }
-      if (!newPassword) {
-        sendError(res, "New password is required", 400);
-        return;
-      }
-
-      if (identifier && !phone && !email) {
-        const resolved = await findUserByIdentifier(identifier);
-        if (resolved.user) {
-          if (resolved.idType === "phone") {
-            phone = resolved.user.phone ?? undefined;
-          } else if (resolved.idType === "email") {
-            email = resolved.user.email ?? undefined;
-          } else if (resolved.idType === "username") {
-            if (resolved.user.email) {
-              email = resolved.user.email ?? undefined;
-            } else if (resolved.user.phone) {
-              phone = resolved.user.phone ?? undefined;
-            }
-          }
-        }
-      }
-
-      if (!phone && !email) {
-        sendError(res, "Phone, email, or username is required", 400);
+      /* Verify and extract userId from reset token */
+      let payload: { userId: string; purpose: string; jti: string };
+      try {
+        payload = jwt.verify(resetToken, process.env["JWT_SECRET"]!) as {
+          userId: string;
+          purpose: string;
+          jti: string;
+        };
+      } catch (err) {
+        AuditService.log({
+          action: "reset_password_invalid_token",
+          ip,
+          details: `Invalid or expired reset token: ${err instanceof Error ? err.message : String(err)}`,
+          result: "fail",
+        });
+        sendUnauthorized(res, "Invalid or expired reset token");
         return;
       }
 
-      const pwCheck = validatePasswordStrength(newPassword);
-      if (!pwCheck.ok) {
-        sendError(res, pwCheck.message, 400);
+      if (payload.purpose !== "password_reset") {
+        sendUnauthorized(res, "Invalid or expired reset token");
         return;
       }
 
-      let user;
-      if (phone) {
-        const canonPhone = canonicalizePhone(phone);
-        const [found] = await db
-          .select()
-          .from(usersTable)
-          .where(eq(usersTable.phone, canonPhone))
-          .limit(1);
-        user = found;
-      } else {
-        const normalized = email!.toLowerCase().trim();
-        const [found] = await db
-          .select()
-          .from(usersTable)
-          .where(eq(usersTable.email, normalized))
-          .limit(1);
-        user = found;
+      /* Prevent JTI replay — token cannot be used twice */
+      const jtiKey = `reset_jti:${payload.jti}`;
+      const [usedJti] = await db
+        .select({ key: rateLimitsTable.key })
+        .from(rateLimitsTable)
+        .where(eq(rateLimitsTable.key, jtiKey))
+        .limit(1);
+      if (usedJti) {
+        AuditService.log({
+          action: "reset_password_token_reuse_attempt",
+          ip,
+          details: `Attempted to reuse reset token: ${payload.userId}`,
+          result: "fail",
+        });
+        sendUnauthorized(res, "Invalid or expired reset token");
+        return;
       }
+
+      /* Fetch user by ID from token */
+      const [user] = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, payload.userId))
+        .limit(1);
 
       if (!user) {
         sendNotFound(res, "Account not found");
-        return;
-      }
-
-      const userRole = user.roles ?? "customer";
-
-      if (phone && !isAuthMethodEnabled(settings, "auth_phone_otp_enabled", userRole)) {
-        sendForbidden(
-          res,
-          "Phone-based password reset is currently disabled for your account type."
-        );
-        return;
-      }
-      if (email && !phone && !isAuthMethodEnabled(settings, "auth_email_otp_enabled", userRole)) {
-        sendForbidden(
-          res,
-          "Email-based password reset is currently disabled for your account type."
-        );
         return;
       }
 
@@ -638,6 +612,14 @@ router.post(
         return;
       }
 
+      /* Validate new password strength */
+      const pwCheck = validatePasswordStrength(newPassword);
+      if (!pwCheck.ok) {
+        sendError(res, pwCheck.message, 400);
+        return;
+      }
+
+      const userRole = user.roles ?? "customer";
       const maxAttempts = parseInt(settings["security_login_max_attempts"] ?? "5", 10);
       const lockoutMinutes = parseInt(settings["security_lockout_minutes"] ?? "30", 10);
       const lockoutKey = `reset:${user.id}`;
@@ -649,46 +631,7 @@ router.post(
         );
         return;
       }
-
-      let payload: { userId: string; purpose: string; jti: string };
-      try {
-        payload = jwt.verify(resetToken, process.env["JWT_SECRET"]!) as {
-          userId: string;
-          purpose: string;
-          jti: string;
-        };
-      } catch {
-        sendUnauthorized(res, "Invalid or expired reset token");
-        return;
-      }
-      if (payload.purpose !== "password_reset" || payload.userId !== user.id) {
-        sendUnauthorized(res, "Invalid or expired reset token");
-        return;
-      }
-      /* Persist the used JTI to the DB so the token cannot be reused even after a
-     server restart (the in-memory blacklist would be cleared on restart). */
-      const jtiKey = `reset_jti:${payload.jti}`;
-      const [usedJti] = await db
-        .select({ key: rateLimitsTable.key })
-        .from(rateLimitsTable)
-        .where(eq(rateLimitsTable.key, jtiKey))
-        .limit(1);
-      if (usedJti) {
-        sendUnauthorized(res, "Invalid or expired reset token");
-        return;
-      }
-      await db
-        .insert(rateLimitsTable)
-        .values({
-          key: jtiKey,
-          attempts: 1,
-          windowStart: new Date(),
-          updatedAt: new Date(),
-        })
-        .catch((err: unknown) => {
-          logger.warn({ err }, "[auth] reset token JTI persist failed");
-        });
-
+      /* TOTP 2FA verification — if enabled for account */
       if (user.totpEnabled && isAuthMethodEnabled(settings, "auth_2fa_enabled", userRole)) {
         if (!totpCode) {
           sendErrorWithData(
@@ -742,6 +685,20 @@ router.post(
         }
       }
 
+      /* Mark JTI as used after all validations pass */
+      await db
+        .insert(rateLimitsTable)
+        .values({
+          key: jtiKey,
+          attempts: 1,
+          windowStart: new Date(),
+          updatedAt: new Date(),
+        })
+        .catch((err: unknown) => {
+          logger.warn({ err }, "[auth] reset token JTI persist failed");
+        });
+
+      /* Update password and increment token version (invalidates old tokens) */
       await db
         .update(usersTable)
         .set({
@@ -752,8 +709,7 @@ router.post(
         })
         .where(eq(usersTable.id, user.id));
 
-      /* Revoke all active refresh tokens immediately after reset so any previously
-     stolen token cannot be used to obtain a new access token post-reset. */
+      /* Revoke all active refresh tokens so stolen tokens cannot be used */
       await revokeAllUserRefreshTokens(user.id, "PASSWORD_CHANGED").catch((err: unknown) => {
         logger.warn(
           { userId: user.id, err },
@@ -773,7 +729,7 @@ router.post(
         userId: user.id,
         ip,
         userAgent: req.headers["user-agent"] as string | undefined,
-        channel: phone ? "sms" : "email",
+        channel: "password_reset",
         role: user.roles ?? "customer",
         success: true,
       });

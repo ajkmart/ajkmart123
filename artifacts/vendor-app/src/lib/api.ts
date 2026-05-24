@@ -446,15 +446,19 @@ export const api = {
       ...(deviceFingerprint ? { deviceFingerprint } : {}),
       ...(captchaToken ? { captchaToken } : {}),
     }),
-  forgotPassword: (data: { phone?: string; email?: string; identifier?: string }) =>
-    authPost("/auth/forgot-password", data),
-  resetPassword: (data: {
+  forgotPassword: (data: {
     phone?: string;
     email?: string;
     identifier?: string;
-    otp: string;
+    captchaToken?: string;
+  }) => authPost("/auth/forgot-password", data),
+  verifyResetOtp: (data: { phone?: string; email?: string; otp: string; captchaToken?: string }) =>
+    authPost("/auth/verify-reset-otp", data),
+  resetPassword: (data: {
+    resetToken: string;
     newPassword: string;
     totpCode?: string;
+    captchaToken?: string;
   }) => authPost("/auth/reset-password", data),
   twoFactorVerify: (data: {
     code: string;

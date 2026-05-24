@@ -113,7 +113,9 @@ export const tokenStoreReady: Promise<void> = (async () => {
    updated token so they don't fall back to an expired JWT and get 401s.     */
 const _tokenChannel: BroadcastChannel | null = (() => {
   try {
-    return typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("ajkmart_rider_token_sync") : null;
+    return typeof BroadcastChannel !== "undefined"
+      ? new BroadcastChannel("ajkmart_rider_token_sync")
+      : null;
   } catch {
     return null;
   }
@@ -143,8 +145,10 @@ function sessionSet(value: string): void {
   /* Notify other open tabs that the token has been refreshed */
   try {
     _tokenChannel?.postMessage({ type: "token_updated", token: value });
-  } catch {
+    // eslint-disable-next-line ajk-local/no-silent-catch
+  } catch (error) {
     /* BroadcastChannel post can fail if the channel was closed — non-critical */
+    console.warn("[api] BroadcastChannel post failed:", error);
   }
 }
 function sessionRemove(): void {
@@ -808,10 +812,10 @@ export const api = {
     email?: string;
     captchaToken?: string;
   }) => apiFetch("/auth/forgot-password", { method: "POST", body: JSON.stringify(data) }),
+  verifyResetOtp: (data: { phone?: string; email?: string; otp: string; captchaToken?: string }) =>
+    apiFetch("/auth/verify-reset-otp", { method: "POST", body: JSON.stringify(data) }),
   resetPassword: (data: {
-    phone?: string;
-    email?: string;
-    otp: string;
+    resetToken: string;
     newPassword: string;
     totpCode?: string;
     captchaToken?: string;

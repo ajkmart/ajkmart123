@@ -227,6 +227,7 @@ export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [devOtp, setDevOtp] = useState("");
+  const [resetToken, setResetToken] = useState("");
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
@@ -288,10 +289,44 @@ export default function ForgotPassword() {
     setLoading(false);
   };
 
-  const verifyOtpAndSetPassword = async (totpCode?: string) => {
+  /* Step 1: Verify OTP and get reset token */
+  const verifyOtp = async () => {
     clearError();
     if (!otp || otp.length < 6) {
       setError(T("enterOtpDigits"));
+      return;
+    }
+    setLoading(true);
+    try {
+      let captchaToken: string | undefined;
+      if (auth.captchaEnabled) {
+        try {
+          captchaToken = await executeCaptcha("verify_reset_otp", captchaSiteKey);
+        } catch (err) {
+          log.warn("captcha failed:", err);
+        }
+      }
+      const verifyPayload = {
+        ...(method === "phone" ? { phone: formatPhoneForApi(phone) } : { email }),
+        otp,
+        ...(captchaToken ? { captchaToken } : {}),
+      } as Parameters<typeof api.verifyResetOtp>[0];
+      const res = (await api.verifyResetOtp(verifyPayload)) as Record<string, unknown>;
+      const token = res.resetToken as string | undefined;
+      if (!token) throw new Error("No reset token received");
+      setResetToken(token);
+      setStep("new-password");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : T("verificationFailed"));
+    }
+    setLoading(false);
+  };
+
+  /* Step 2: Reset password with reset token */
+  const resetPassword = async (totpCode?: string) => {
+    clearError();
+    if (!resetToken) {
+      setError("Session expired. Please try again.");
       return;
     }
     if (newPassword.length < 8) {
@@ -311,15 +346,9 @@ export default function ForgotPassword() {
         } catch (err) {
           log.warn("captcha failed:", err);
         }
-        if (!captchaToken) {
-          setError(T("captchaRequired"));
-          setLoading(false);
-          return;
-        }
       }
       const resetPayload = {
-        ...(method === "phone" ? { phone: formatPhoneForApi(phone) } : { email }),
-        otp,
+        resetToken,
         newPassword,
         ...(totpCode ? { totpCode } : {}),
         ...(captchaToken ? { captchaToken } : {}),
@@ -352,8 +381,7 @@ export default function ForgotPassword() {
           }
         }
         const r2Payload = {
-          ...(method === "phone" ? { phone: formatPhoneForApi(phone) } : { email }),
-          otp,
+          resetToken,
           newPassword,
           totpCode: code,
           ...(captchaToken ? { captchaToken } : {}),
@@ -365,7 +393,7 @@ export default function ForgotPassword() {
       }
       setTwoFaLoading(false);
     },
-    [method, phone, email, otp, newPassword, auth.captchaEnabled, captchaSiteKey, T]
+    [resetToken, newPassword, auth.captchaEnabled, captchaSiteKey, T]
   );
 
   const handle2faBackup = useCallback(
@@ -760,13 +788,14 @@ export default function ForgotPassword() {
                 clearError();
               }}
             />
-            <BtnPrimary
-              onClick={() => {
-                if (otp.length >= 6) setStep("new-password");
-                else setError(T("enterOtpDigits"));
-              }}
-            >
-              {T("nextStep")}
+            <BtnPrimary onClick={verifyOtp} disabled={loading || otp.length < 6}>
+              {loading ? (
+                <>
+                  <Spin /> {T("pleaseWait")}
+                </>
+              ) : (
+                T("nextStep")
+              )}
             </BtnPrimary>
             <button
               onClick={sendOtp}
@@ -892,7 +921,7 @@ export default function ForgotPassword() {
                 </p>
               )}
             </div>
-            <BtnPrimary onClick={() => verifyOtpAndSetPassword()} disabled={loading}>
+            <BtnPrimary onClick={() => resetPassword()} disabled={loading}>
               {loading ? (
                 <>
                   <Spin /> {T("pleaseWait")}
