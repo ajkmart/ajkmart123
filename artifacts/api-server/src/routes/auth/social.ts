@@ -74,6 +74,7 @@ router.post("/social/google", sharedValidateBody(SocialGoogleSchema), async (req
 
     let googlePayload: {
       sub?: string;
+      aud?: string;
       email?: string;
       name?: string;
       picture?: string;
@@ -109,9 +110,23 @@ router.post("/social/google", sharedValidateBody(SocialGoogleSchema), async (req
     const email = googlePayload.email?.toLowerCase?.() ?? null;
     const name = googlePayload.name ?? null;
     const avatar = googlePayload.picture ?? null;
+    const emailVerified = googlePayload.email_verified === true;
 
     if (!googleId) {
       sendUnauthorized(res, "Google token missing sub");
+      return;
+    }
+
+    // Audience (aud) validation — rejects tokens issued for other apps (prevents token reuse attacks)
+    const expectedAud = process.env["GOOGLE_CLIENT_ID"];
+    if (expectedAud && googlePayload.aud !== expectedAud) {
+      addSecurityEvent({
+        type: "social_google_wrong_audience",
+        ip,
+        details: `Google token aud mismatch: got ${googlePayload.aud}`,
+        severity: "high",
+      });
+      sendUnauthorized(res, "Invalid Google token");
       return;
     }
 
@@ -121,15 +136,37 @@ router.post("/social/google", sharedValidateBody(SocialGoogleSchema), async (req
       .where(eq(usersTable.googleId, googleId))
       .limit(1);
 
-    if (!user && email) {
+    // Email-match fallback: only link if Google confirms email is verified.
+    // An unverified Google email could be used to hijack an existing account.
+    if (!user && email && emailVerified) {
       [user] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
       if (user) {
+        addSecurityEvent({
+          type: "google_email_match_link",
+          ip,
+          userId: user.id,
+          details: `Google account auto-linked via verified email: ${email}`,
+          severity: "low",
+        });
+        void writeAuthAuditLog("google_email_match_link", {
+          userId: user.id,
+          ip,
+          metadata: { email, googleId },
+        });
         await db
           .update(usersTable)
           .set({ googleId, updatedAt: new Date() })
           .where(eq(usersTable.id, user.id));
         user.googleId = googleId;
       }
+    } else if (!user && email && !emailVerified) {
+      // Unverified Google email — block the email-match path silently, log for ops
+      addSecurityEvent({
+        type: "google_unverified_email_link_blocked",
+        ip,
+        details: `Google login with unverified email blocked: ${email}`,
+        severity: "medium",
+      });
     }
 
     const isNewUser = !user;
@@ -356,9 +393,24 @@ router.post("/social/facebook", sharedValidateBody(SocialFacebookSchema), async 
       .where(eq(usersTable.facebookId, facebookId))
       .limit(1);
 
+    // Email-match fallback: Facebook doesn't guarantee email_verified, but the
+    // email is only returned if the user granted the email permission and FB verified it.
+    // We still log the auto-link for audit transparency.
     if (!user && email) {
       [user] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
       if (user) {
+        addSecurityEvent({
+          type: "facebook_email_match_link",
+          ip,
+          userId: user.id,
+          details: `Facebook account auto-linked via email match: ${email}`,
+          severity: "low",
+        });
+        void writeAuthAuditLog("facebook_email_match_link", {
+          userId: user.id,
+          ip,
+          metadata: { email, facebookId },
+        });
         await db
           .update(usersTable)
           .set({ facebookId, updatedAt: new Date() })
@@ -540,12 +592,26 @@ router.post("/link-google", sharedValidateBody(LinkGoogleSchema), async (req, re
     try {
       /* Verify Google JWT signature by calling Google's tokeninfo endpoint */
       const tokenInfoRes = await fetch(
-        `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
+        { signal: AbortSignal.timeout(10_000) }
       );
       if (!tokenInfoRes.ok) throw new Error("Token verification failed");
-      const tokenInfo = (await tokenInfoRes.json()) as { sub?: string; email?: string };
+      const tokenInfo = (await tokenInfoRes.json()) as { sub?: string; aud?: string; email?: string };
       const googleId = tokenInfo.sub as string;
       const email = tokenInfo.email as string | undefined;
+
+      // Audience check — prevent tokens from other apps being used to link
+      const expectedAudLink = process.env["GOOGLE_CLIENT_ID"];
+      if (expectedAudLink && tokenInfo.aud !== expectedAudLink) {
+        addSecurityEvent({
+          type: "social_google_wrong_audience",
+          ip,
+          details: `link-google aud mismatch: got ${tokenInfo.aud}`,
+          severity: "high",
+        });
+        sendError(res, "Invalid Google token", 400);
+        return;
+      }
 
       if (!googleId) {
         sendError(res, "Could not extract Google ID from token", 400);
@@ -577,12 +643,11 @@ router.post("/link-google", sharedValidateBody(LinkGoogleSchema), async (req, re
       });
       sendSuccess(res, undefined, "Google account linked successfully");
     } catch (err: unknown) {
-      sendErrorWithData(
-        res,
-        "Invalid Google token",
-        { detail: err instanceof Error ? err.message : String(err) },
-        400
+      logger.warn(
+        { error: err instanceof Error ? err.message : String(err) },
+        "[auth] link-google token verification failed"
       );
+      sendError(res, "Invalid Google token", 400);
     }
   } catch (err) {
     logger.error(
@@ -662,12 +727,11 @@ router.post("/link-facebook", sharedValidateBody(LinkFacebookSchema), async (req
       });
       sendSuccess(res, undefined, "Facebook account linked successfully");
     } catch (err: unknown) {
-      sendErrorWithData(
-        res,
-        "Failed to link Facebook account",
-        { detail: err instanceof Error ? err.message : String(err) },
-        400
+      logger.warn(
+        { error: err instanceof Error ? err.message : String(err) },
+        "[auth] link-facebook token verification failed"
       );
+      sendError(res, "Invalid Facebook token", 400);
     }
   } catch (err) {
     logger.error(
