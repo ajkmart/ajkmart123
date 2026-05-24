@@ -146,7 +146,7 @@ router.post(
 
       // Per-phone send rate limit — prevents multi-IP SMS flooding of a known number
       const phoneSendKey = `phone_otp_send:${phone}`;
-      const PHONE_SEND_MAX = 3;
+      const PHONE_SEND_MAX = 5;
       const PHONE_SEND_WINDOW_MIN = 30;
       const phoneSendLockout = await checkLockout(phoneSendKey, PHONE_SEND_MAX, PHONE_SEND_WINDOW_MIN);
       if (phoneSendLockout.locked) {

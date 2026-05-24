@@ -135,7 +135,7 @@ router.post(
 
       // Per-identifier send rate limit — prevents multi-IP OTP flooding
       const emailSendKey = `email_otp_send:${normalized}`;
-      const EMAIL_SEND_MAX = 3;
+      const EMAIL_SEND_MAX = 5;
       const EMAIL_SEND_WINDOW_MIN = 30;
       const emailSendLockout = await checkLockout(emailSendKey, EMAIL_SEND_MAX, EMAIL_SEND_WINDOW_MIN);
       if (emailSendLockout.locked) {

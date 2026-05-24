@@ -40,7 +40,7 @@ import {
 
 const router: IRouter = Router();
 
-const ML_SEND_MAX = 3;
+const ML_SEND_MAX = 5;
 const ML_SEND_WINDOW_MIN = 10;
 
 router.post(
@@ -314,6 +314,13 @@ router.post("/magic-link/verify", sharedValidateBody(MagicLinkVerifySchema), asy
           return;
         }
         if (!verifyTotpToken(totpCode, mlSecret)) {
+          addSecurityEvent({
+            type: "2fa_verify_failed",
+            ip,
+            userId: user.id,
+            details: "Invalid TOTP on magic-link verify",
+            severity: "medium",
+          });
           sendUnauthorized(res, "Invalid 2FA code");
           return;
         }

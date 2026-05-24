@@ -31,12 +31,16 @@ import {
   sendForbidden,
   sendNotFound,
   sendSuccess,
+  sendTooManyRequests,
   sendUnauthorized,
 } from "../../lib/response.js";
 import {
   addSecurityEvent,
+  checkLockout,
   getCachedSettings,
   getClientIp,
+  recordFailedAttempt,
+  resetAttempts,
   verify2faChallengeToken,
   writeAuthAuditLog,
 } from "../../middleware/security.js";
@@ -383,7 +387,19 @@ router.post("/2fa/verify", validateBody(TwoFaVerifySchema), async (req, res) => 
       return;
     }
 
+    // Generous lockout — 10 attempts per 30 min (TOTP rotates every 30s naturally)
+    const totpVerifyKey = `totp_verify:${user.id}`;
+    const totpVerifyLockout = await checkLockout(totpVerifyKey, 10, 30);
+    if (totpVerifyLockout.locked) {
+      sendTooManyRequests(
+        res,
+        `Too many 2FA attempts. Try again in ${totpVerifyLockout.minutesLeft} minute(s).`
+      );
+      return;
+    }
+
     if (!verifyTotpToken(code, user.totpSecret)) {
+      await recordFailedAttempt(totpVerifyKey, 10, 30);
       addSecurityEvent({
         type: "2fa_verify_failed",
         ip,
@@ -405,6 +421,7 @@ router.post("/2fa/verify", validateBody(TwoFaVerifySchema), async (req, res) => 
       return;
     }
 
+    await resetAttempts(totpVerifyKey).catch(() => undefined);
     void writeAuthAuditLog("2fa_verified", {
       userId: user.id,
       ip,
@@ -459,11 +476,24 @@ router.post("/2fa/disable", validateBody(TotpCodeSchema), async (req, res) => {
       return;
     }
 
+    // 5 attempts per 30 min — disable is high-value action
+    const totpDisableKey = `totp_disable:${user.id}`;
+    const totpDisableLockout = await checkLockout(totpDisableKey, 5, 30);
+    if (totpDisableLockout.locked) {
+      sendTooManyRequests(
+        res,
+        `Too many attempts. Try again in ${totpDisableLockout.minutesLeft} minute(s).`
+      );
+      return;
+    }
+
     if (!verifyTotpToken(req.body.code, user.totpSecret)) {
+      await recordFailedAttempt(totpDisableKey, 5, 30);
       sendUnauthorized(res, "Invalid TOTP code");
       return;
     }
 
+    await resetAttempts(totpDisableKey).catch(() => undefined);
     await db
       .update(usersTable)
       .set({
@@ -538,11 +568,25 @@ router.post("/2fa/recovery", validateBody(TwoFaRecoverySchema), async (req, res)
       return;
     }
 
+    // 5 attempts per 30 min — backup codes don't rotate, so tighter than TOTP
+    const recoveryKey = `totp_recovery:${user.id}`;
+    const recoveryLockout = await checkLockout(recoveryKey, 5, 30);
+    if (recoveryLockout.locked) {
+      sendTooManyRequests(
+        res,
+        `Too many recovery attempts. Try again in ${recoveryLockout.minutesLeft} minute(s).`
+      );
+      return;
+    }
+
     const valid = await verifyRecoveryCode(user.id, backupCode);
     if (!valid) {
+      await recordFailedAttempt(recoveryKey, 5, 30);
       sendError(res, "Invalid or already used backup code", 400);
       return;
     }
+
+    await resetAttempts(recoveryKey).catch(() => undefined);
     const remaining = await countUnusedRecoveryCodes(user.id);
     if (remaining <= 2) {
       await db
@@ -622,11 +666,25 @@ router.post("/totp/recover", validateBody(TwoFaRecoverySchema), async (req, res)
       return;
     }
 
+    // Reuse the same Redis key as /2fa/recovery — both paths share the same user + same counter
+    const recoveryKey = `totp_recovery:${user.id}`;
+    const recoveryLockout = await checkLockout(recoveryKey, 5, 30);
+    if (recoveryLockout.locked) {
+      sendTooManyRequests(
+        res,
+        `Too many recovery attempts. Try again in ${recoveryLockout.minutesLeft} minute(s).`
+      );
+      return;
+    }
+
     const valid = await verifyRecoveryCode(user.id, backupCode);
     if (!valid) {
+      await recordFailedAttempt(recoveryKey, 5, 30);
       sendError(res, "Invalid or already used backup code", 400);
       return;
     }
+
+    await resetAttempts(recoveryKey).catch(() => undefined);
     const remaining = await countUnusedRecoveryCodes(user.id);
     if (remaining <= 2) {
       await db
