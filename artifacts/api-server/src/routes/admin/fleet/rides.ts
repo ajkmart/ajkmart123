@@ -2087,42 +2087,58 @@ router.get("/reviews/export", async (req: Request, res: Response) => {
     }
     if (type === "order") conditions.push(sql`${reviewsTable.orderType} != 'ride'`);
     else if (type === "ride") conditions.push(eq(reviewsTable.orderType, "ride"));
-    const rows = await db
-      .select({
-        id: reviewsTable.id,
-        orderType: reviewsTable.orderType,
-        orderId: reviewsTable.orderId,
-        rating: reviewsTable.rating,
-        riderRating: reviewsTable.riderRating,
-        comment: reviewsTable.comment,
-        status: reviewsTable.status,
-        hidden: reviewsTable.hidden,
-        vendorReply: reviewsTable.vendorReply,
-        createdAt: reviewsTable.createdAt,
-        reviewerName: usersTable.name,
-        reviewerPhone: usersTable.phone,
-      })
-      .from(reviewsTable)
-      .leftJoin(usersTable, eq(reviewsTable.userId, usersTable.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(reviewsTable.createdAt))
-      .limit(10000);
-    const header = "id,orderType,orderId,rating,riderRating,comment,status,hidden,vendorReply,createdAt,reviewerName,reviewerPhone";
-    const csvEsc = (v: unknown) => {
+    const csvEsc = (v: unknown): string => {
       if (v == null) return "";
       const s = String(v);
-      return s.includes(",") || s.includes('"') || s.includes("\n")
+      return s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")
         ? `"${s.replace(/"/g, '""')}"`
         : s;
     };
-    const lines = rows.map((r) =>
-      [r.id, r.orderType, r.orderId, r.rating, r.riderRating, r.comment, r.status, r.hidden, r.vendorReply, new Date(r.createdAt).toISOString(), r.reviewerName, r.reviewerPhone]
-        .map(csvEsc)
-        .join(",")
-    );
-    res.setHeader("Content-Type", "text/csv");
+    const COLS = ["id","orderType","orderId","rating","riderRating","comment","status","hidden","vendorReply","createdAt","reviewerName","reviewerPhone"] as const;
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="reviews-${new Date().toISOString().slice(0, 10)}.csv"`);
-    res.send([header, ...lines].join("\n"));
+    res.setHeader("Transfer-Encoding", "chunked");
+    res.write(COLS.join(",") + "\n");
+
+    /* Stream in batches of 500 — avoids loading all rows into memory at once */
+    const BATCH = 500;
+    let offset = 0;
+    let fetched = 0;
+    do {
+      const rows = await db
+        .select({
+          id: reviewsTable.id,
+          orderType: reviewsTable.orderType,
+          orderId: reviewsTable.orderId,
+          rating: reviewsTable.rating,
+          riderRating: reviewsTable.riderRating,
+          comment: reviewsTable.comment,
+          status: reviewsTable.status,
+          hidden: reviewsTable.hidden,
+          vendorReply: reviewsTable.vendorReply,
+          createdAt: reviewsTable.createdAt,
+          reviewerName: usersTable.name,
+          reviewerPhone: usersTable.phone,
+        })
+        .from(reviewsTable)
+        .leftJoin(usersTable, eq(reviewsTable.userId, usersTable.id))
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(reviewsTable.createdAt))
+        .limit(BATCH)
+        .offset(offset);
+      fetched = rows.length;
+      for (const r of rows) {
+        res.write(
+          [r.id, r.orderType, r.orderId, r.rating, r.riderRating, r.comment, r.status, r.hidden, r.vendorReply, new Date(r.createdAt).toISOString(), r.reviewerName, r.reviewerPhone]
+            .map(csvEsc)
+            .join(",") + "\n"
+        );
+      }
+      offset += BATCH;
+    } while (fetched === BATCH);
+
+    res.end();
   } catch (err) {
     logger.error({ err }, "[admin/reviews/export] GET failed");
     sendError(res, "Export failed", 500);
@@ -2134,17 +2150,44 @@ router.post("/reviews/import", async (req: Request, res: Response) => {
   try {
     const { csvData } = req.body as { csvData?: string };
     if (!csvData?.trim()) return sendValidationError(res, "csvData is required");
-    const lines = csvData.trim().split("\n");
-    const header = lines[0]?.split(",").map((h) => h.trim().replace(/^"|"$/g, "")) ?? [];
+    /* RFC 4180-compliant CSV field parser — handles quoted fields with commas/newlines */
+    const parseCsvLine = (line: string): string[] => {
+      const fields: string[] = [];
+      let i = 0;
+      while (i < line.length) {
+        if (line[i] === '"') {
+          let val = "";
+          i++; // skip opening quote
+          while (i < line.length) {
+            if (line[i] === '"' && line[i + 1] === '"') { val += '"'; i += 2; }
+            else if (line[i] === '"') { i++; break; }
+            else { val += line[i++]; }
+          }
+          fields.push(val);
+          if (line[i] === ",") i++;
+        } else {
+          const end = line.indexOf(",", i);
+          if (end === -1) { fields.push(line.slice(i).trim()); break; }
+          fields.push(line.slice(i, end).trim());
+          i = end + 1;
+        }
+      }
+      return fields;
+    };
+
+    const lines = csvData.trim().split(/\r?\n/);
+    const header = parseCsvLine(lines[0] ?? "").map((h) => h.replace(/^"|"$/g, "").trim());
     let imported = 0;
     let skipped = 0;
     let errored = 0;
     for (let i = 1; i < lines.length; i++) {
       try {
-        const cols = lines[i]?.split(",") ?? [];
+        const rawLine = lines[i]?.trim();
+        if (!rawLine) { skipped++; continue; }
+        const cols = parseCsvLine(rawLine);
         if (cols.length < 3) { skipped++; continue; }
         const row: Record<string, string> = {};
-        header.forEach((h, idx) => { row[h] = (cols[idx] ?? "").trim().replace(/^"|"$/g, ""); });
+        header.forEach((h, idx) => { row[h] = (cols[idx] ?? "").trim(); });
         const stars = parseInt(row.stars ?? row.rating ?? "", 10);
         if (!row.orderType || !row.orderId || isNaN(stars)) { skipped++; continue; }
         const id = generateId();

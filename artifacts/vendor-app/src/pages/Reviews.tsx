@@ -28,7 +28,7 @@ function StarBar({ starValue, count, total }: { starValue: number; count: number
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="w-5 text-right text-gray-400 tabular-nums">{count}</span>
+      <span className="w-16 text-right text-gray-400 tabular-nums">{count} ({pct}%)</span>
     </div>
   );
 }
