@@ -512,7 +512,7 @@ export async function apiFetch<T = any>(
     const result = await _resiClient.fetch(path, mergedOpts);
     /* _returnEnvelope: caller wants the full server envelope (e.g. _serverTime).
        _lastRawJson is populated by the onRawJson callback before data-unwrapping. */
-    return _returnEnvelope ? _lastRawJson : result;
+    return (_returnEnvelope ? _lastRawJson : result) as T;
   } catch (err: unknown) {
     /* Custom 403 handling: distinguish auth denials (force logout) from
        business-rule blocks (approval pending, feature disabled, etc.).

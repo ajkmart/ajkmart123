@@ -135,7 +135,7 @@ export default function History() {
     { key: "all", label: T("all"), icon: <ClipboardList size={12} /> },
     { key: "order", label: T("orders"), icon: <ShoppingCart size={12} /> },
     { key: "ride", label: T("rides"), icon: <Bike size={12} /> },
-    { key: "parcel", label: T("parcels") || "Parcels", icon: <Package size={12} /> },
+    { key: "parcel", label: T("navParcels"), icon: <Package size={12} /> },
   ];
 
   function ItemIcon({ kind, type }: { kind: string; type: string }) {
