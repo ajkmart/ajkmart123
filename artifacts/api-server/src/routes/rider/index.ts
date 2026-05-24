@@ -162,7 +162,61 @@ const conditionalCancelLimiter = (req: Request, res: Response, next: NextFunctio
     return rideCancelLimiter(req, res, next);
   }
   return next();
+
+/* ── Additional rate limiters (H-03, M-05) ───────────────────────────────── */
 };
+
+/** H-03: Request-feed limiter — 30 polls/min prevents broadcast-endpoint spam */
+const requestFeedLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 30,
+  keyGenerator: (req) => req.riderId ?? getClientIp(req) ?? "unknown",
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
+  handler: (_req, res) => {
+    sendTooManyRequests(res, "Too many request-feed polls. Please slow down.");
+  },
+});
+
+/** M-05: Notifications-feed limiter — 30 fetches/min */
+const notificationsFeedLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 30,
+  keyGenerator: (req) => req.riderId ?? getClientIp(req) ?? "unknown",
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
+  handler: (_req, res) => {
+    sendTooManyRequests(res, "Too many notification fetches. Please wait a moment.");
+  },
+});
+
+/** M-05: COD remittance limiter — 10 submissions per rider per 15 minutes */
+const codRemitLimiter = rateLimit({
+  windowMs: 15 * 60_000,
+  max: 10,
+  keyGenerator: (req) => req.riderId ?? getClientIp(req) ?? "unknown",
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
+  handler: (_req, res) => {
+    sendTooManyRequests(res, "Too many remittance submissions. Please wait before submitting again.");
+  },
+});
+
+/** M-05: Wallet deposit limiter — 10 deposits per rider per 15 minutes */
+const riderDepositLimiter = rateLimit({
+  windowMs: 15 * 60_000,
+  max: 10,
+  keyGenerator: (req) => req.riderId ?? getClientIp(req) ?? "unknown",
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
+  handler: (_req, res) => {
+    sendTooManyRequests(res, "Too many deposit requests. Please wait before trying again.");
+  },
+});
 
 const MAX_OTP_ATTEMPTS = 5;
 const OTP_ATTEMPT_TTL_MS = 30 * 60_000;
@@ -290,7 +344,11 @@ const profileSchema = z
   .object({
     name: z.string().optional(),
     email: z.string().email().optional(),
-    cnic: z.string().optional(),
+    /* M-02: Enforce the standard Pakistani CNIC format XXXXX-XXXXXXX-X. */
+    cnic: z
+      .string()
+      .regex(/^\d{5}-\d{7}-\d$/, "CNIC must be in format XXXXX-XXXXXXX-X (e.g. 12345-1234567-1)")
+      .optional(),
     address: z.string().optional(),
     city: z.string().optional(),
     emergencyContact: z.string().optional(),
@@ -300,7 +358,8 @@ const profileSchema = z
     vehicleRegistration: z.string().optional(),
     drivingLicense: z.string().optional(),
     bankName: z.string().optional(),
-    bankAccount: z.string().optional(),
+    /* M-02: Enforce realistic bank account number length (8–24 digits). */
+    bankAccount: z.string().min(8, "Bank account must be at least 8 digits").max(24, "Bank account number is too long").optional(),
     bankAccountTitle: z.string().optional(),
     avatar: z.string().optional(),
     cnicDocUrl: z.string().optional(),
@@ -379,7 +438,12 @@ const counterSchema = z.object({
 const withdrawSchema = z.object({
   amount: z.number().positive(),
   bankName: z.string().min(1),
-  accountNumber: z.string().min(1),
+  /* L-04: Realistic bank account number length + digits-only guard. */
+  accountNumber: z
+    .string()
+    .min(8, "Account number must be at least 8 digits")
+    .max(24, "Account number is too long")
+    .regex(/^\d+$/, "Account number must contain digits only"),
   accountTitle: z.string().min(1),
   paymentMethod: z.string().optional(),
   note: z.string().optional(),
@@ -1057,36 +1121,47 @@ router.patch("/profile", async (req, res) => {
 
     let user: typeof usersTable.$inferSelect & Partial<typeof riderProfilesTable.$inferSelect>;
     try {
-      const [updated] = await db
-        .update(usersTable)
-        .set(updates)
-        .where(eq(usersTable.id, riderId))
-        .returning();
-      let profile: typeof riderProfilesTable.$inferSelect | undefined;
-      if (Object.keys(profileUpdates).length > 1) {
-        const [up] = await db
-          .insert(riderProfilesTable)
-          .values({ userId: riderId, ...profileUpdates })
-          .onConflictDoUpdate({ target: riderProfilesTable.userId, set: profileUpdates })
+      /* H-01: Wrap both table writes in one transaction so a partial failure
+         (e.g. riderProfiles insert failing) cannot leave users + riderProfiles
+         in an inconsistent state (e.g. CNIC updated but vehicleType not). */
+      const [updated, profile] = await db.transaction(async (tx) => {
+        const [upd] = await tx
+          .update(usersTable)
+          .set(updates)
+          .where(eq(usersTable.id, riderId))
           .returning();
-        profile = up;
-      } else {
-        const [existing] = await db
-          .select()
-          .from(riderProfilesTable)
-          .where(eq(riderProfilesTable.userId, riderId))
-          .limit(1);
-        profile = existing;
-      }
+        let prof: typeof riderProfilesTable.$inferSelect | undefined;
+        if (Object.keys(profileUpdates).length > 1) {
+          const [up] = await tx
+            .insert(riderProfilesTable)
+            .values({ userId: riderId, ...profileUpdates })
+            .onConflictDoUpdate({ target: riderProfilesTable.userId, set: profileUpdates })
+            .returning();
+          prof = up;
+        } else {
+          const [existing] = await tx
+            .select()
+            .from(riderProfilesTable)
+            .where(eq(riderProfilesTable.userId, riderId))
+            .limit(1);
+          prof = existing;
+        }
+        return [upd, prof] as const;
+      });
       user = profile
         ? { ...updated, ...profile, kycStatus: profile.kycStatus ?? updated.kycStatus }
         : updated;
     } catch (dbErr: unknown) {
       const msg = (dbErr as Error)?.message || "";
       if (msg.includes("unique") || msg.includes("duplicate")) {
+        /* L-01: Return a field-specific error message so the client can highlight
+           the conflicting field rather than showing a generic 409 banner. */
+        const isCnicConflict = msg.toLowerCase().includes("cnic");
         sendError(
           res,
-          "A profile field conflicts with an existing record (e.g. duplicate CNIC)",
+          isCnicConflict
+            ? "This CNIC is already registered to another account"
+            : "A profile field conflicts with an existing record (e.g. duplicate CNIC)",
           409
         );
       } else {
@@ -1200,7 +1275,9 @@ function maskPhone(phone: string | null | undefined): string | null {
 /* ── GET /rider/requests — Available orders + rides (incl. bargaining, with own bid info + distance/ETA) ── */
 /* InDrive-style broadcast: ALL nearby riders within admin radius see every open ride.
    First to accept wins via atomic WHERE riderId IS NULL. */
-router.get("/requests", async (req, res) => {
+/* H-03: Rate-limit the broadcast-request feed — without this, an always-on client
+   could hammer the endpoint and inflate DB load with large IN-clauses. */
+router.get("/requests", requestFeedLimiter, async (req, res) => {
   try {
     const riderId = req.riderId!;
     const s = await getCachedSettings();
@@ -3016,6 +3093,15 @@ router.patch("/rides/:id/status", csrfDoubleSubmit, rideStatusLimiter, condition
             });
             newRiderBalance += bonusPerTrip;
           }
+          /* M-01: Auto-offline set inside the transaction so that if any wallet
+             write is rolled back, the rider is not silently taken offline with
+             their balance unchanged. Push notification stays outside. */
+          if (newRiderBalance <= 0) {
+            await tx
+              .update(usersTable)
+              .set({ isOnline: false, updatedAt: new Date() })
+              .where(eq(usersTable.id, riderId));
+          }
           return statusRow;
         });
         const rideCashLang = await getUserLanguage(riderId);
@@ -3032,18 +3118,8 @@ router.patch("/rides/:id/status", csrfDoubleSubmit, rideStatusLimiter, condition
             icon: "wallet-outline",
           })
           .catch((e: Error) => logger.error("[rider] notif insert failed:", e.message));
-        /* Auto-offline if balance hits zero */
+        /* Push notification only — DB update is now inside the transaction above. */
         if (newRiderBalance <= 0) {
-          await db
-            .update(usersTable)
-            .set({ isOnline: false, updatedAt: new Date() })
-            .where(eq(usersTable.id, riderId))
-            .catch((e: Error) =>
-              logger.error(
-                { riderId, err: e.message },
-                "[rider/complete] auto-offline DB update failed"
-              )
-            );
           sendPushToUser(riderId, {
             title: "Wallet Empty — You are now Offline",
             body: "Your wallet balance is 0. Top up to go online and accept rides.",
@@ -4331,7 +4407,13 @@ router.get("/cod-summary", async (req, res) => {
 });
 
 const remitSchema = z.object({
-  amount: z.coerce.number().positive("Amount must be positive"),
+  /* L-03: Clamp to 2 decimal places to prevent floating-point drift in PKR amounts. */
+  amount: z.coerce
+    .number()
+    .positive("Amount must be positive")
+    .refine((v) => Math.round(v * 100) / 100 === v, {
+      message: "Amount must have at most 2 decimal places",
+    }),
   paymentMethod: z.string().min(1, "Payment method is required"),
   accountNumber: z.string().optional(),
   transactionId: z.string().optional(),
@@ -4339,7 +4421,8 @@ const remitSchema = z.object({
 });
 
 /* ── POST /rider/cod/remit — submit COD cash remittance ── */
-router.post("/cod/remit", async (req, res) => {
+/* M-05: Rate-limit COD remittance to prevent accidental double-submission spam. */
+router.post("/cod/remit", codRemitLimiter, async (req, res) => {
   try {
     if (checkIdempotency(req, res)) return;
     const riderId = req.riderId!;
@@ -4431,7 +4514,8 @@ router.post("/cod/remit", async (req, res) => {
 });
 
 /* ── GET /rider/notifications ── */
-router.get("/notifications", async (req, res) => {
+/* M-05: Limit notification polling to 30 req/min to prevent flooding. */
+router.get("/notifications", notificationsFeedLimiter, async (req, res) => {
   try {
     const riderId = req.riderId!;
     const notifs = await db
@@ -4619,7 +4703,8 @@ router.get("/wallet/min-balance", async (req, res) => {
 });
 
 /* ── POST /rider/wallet/deposit — Submit a manual deposit request ── */
-router.post("/wallet/deposit", async (req, res) => {
+/* M-05: Limit deposit submissions to 10 per 15 minutes per rider. */
+router.post("/wallet/deposit", riderDepositLimiter, async (req, res) => {
   try {
     if (checkIdempotency(req, res)) return;
     const parsed = depositSchema.safeParse(req.body);
@@ -5404,6 +5489,9 @@ router.post("/location/batch", async (req, res) => {
         details: `GPS spoof (batch): ${batchHardBlockReason} (hit 3+)`,
         severity: "high",
       });
+      /* M-04: 403 (Forbidden) is more semantically correct than 422 for active
+         enforcement decisions — the server understands the request but refuses
+         it because policy has been violated. 422 is reserved for malformed data. */
       sendErrorWithData(
         res,
         "GPS location rejected: repeated spoofing detected in batch. You have been taken offline.",
@@ -5413,7 +5501,7 @@ router.post("/location/batch", async (req, res) => {
           inserted,
           skipped,
         },
-        422
+        403
       );
       return;
     }

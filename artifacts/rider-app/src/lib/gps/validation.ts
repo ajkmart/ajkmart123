@@ -24,6 +24,11 @@ interface AuditEntry {
 
 let _maxSpeedKmh = 200;
 const MIN_ACCURACY_M = 2;
+/* L-07: Allow 1 single-outlier GPS jump (e.g. multipath in cities) before
+   hard-rejecting. Consecutive violations still trigger the impossible-speed
+   gate. Counter resets on any valid-speed ping. */
+let _consecutiveSpeedViolations = 0;
+const SPEED_VIOLATION_GRACE = 1;
 const MAX_FUTURE_SECONDS = 5;
 const MAX_AUDIT_ENTRIES = 100;
 
@@ -115,10 +120,20 @@ export function validateGpsPing(prev: GpsPing | null, next: GpsPing): GpsValidat
       );
       const speedKmh = (distM / deltaMs) * 3_600;
       if (speedKmh > _maxSpeedKmh) {
-        const reason = `impossible speed (${Math.round(speedKmh)} km/h)`;
+        _consecutiveSpeedViolations += 1;
+        if (_consecutiveSpeedViolations <= SPEED_VIOLATION_GRACE) {
+          /* L-07: First outlier grace pass — city multipath, tunnel exit, or
+             momentary sensor glitch. Accept the point as suspicious rather than
+             hard-rejecting; consecutive violations still trigger the gate. */
+          const suspicionReason = `possible GPS jump (${Math.round(speedKmh)} km/h, outlier #${_consecutiveSpeedViolations})`;
+          recordRejection(suspicionReason, next.latitude, next.longitude, true);
+          return { valid: true, reason: "ok", suspicious: true, suspicionReason };
+        }
+        const reason = `impossible speed (${Math.round(speedKmh)} km/h — ${_consecutiveSpeedViolations} consecutive violations)`;
         recordRejection(reason, next.latitude, next.longitude);
         return { valid: false, reason, suspicious: false };
       }
+      _consecutiveSpeedViolations = 0; // reset on any valid-speed ping
     }
   }
 

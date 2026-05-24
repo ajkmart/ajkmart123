@@ -1,6 +1,7 @@
 import type { Language } from "@workspace/i18n";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { useAuth } from "../lib/rider-auth";
 import { useLanguage } from "../lib/useLanguage";
 
 const LANG_CYCLE: Language[] = ["en", "ur", "roman"];
@@ -225,8 +226,16 @@ const CONTENT = {
 export function GuestLanding() {
   const [, navigate] = useLocation();
   const { language, setLanguage } = useLanguage();
+  const { user } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const isRTL = language === "ur";
+
+  /* M-15: Belt-and-suspenders guard — App.tsx already prevents rendering
+     GuestLanding for authenticated users, but this redirect covers any direct
+     navigation or stale route that bypasses the top-level auth gate. */
+  useEffect(() => {
+    if (user) navigate("/");
+  }, [user, navigate]);
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 60);

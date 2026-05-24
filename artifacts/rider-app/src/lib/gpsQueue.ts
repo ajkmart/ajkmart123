@@ -13,8 +13,20 @@ function _warnGps(msg: string, ...args: unknown[]): void {
   console.warn("[gpsQueue]", msg, ...args); // eslint-disable-line no-console
 }
 
-/* Last valid ping seen — used by the validator to compute speed between pings. */
-let _lastValidPing: GpsPing | null = null;
+/* Last valid ping seen — used by the validator to compute speed between pings.
+   Persisted to localStorage so velocity checks survive app restarts (M-07). */
+const _LAST_PING_KEY = "_ajkm_lastValidGpsPing";
+let _lastValidPing: GpsPing | null = (() => {
+  try {
+    if (typeof localStorage !== "undefined") {
+      const stored = localStorage.getItem(_LAST_PING_KEY);
+      if (stored) return JSON.parse(stored) as GpsPing;
+    }
+  } catch {
+    /* Private browsing or storage unavailable — start fresh */
+  }
+  return null;
+})();
 
 /* Exponential-backoff state for batch drain failures.
    On each consecutive non-spoof failure the wait doubles (2 s → 4 s → 8 s → 30 s cap).
@@ -160,6 +172,15 @@ export async function enqueue(ping: QueuedPing): Promise<void> {
     heading: ping.heading,
     isMockProvider: ping.mockProvider,
   };
+  /* M-07: Persist the last valid ping so speed/velocity checks survive
+     app restarts and page reloads (cold-start false-positive prevention). */
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(_LAST_PING_KEY, JSON.stringify(_lastValidPing));
+    }
+  } catch {
+    /* Private browsing or storage quota exhausted — non-critical */
+  }
   try {
     const db = await openDB();
     await new Promise<void>((resolve, reject) => {
@@ -409,7 +430,10 @@ async function drainQueue(): Promise<void> {
           _drainBackoffTimer = null;
           void drainQueue();
         }, backoffMs);
-        continue;
+        /* M-08: Break instead of continue — remaining chunks stay in IDB and
+           will be retried on the next backoff cycle. Hammering a struggling
+           server with all remaining chunks in the same pass amplifies load. */
+        break;
       }
     }
   } catch (err) {

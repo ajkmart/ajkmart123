@@ -177,6 +177,10 @@ export function RegisterWizard({ onDone }: RegisterWizardProps) {
   const uploadFile = async (field: keyof Draft, file?: File) => {
     if (!file) return;
     const fieldKey = String(field);
+    /* L-12: Prevent concurrent uploads for the same field — rapid clicks or
+       programmatic calls would otherwise start parallel XHR requests that
+       overwrite each other's result. */
+    if (uploading === fieldKey) return;
     setUploading(fieldKey);
     setUploadPct((prev) => ({ ...prev, [fieldKey]: 0 }));
     setUploadError((prev) => ({ ...prev, [fieldKey]: "" }));

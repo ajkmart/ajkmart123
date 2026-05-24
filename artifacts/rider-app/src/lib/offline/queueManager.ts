@@ -183,6 +183,11 @@ export interface DeadLetterEntry {
 
 const DL_STORE = "dead_letter";
 
+/* L-06: Retention limits prevent unbounded IndexedDB growth. Entries older
+   than DL_TTL_MS are expired; the store never holds more than DL_MAX_ENTRIES. */
+const DL_MAX_ENTRIES = 50;
+const DL_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
 async function pushDeadLetter(action: QueuedAction, err: PermanentQueueError): Promise<void> {
   try {
     const db = await openDB();
@@ -198,7 +203,24 @@ async function pushDeadLetter(action: QueuedAction, err: PermanentQueueError): P
     };
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(DL_STORE, "readwrite");
-      tx.objectStore(DL_STORE).put(entry);
+      const store = tx.objectStore(DL_STORE);
+      /* Prune expired entries and enforce max-size before writing. */
+      const getAllReq = store.getAll();
+      getAllReq.onsuccess = () => {
+        const all = (getAllReq.result ?? []) as DeadLetterEntry[];
+        const cutoff = Date.now() - DL_TTL_MS;
+        /* Delete expired */
+        all.filter((e) => e.failedAt < cutoff).forEach((e) => store.delete(e.id));
+        /* Evict oldest above the cap */
+        const fresh = all
+          .filter((e) => e.failedAt >= cutoff)
+          .sort((a, b) => a.failedAt - b.failedAt);
+        while (fresh.length >= DL_MAX_ENTRIES) {
+          store.delete(fresh.shift()!.id);
+        }
+        store.put(entry);
+      };
+      getAllReq.onerror = () => reject(getAllReq.error);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });

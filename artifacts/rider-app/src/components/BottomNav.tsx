@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { tDual, type TranslationKey } from "@workspace/i18n";
 import { Bell, Home, MapPin, RefreshCw, TrendingUp, User, Wallet } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { api } from "../lib/api";
 import { useQueueStatus } from "../lib/offline/queueManager";
@@ -33,6 +34,22 @@ export function BottomNav() {
   const modules = getRiderModules(config);
   const { pendingCount, syncing } = useQueueStatus();
 
+  /* M-19: Track real online status so the badge can distinguish "queued while
+     offline" (amber, expected) from "pending while online" (red, sync error). */
+  const [isOnline, setIsOnline] = useState(
+    () => (typeof navigator !== "undefined" ? navigator.onLine : true)
+  );
+  useEffect(() => {
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, []);
+
   const { data: notifData } = useQuery({
     queryKey: ["rider-notifs-count"],
     queryFn: () => api.getNotifications(),
@@ -55,11 +72,17 @@ export function BottomNav() {
       style={{ paddingBottom: "max(6px, env(safe-area-inset-bottom, 6px))" }}
     >
       {pendingCount > 0 && (
-        <div className="flex items-center justify-center gap-1.5 bg-amber-500 px-3 py-1 text-[10px] font-bold text-white">
+        <div
+          className={`flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold text-white ${
+            syncing ? "bg-amber-500" : isOnline ? "bg-red-500" : "bg-amber-500"
+          }`}
+        >
           <RefreshCw size={10} className={syncing ? "animate-spin" : ""} />
           {syncing
             ? `Syncing ${pendingCount} pending action${pendingCount > 1 ? "s" : ""}…`
-            : `${pendingCount} action${pendingCount > 1 ? "s" : ""} queued — will sync when online`}
+            : isOnline
+              ? `Sync error — ${pendingCount} action${pendingCount > 1 ? "s" : ""} pending (will retry)`
+              : `${pendingCount} action${pendingCount > 1 ? "s" : ""} queued — will sync when online`}
         </div>
       )}
       <div className="mx-auto flex max-w-md">

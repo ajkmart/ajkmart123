@@ -55,6 +55,17 @@ async function buildRideSSEPayload(rideId: string): Promise<Record<string, unkno
   const [ride] = await db.select().from(ridesTable).where(eq(ridesTable.id, rideId)).limit(1);
   if (!ride) return null;
 
+  /* L-05: Only reveal the raw rider phone when the ride is in an active status
+     where the customer genuinely needs to contact the rider. All other statuses
+     get a masked number to protect rider PII. */
+  const PHONE_REVEAL_STATUSES = new Set(["accepted", "arrived", "in_transit"]);
+  function _maskPhoneSSE(phone: string | null | undefined): string | null {
+    if (!phone) return null;
+    const d = phone.replace(/\D/g, "");
+    if (d.length < 6) return "****";
+    return `${d.slice(0, 4)}-***-${d.slice(-2)}`;
+  }
+
   let riderName = ride.riderName;
   let riderPhone = ride.riderPhone;
   if (ride.riderId && !riderName) {
@@ -66,6 +77,8 @@ async function buildRideSSEPayload(rideId: string): Promise<Record<string, unkno
     riderName = riderUser?.name || null;
     riderPhone = riderUser?.phone || null;
   }
+  const shouldRevealPhone = PHONE_REVEAL_STATUSES.has(ride.status);
+  riderPhone = shouldRevealPhone ? riderPhone : _maskPhoneSSE(riderPhone);
 
   const bids =
     ride.status === "bargaining"

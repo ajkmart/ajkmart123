@@ -84,19 +84,28 @@ async function preferencesRemove(key: string): Promise<void> {
    Errors propagate to the caller so the AuthProvider can surface a visible
    auth failure rather than silently treating the session as unauthenticated. */
 export const tokenStoreReady: Promise<void> = (async () => {
-  if (typeof localStorage === "undefined") return;
-  const legacy = localStorage.getItem(TOKEN_KEY);
-  if (legacy) {
-    _inMemoryAccessToken = legacy;
-    await preferencesSet(TOKEN_KEY, legacy);
-    localStorage.removeItem(TOKEN_KEY);
-  } else {
-    _inMemoryAccessToken = await preferencesGet(TOKEN_KEY);
+  try {
+    if (typeof localStorage === "undefined") return;
+    const legacy = localStorage.getItem(TOKEN_KEY);
+    if (legacy) {
+      _inMemoryAccessToken = legacy;
+      await preferencesSet(TOKEN_KEY, legacy);
+      localStorage.removeItem(TOKEN_KEY);
+    } else {
+      _inMemoryAccessToken = await preferencesGet(TOKEN_KEY);
+    }
+    /* Restore persisted refresh token (stored by localSet on every login/refresh).
+       Without this, a page reload/app restart would lose the refresh token from
+       memory — forcing the user to re-authenticate even with a valid session. */
+    _inMemoryRefreshToken = await preferencesGet(REFRESH_KEY);
+  } catch (err) {
+    /* M-13: Preferences plugin unavailable (e.g. native plugin not yet initialized
+       on first install). Resolve gracefully — auth flow will prompt re-login. */
+    log.warn(
+      { err: err instanceof Error ? err.message : String(err) },
+      "[api] tokenStoreReady failed — session may require re-authentication"
+    );
   }
-  /* Restore persisted refresh token (stored by localSet on every login/refresh).
-     Without this, a page reload/app restart would lose the refresh token from
-     memory — forcing the user to re-authenticate even with a valid session. */
-  _inMemoryRefreshToken = await preferencesGet(REFRESH_KEY);
 })();
 
 /* ── BroadcastChannel for cross-tab token sync ─────────────────────────────
@@ -469,15 +478,22 @@ function readCsrfFromCookie(): string {
   }
 }
 
-export async function apiFetch(
+/* L-08: Generic type parameter enables typed callers (e.g. apiFetch<{token:string}>("..."))
+   while defaulting to `any` so all existing untyped call-sites remain valid. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function apiFetch<T = any>(
   path: string,
   opts: RequestInit = {},
   _returnEnvelope = false
-): Promise<any> {
+): Promise<T> {
   /* Ensure the token store has been seeded from Preferences before any request fires.
      tokenStoreReady resolves once the persisted access + refresh tokens are loaded.
      Without this guard, the first request after a cold restart fires without a token. */
   await tokenStoreReady;
+  /* M-06: Also await CSRF hydration so state-mutating requests on native
+     Capacitor (where document.cookie is unavailable) always carry a valid
+     CSRF token loaded from Preferences rather than an empty fallback string. */
+  await csrfStoreReady;
 
   const isFormData = opts.body instanceof FormData;
   const method = (opts.method ?? "GET").toUpperCase();
@@ -1069,4 +1085,16 @@ export const api = {
      transparently get the auth refresh, timeout, and error-reporter integration.
      Closes C1/C3 by removing all parallel apiFetch implementations. */
   apiFetch,
+
+  /* L-09: Missing endpoints that exist on the backend but had no client-side
+     counterpart, causing callers to use raw apiFetch with raw strings. */
+  deleteAccount: (reason?: string) =>
+    apiFetch("/riders/account", {
+      method: "DELETE",
+      body: JSON.stringify({ reason: reason ?? "" }),
+    }),
+  submitFeedback: (data: { category: string; message: string; rating?: number }) =>
+    apiFetch("/riders/feedback", { method: "POST", body: JSON.stringify(data) }),
+  getVehicleTypes: (): Promise<{ types: Array<{ key: string; label: string; icon?: string }> }> =>
+    apiFetch("/riders/vehicle-types"),
 };

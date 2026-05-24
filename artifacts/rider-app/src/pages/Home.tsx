@@ -568,6 +568,8 @@ export default function Home() {
               { err: err instanceof Error ? err.message : String(err) },
               "[Home] GPS ping enqueue failed"
             );
+            /* H-02: Toast so the rider knows location tracking silently failed. */
+            showToast(T("gpsLocationError"), "error");
           });
           return;
         }
@@ -589,6 +591,8 @@ export default function Home() {
                   { err: err instanceof Error ? err.message : String(err) },
                   "[Home] GPS ping enqueue failed"
                 );
+                /* H-02: Toast on GPS enqueue failure so it's visible, not just a warning bar. */
+                showToast(T("gpsLocationError"), "error");
               });
               setGpsWarningWithRef(T("gpsLocationError"));
             }
