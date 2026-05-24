@@ -21,8 +21,10 @@ import { magicLinkLimiter } from "../../middleware/rate-limit.js";
 import {
   addAuditEntry,
   addSecurityEvent,
+  checkLockout,
   getCachedSettings,
   getClientIp,
+  recordFailedAttempt,
   sign2faChallengeToken,
   writeAuthAuditLog,
 } from "../../middleware/security.js";
@@ -38,7 +40,9 @@ import {
 
 const router: IRouter = Router();
 
-const magicLinkRateMap = new Map<string, { count: number; windowStart: number }>();
+const ML_SEND_MAX = 3;
+const ML_SEND_WINDOW_MIN = 10;
+
 router.post(
   "/magic-link/send",
   magicLinkLimiter,
@@ -66,22 +70,15 @@ router.post(
 
       const normalized = email.toLowerCase().trim();
 
-      const now = Date.now();
-      const windowMs = 10 * 60 * 1000;
-      const rlKey = `ml:${normalized}`;
-      const rl = magicLinkRateMap.get(rlKey);
-      if (rl && now - rl.windowStart < windowMs) {
-        if (rl.count >= 3) {
-          const waitMin = Math.ceil((rl.windowStart + windowMs - now) / 60000);
-          sendTooManyRequests(
-            res,
-            `Too many magic link requests. Try again in ${waitMin} minute(s).`
-          );
-          return;
-        }
-        rl.count++;
-      } else {
-        magicLinkRateMap.set(rlKey, { count: 1, windowStart: now });
+      // Redis-backed per-email rate limit (replaces in-memory map — survives restarts + scales horizontally)
+      const mlSendKey = `magic_link_send:${normalized}`;
+      const mlLockout = await checkLockout(mlSendKey, ML_SEND_MAX, ML_SEND_WINDOW_MIN);
+      if (mlLockout.locked) {
+        sendTooManyRequests(
+          res,
+          `Too many magic link requests. Try again in ${mlLockout.minutesLeft} minute(s).`
+        );
+        return;
       }
 
       const [user] = await db
@@ -90,11 +87,11 @@ router.post(
         .where(eq(usersTable.email, normalized))
         .limit(1);
       if (!user) {
-        sendSuccess(
-          res,
-          undefined,
-          "If an account exists with this email, a magic link has been sent."
-        );
+        // Silent 200 — don't reveal that no account exists for this email
+        await recordFailedAttempt(mlSendKey, ML_SEND_MAX, ML_SEND_WINDOW_MIN);
+        sendSuccess(res, {
+          message: "If an account exists with this email, a magic link has been sent.",
+        });
         return;
       }
 
@@ -109,21 +106,27 @@ router.post(
           effectiveMagicRole
         )
       ) {
-        sendErrorWithData(
-          res,
-          "Magic link login is currently disabled for your account type.",
-          { code: "AUTH_METHOD_DISABLED" },
-          400
-        );
+        // Normalize to silent 200 — revealing role-method-disabled leaks that email is registered with that role
+        await recordFailedAttempt(mlSendKey, ML_SEND_MAX, ML_SEND_WINDOW_MIN);
+        sendSuccess(res, {
+          message: "If an account exists with this email, a magic link has been sent.",
+        });
         return;
       }
 
-      if (user.isBanned) {
-        sendForbidden(res, "Account suspended");
-        return;
-      }
-      if (!user.isActive && user.approvalStatus !== "pending") {
-        sendForbidden(res, "Account inactive");
+      if (user.isBanned || (!user.isActive && user.approvalStatus !== "pending")) {
+        // Silent 200 — don't confirm the account exists or its suspension state
+        addSecurityEvent({
+          type: "magic_link_blocked_account",
+          ip,
+          userId: user.id,
+          details: `Magic link requested for ${user.isBanned ? "banned" : "inactive"} account: ${normalized}`,
+          severity: user.isBanned ? "high" : "medium",
+        });
+        await recordFailedAttempt(mlSendKey, ML_SEND_MAX, ML_SEND_WINDOW_MIN);
+        sendSuccess(res, {
+          message: "If an account exists with this email, a magic link has been sent.",
+        });
         return;
       }
 
@@ -154,6 +157,9 @@ router.post(
 
       const magicLinkLang = await getUserLanguage(user.id);
       await sendMagicLinkEmail(normalized, rawToken, settings, magicLinkLang);
+
+      // Count successful sends against the per-email rate limit
+      await recordFailedAttempt(mlSendKey, ML_SEND_MAX, ML_SEND_WINDOW_MIN);
 
       addAuditEntry({
         action: "magic_link_sent",
@@ -209,21 +215,18 @@ router.post("/magic-link/verify", sharedValidateBody(MagicLinkVerifySchema), asy
       return;
     }
 
-    const allTokens = await db
+    // Direct O(1) hash lookup — previous full-table scan with LIMIT 50 could silently
+    // fail to find legitimate tokens when >50 active tokens existed in the table.
+    const incomingHash = createHash("sha256").update(token).digest("hex");
+    const [matchedRow] = await db
       .select()
       .from(magicLinkTokensTable)
       .where(
-        sql`${magicLinkTokensTable.usedAt} IS NULL AND ${magicLinkTokensTable.expiresAt} > now()`
+        sql`${magicLinkTokensTable.tokenHash} = ${incomingHash}
+          AND ${magicLinkTokensTable.usedAt} IS NULL
+          AND ${magicLinkTokensTable.expiresAt} > now()`
       )
-      .limit(50);
-
-    let matchedRow: (typeof allTokens)[0] | null = null;
-    for (const row of allTokens) {
-      if (createHash("sha256").update(token).digest("hex") === row.tokenHash) {
-        matchedRow = row;
-        break;
-      }
-    }
+      .limit(1);
 
     if (!matchedRow) {
       addSecurityEvent({

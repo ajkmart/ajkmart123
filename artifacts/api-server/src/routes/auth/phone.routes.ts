@@ -365,6 +365,9 @@ router.post(
           throw txErr;
         }
 
+        // Clear per-phone send counter on successful new-user registration
+        await resetAttempts(`phone_otp_send:${phone}`).catch(() => undefined);
+
         void writeAuthAuditLog("otp_verified_new_user", {
           userId: newUserId,
           ip,
