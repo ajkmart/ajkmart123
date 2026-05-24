@@ -11,9 +11,11 @@ import {
   rideBidsTable,
   rideEventLogsTable,
   rideNotifiedRidersTable,
+  rideRatingsTable,
   rideServiceTypesTable,
   riderProfilesTable,
   ridesTable,
+  reviewsTable,
   schoolRoutesTable,
   schoolSubscriptionsTable,
   usersTable,
@@ -21,7 +23,7 @@ import {
   vendorProfilesTable,
 } from "@workspace/db/schema";
 import { RIDE_VALID_STATUSES } from "@workspace/service-constants";
-import { and, asc, count, desc, eq, gte, ilike, isNull, lte, or, sql, sum } from "drizzle-orm";
+import { and, asc, avg, count, desc, eq, gte, ilike, isNotNull, isNull, lte, or, sql, sum } from "drizzle-orm";
 import { Request, Response, Router } from "express";
 import {
   sendCreated,
@@ -1772,5 +1774,392 @@ router.get("/riders/:userId/route", async (req: Request, res: Response) => {
    ══════════════════════════════════════════════════════════════ */
 
 /* ── GET /admin/reviews — paginated list of all reviews (order reviews + ride ratings) ── */
+router.get("/reviews", async (req: Request, res: Response) => {
+  try {
+    const {
+      page = "1",
+      limit = "25",
+      type,
+      stars,
+      status,
+      subject,
+      dateFrom,
+      dateTo,
+      q,
+    } = req.query as Record<string, string>;
+
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(100, parseInt(limit, 10) || 25);
+    const offset = (pageNum - 1) * limitNum;
+
+    /* ── Build where conditions for reviewsTable ── */
+    const reviewConditions: ReturnType<typeof and>[] = [];
+    if (type === "ride") {
+      reviewConditions.push(eq(reviewsTable.orderType, "ride"));
+    } else if (type === "order") {
+      reviewConditions.push(sql`${reviewsTable.orderType} != 'ride'`);
+    }
+    if (stars) reviewConditions.push(eq(reviewsTable.rating, parseInt(stars, 10)));
+    if (status === "visible")
+      reviewConditions.push(eq(reviewsTable.status, "visible"), isNull(reviewsTable.deletedAt));
+    else if (status === "pending_moderation")
+      reviewConditions.push(eq(reviewsTable.status, "pending_moderation"));
+    else if (status === "rejected") reviewConditions.push(eq(reviewsTable.status, "rejected"));
+    else if (status === "hidden")
+      reviewConditions.push(eq(reviewsTable.hidden, true), isNull(reviewsTable.deletedAt));
+    else if (status === "deleted") reviewConditions.push(isNotNull(reviewsTable.deletedAt));
+    if (subject === "vendor") reviewConditions.push(isNotNull(reviewsTable.vendorId));
+    else if (subject === "rider") reviewConditions.push(isNotNull(reviewsTable.riderId));
+    if (dateFrom) reviewConditions.push(gte(reviewsTable.createdAt, new Date(dateFrom)));
+    if (dateTo) {
+      const dt = new Date(dateTo);
+      dt.setHours(23, 59, 59, 999);
+      reviewConditions.push(lte(reviewsTable.createdAt, dt));
+    }
+
+    const baseCondition = reviewConditions.length > 0 ? and(...reviewConditions) : undefined;
+    const searchCondition = q
+      ? or(
+          ilike(usersTable.name, `%${q}%`),
+          ilike(usersTable.phone, `%${q}%`),
+          sql`${reviewsTable.comment} ILIKE ${"%" + q + "%"}`
+        )
+      : undefined;
+    const fullCondition = searchCondition
+      ? baseCondition
+        ? and(baseCondition, searchCondition)
+        : searchCondition
+      : baseCondition;
+
+    /* ── Build rideRatings conditions ── */
+    const ratingConditions: ReturnType<typeof and>[] = [];
+    if (type === "order") {
+      /* no ride ratings for order-only filter */
+      ratingConditions.push(sql`1=0`);
+    }
+    if (stars) ratingConditions.push(eq(rideRatingsTable.stars, parseInt(stars, 10)));
+    if (status === "visible" || !status)
+      ratingConditions.push(isNull(rideRatingsTable.deletedAt));
+    else if (status === "hidden")
+      ratingConditions.push(eq(rideRatingsTable.hidden, true), isNull(rideRatingsTable.deletedAt));
+    else if (status === "deleted") ratingConditions.push(isNotNull(rideRatingsTable.deletedAt));
+    else if (status === "pending_moderation" || status === "rejected") {
+      /* ride ratings have no moderation status — skip */
+      ratingConditions.push(sql`1=0`);
+    }
+    if (subject === "vendor") ratingConditions.push(sql`1=0`);
+    if (dateFrom) ratingConditions.push(gte(rideRatingsTable.createdAt, new Date(dateFrom)));
+    if (dateTo) {
+      const dt2 = new Date(dateTo);
+      dt2.setHours(23, 59, 59, 999);
+      ratingConditions.push(lte(rideRatingsTable.createdAt, dt2));
+    }
+    const ratingBaseCondition =
+      ratingConditions.length > 0 ? and(...ratingConditions) : undefined;
+
+    /* ── Fetch both sources + aggregates in parallel ── */
+    const reviewRows = await db
+      .select({
+        id: reviewsTable.id,
+        type: sql<"order" | "ride">`CASE WHEN ${reviewsTable.orderType} = 'ride' THEN 'ride' ELSE 'order' END`,
+        rating: reviewsTable.rating,
+        riderRating: reviewsTable.riderRating,
+        comment: reviewsTable.comment,
+        orderType: reviewsTable.orderType,
+        hidden: reviewsTable.hidden,
+        status: reviewsTable.status,
+        moderationNote: reviewsTable.moderationNote,
+        vendorReply: reviewsTable.vendorReply,
+        deletedAt: reviewsTable.deletedAt,
+        createdAt: reviewsTable.createdAt,
+        reviewerId: reviewsTable.userId,
+        subjectId: sql<string | null>`COALESCE(${reviewsTable.vendorId}, ${reviewsTable.riderId})`,
+        orderId: reviewsTable.orderId,
+        reviewerName: usersTable.name,
+        reviewerPhone: usersTable.phone,
+      })
+      .from(reviewsTable)
+      .leftJoin(usersTable, eq(reviewsTable.userId, usersTable.id))
+      .where(fullCondition)
+      .orderBy(desc(reviewsTable.createdAt));
+
+    const ratingRows =
+      type !== "order"
+        ? await db
+            .select({
+              id: rideRatingsTable.id,
+              type: sql<"order" | "ride">`'ride'`,
+              rating: rideRatingsTable.stars,
+              riderRating: sql<null>`NULL`,
+              comment: rideRatingsTable.comment,
+              orderType: sql<string>`'ride'`,
+              hidden: rideRatingsTable.hidden,
+              status: sql<string>`'visible'`,
+              moderationNote: sql<null>`NULL`,
+              vendorReply: sql<null>`NULL`,
+              deletedAt: rideRatingsTable.deletedAt,
+              createdAt: rideRatingsTable.createdAt,
+              reviewerId: rideRatingsTable.userId,
+              subjectId: rideRatingsTable.riderId,
+              orderId: rideRatingsTable.rideId,
+              reviewerName: usersTable.name,
+              reviewerPhone: usersTable.phone,
+            })
+            .from(rideRatingsTable)
+            .leftJoin(usersTable, eq(rideRatingsTable.userId, usersTable.id))
+            .where(ratingBaseCondition)
+            .orderBy(desc(rideRatingsTable.createdAt))
+        : [];
+
+    /* ── Merge, sort, paginate ── */
+    const allReviews = [...reviewRows, ...ratingRows].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    const totalCount = allReviews.length;
+    const paginated = allReviews.slice(offset, offset + limitNum);
+
+    /* ── Enrich with subject names ── */
+    const subjectIds = [
+      ...new Set(paginated.map((r) => r.subjectId).filter(Boolean) as string[]),
+    ];
+    const subjectUsers =
+      subjectIds.length > 0
+        ? await db
+            .select({ id: usersTable.id, name: usersTable.name, phone: usersTable.phone })
+            .from(usersTable)
+            .where(sql`${usersTable.id} = ANY(${sql.raw(`ARRAY[${subjectIds.map((id) => `'${id.replace(/'/g, "''")}'`).join(",")}]`)})`)
+        : [];
+    const subjectMap = new Map(subjectUsers.map((u) => [u.id, u]));
+
+    const result = paginated.map((r) => ({
+      ...r,
+      createdAt: new Date(r.createdAt).toISOString(),
+      deletedAt: r.deletedAt ? new Date(r.deletedAt).toISOString() : null,
+      subjectName: r.subjectId ? (subjectMap.get(r.subjectId)?.name ?? null) : null,
+      subjectPhone: r.subjectId ? (subjectMap.get(r.subjectId)?.phone ?? null) : null,
+    }));
+
+    /* ── StarBreakdown from all reviews (not just current page) ── */
+    const starBreakdown: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    for (const r of allReviews) {
+      const s = Number(r.rating);
+      if (s >= 1 && s <= 5) starBreakdown[s] = (starBreakdown[s] ?? 0) + 1;
+    }
+
+    sendSuccess(res, {
+      reviews: result,
+      total: totalCount,
+      pages: Math.ceil(totalCount / limitNum),
+      starBreakdown,
+    });
+  } catch (err) {
+    logger.error({ err }, "[admin/reviews] GET failed");
+    sendError(res, "Failed to fetch reviews", 500);
+  }
+});
+
+/* ── GET /admin/reviews/moderation-queue ── */
+router.get("/reviews/moderation-queue", async (_req: Request, res: Response) => {
+  try {
+    const rows = await db
+      .select({
+        id: reviewsTable.id,
+        rating: reviewsTable.rating,
+        comment: reviewsTable.comment,
+        orderType: reviewsTable.orderType,
+        moderationNote: reviewsTable.moderationNote,
+        createdAt: reviewsTable.createdAt,
+        reviewerName: usersTable.name,
+        reviewerPhone: usersTable.phone,
+        userId: reviewsTable.userId,
+      })
+      .from(reviewsTable)
+      .leftJoin(usersTable, eq(reviewsTable.userId, usersTable.id))
+      .where(
+        and(eq(reviewsTable.status, "pending_moderation"), isNull(reviewsTable.deletedAt))
+      )
+      .orderBy(asc(reviewsTable.createdAt))
+      .limit(100);
+    sendSuccess(res, {
+      reviews: rows.map((r) => ({ ...r, createdAt: new Date(r.createdAt).toISOString() })),
+      total: rows.length,
+    });
+  } catch (err) {
+    logger.error({ err }, "[admin/reviews/moderation-queue] GET failed");
+    sendError(res, "Failed to fetch moderation queue", 500);
+  }
+});
+
+/* ── PATCH /admin/reviews/:id/hide ── */
+router.patch("/reviews/:id/hide", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const [row] = await db.select({ hidden: reviewsTable.hidden }).from(reviewsTable).where(eq(reviewsTable.id, id)).limit(1);
+    if (!row) return sendNotFound(res, "Review not found");
+    await db.update(reviewsTable).set({ hidden: !row.hidden }).where(eq(reviewsTable.id, id));
+    sendSuccess(res, { hidden: !row.hidden });
+  } catch (err) {
+    logger.error({ err }, "[admin/reviews/:id/hide] PATCH failed");
+    sendError(res, "Failed to toggle visibility", 500);
+  }
+});
+
+/* ── PATCH /admin/reviews/:id/approve ── */
+router.patch("/reviews/:id/approve", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await db.update(reviewsTable).set({ status: "visible", hidden: false }).where(eq(reviewsTable.id, id));
+    sendSuccess(res, { status: "visible" });
+  } catch (err) {
+    logger.error({ err }, "[admin/reviews/:id/approve] PATCH failed");
+    sendError(res, "Failed to approve review", 500);
+  }
+});
+
+/* ── PATCH /admin/reviews/:id/reject ── */
+router.patch("/reviews/:id/reject", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await db.update(reviewsTable).set({ status: "rejected", hidden: true }).where(eq(reviewsTable.id, id));
+    sendSuccess(res, { status: "rejected" });
+  } catch (err) {
+    logger.error({ err }, "[admin/reviews/:id/reject] PATCH failed");
+    sendError(res, "Failed to reject review", 500);
+  }
+});
+
+/* ── DELETE /admin/reviews/:id ── */
+router.delete("/reviews/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await db.update(reviewsTable).set({ deletedAt: new Date() }).where(eq(reviewsTable.id, id));
+    sendSuccess(res, { deleted: true });
+  } catch (err) {
+    logger.error({ err }, "[admin/reviews/:id] DELETE failed");
+    sendError(res, "Failed to delete review", 500);
+  }
+});
+
+/* ── PATCH /admin/ride-ratings/:id/hide ── */
+router.patch("/ride-ratings/:id/hide", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const [row] = await db.select({ hidden: rideRatingsTable.hidden }).from(rideRatingsTable).where(eq(rideRatingsTable.id, id)).limit(1);
+    if (!row) return sendNotFound(res, "Ride rating not found");
+    await db.update(rideRatingsTable).set({ hidden: !row.hidden }).where(eq(rideRatingsTable.id, id));
+    sendSuccess(res, { hidden: !row.hidden });
+  } catch (err) {
+    logger.error({ err }, "[admin/ride-ratings/:id/hide] PATCH failed");
+    sendError(res, "Failed to toggle visibility", 500);
+  }
+});
+
+/* ── DELETE /admin/ride-ratings/:id ── */
+router.delete("/ride-ratings/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await db.update(rideRatingsTable).set({ deletedAt: new Date() }).where(eq(rideRatingsTable.id, id));
+    sendSuccess(res, { deleted: true });
+  } catch (err) {
+    logger.error({ err }, "[admin/ride-ratings/:id] DELETE failed");
+    sendError(res, "Failed to delete ride rating", 500);
+  }
+});
+
+/* ── GET /admin/reviews/export ── */
+router.get("/reviews/export", async (req: Request, res: Response) => {
+  try {
+    const { status, type } = req.query as Record<string, string>;
+    const conditions: ReturnType<typeof and>[] = [];
+    if (status && status !== "all") {
+      if (status === "deleted") conditions.push(isNotNull(reviewsTable.deletedAt));
+      else conditions.push(eq(reviewsTable.status, status), isNull(reviewsTable.deletedAt));
+    }
+    if (type === "order") conditions.push(sql`${reviewsTable.orderType} != 'ride'`);
+    else if (type === "ride") conditions.push(eq(reviewsTable.orderType, "ride"));
+    const rows = await db
+      .select({
+        id: reviewsTable.id,
+        orderType: reviewsTable.orderType,
+        orderId: reviewsTable.orderId,
+        rating: reviewsTable.rating,
+        riderRating: reviewsTable.riderRating,
+        comment: reviewsTable.comment,
+        status: reviewsTable.status,
+        hidden: reviewsTable.hidden,
+        vendorReply: reviewsTable.vendorReply,
+        createdAt: reviewsTable.createdAt,
+        reviewerName: usersTable.name,
+        reviewerPhone: usersTable.phone,
+      })
+      .from(reviewsTable)
+      .leftJoin(usersTable, eq(reviewsTable.userId, usersTable.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(reviewsTable.createdAt))
+      .limit(10000);
+    const header = "id,orderType,orderId,rating,riderRating,comment,status,hidden,vendorReply,createdAt,reviewerName,reviewerPhone";
+    const csvEsc = (v: unknown) => {
+      if (v == null) return "";
+      const s = String(v);
+      return s.includes(",") || s.includes('"') || s.includes("\n")
+        ? `"${s.replace(/"/g, '""')}"`
+        : s;
+    };
+    const lines = rows.map((r) =>
+      [r.id, r.orderType, r.orderId, r.rating, r.riderRating, r.comment, r.status, r.hidden, r.vendorReply, new Date(r.createdAt).toISOString(), r.reviewerName, r.reviewerPhone]
+        .map(csvEsc)
+        .join(",")
+    );
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename="reviews-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send([header, ...lines].join("\n"));
+  } catch (err) {
+    logger.error({ err }, "[admin/reviews/export] GET failed");
+    sendError(res, "Export failed", 500);
+  }
+});
+
+/* ── POST /admin/reviews/import ── */
+router.post("/reviews/import", async (req: Request, res: Response) => {
+  try {
+    const { csvData } = req.body as { csvData?: string };
+    if (!csvData?.trim()) return sendValidationError(res, "csvData is required");
+    const lines = csvData.trim().split("\n");
+    const header = lines[0]?.split(",").map((h) => h.trim().replace(/^"|"$/g, "")) ?? [];
+    let imported = 0;
+    let skipped = 0;
+    let errored = 0;
+    for (let i = 1; i < lines.length; i++) {
+      try {
+        const cols = lines[i]?.split(",") ?? [];
+        if (cols.length < 3) { skipped++; continue; }
+        const row: Record<string, string> = {};
+        header.forEach((h, idx) => { row[h] = (cols[idx] ?? "").trim().replace(/^"|"$/g, ""); });
+        const stars = parseInt(row.stars ?? row.rating ?? "", 10);
+        if (!row.orderType || !row.orderId || isNaN(stars)) { skipped++; continue; }
+        const id = `imp_${Date.now()}_${i}`;
+        await db.insert(reviewsTable).values({
+          id,
+          orderId: row.orderId,
+          userId: row.userId || "ajkmart_system",
+          vendorId: row.vendorId || null,
+          riderId: row.riderId || null,
+          orderType: row.orderType,
+          rating: Math.min(5, Math.max(1, stars)),
+          comment: row.comment || null,
+          status: (row.status as "visible" | "pending_moderation" | "rejected") || "visible",
+          vendorReply: row.vendorReply || null,
+        }).onConflictDoNothing();
+        imported++;
+      } catch {
+        errored++;
+      }
+    }
+    sendSuccess(res, { imported, skipped, errored });
+  } catch (err) {
+    logger.error({ err }, "[admin/reviews/import] POST failed");
+    sendError(res, "Import failed", 500);
+  }
+});
 
 export default router;

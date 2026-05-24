@@ -575,6 +575,7 @@ export default function ReviewsPage() {
   const total: number = data?.total ?? 0;
   const pages: number = data?.pages ?? 1;
   const pendingCount = queueData?.total || 0;
+  const starBreakdown: Record<number, number> = (data as any)?.starBreakdown ?? {};
 
   const hideOrder = useMutation({
     mutationFn: (id: string) => adminFetch(`/reviews/${id}/hide`, { method: "PATCH" }),
@@ -817,6 +818,47 @@ export default function ReviewsPage() {
                 </Card>
               ))}
             </div>
+
+            {total > 0 && Object.values(starBreakdown).some((v) => v > 0) && (
+              <Card className="p-4">
+                <p className="text-muted-foreground mb-3 text-[10px] font-bold tracking-widest uppercase">
+                  Rating Distribution
+                </p>
+                <div className="space-y-2">
+                  {[5, 4, 3, 2, 1].map((star) => {
+                    const cnt = starBreakdown[star] ?? 0;
+                    const pct = total > 0 ? Math.round((cnt / total) * 100) : 0;
+                    const barColor =
+                      star === 5
+                        ? "bg-green-500"
+                        : star === 4
+                          ? "bg-lime-400"
+                          : star === 3
+                            ? "bg-yellow-400"
+                            : star === 2
+                              ? "bg-orange-400"
+                              : "bg-red-500";
+                    return (
+                      <div key={star} className="flex items-center gap-2 text-xs">
+                        <span className="w-3 flex-shrink-0 text-right font-bold text-gray-500">
+                          {star}
+                        </span>
+                        <Star className="h-3 w-3 flex-shrink-0 fill-amber-400 text-amber-400" />
+                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="text-muted-foreground w-20 flex-shrink-0 text-right tabular-nums text-[11px]">
+                          {cnt} ({pct}%)
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            )}
 
             <Card className="space-y-3 p-4">
               <FilterBar

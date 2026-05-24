@@ -2176,7 +2176,7 @@ router.get("/reviews", async (req, res, next) => {
       isNull(reviewsTable.deletedAt),
     ];
     if (rating) conditions.push(eq(reviewsTable.rating, parseInt(rating, 10)));
-    const [reviews, totalResult, avgResult] = await Promise.all([
+    const [reviews, totalResult, avgResult, breakdownRows] = await Promise.all([
       db
         .select({
           review: reviewsTable,
@@ -2197,15 +2197,29 @@ router.get("/reviews", async (req, res, next) => {
         .select({ avg: avg(reviewsTable.rating) })
         .from(reviewsTable)
         .where(and(...conditions)),
+      db
+        .select({ rating: reviewsTable.rating, cnt: count() })
+        .from(reviewsTable)
+        .where(and(...conditions))
+        .groupBy(reviewsTable.rating),
     ]);
+    const starBreakdown: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    for (const row of breakdownRows) {
+      const s = Number(row.rating);
+      if (s >= 1 && s <= 5) starBreakdown[s] = (starBreakdown[s] ?? 0) + Number(row.cnt);
+    }
+    const totalCount = Number(totalResult[0]?.c ?? 0);
     sendSuccess(res, {
       reviews: reviews.map((r) => ({
         ...r.review,
         customerName: r.customerName,
         customerAvatar: r.customerAvatar,
       })),
-      total: totalResult[0]?.c ?? 0,
+      total: totalCount,
+      pages: Math.ceil(totalCount / limitNum),
       averageRating: parseFloat(String(avgResult[0]?.avg ?? "0")),
+      avgRating: parseFloat(String(avgResult[0]?.avg ?? "0")),
+      starBreakdown,
       page: pageNum,
       limit: limitNum,
     });

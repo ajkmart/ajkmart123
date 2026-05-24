@@ -20,6 +20,46 @@ interface ReviewsData {
   reviews: Review[];
   avgRating?: number;
   total?: number;
+  starBreakdown?: Record<number, number>;
+}
+
+function StarDistributionBar({
+  starBreakdown,
+  total,
+}: {
+  starBreakdown: Record<number, number>;
+  total: number;
+}) {
+  const barColors: Record<number, string> = {
+    5: "bg-green-500",
+    4: "bg-lime-400",
+    3: "bg-yellow-400",
+    2: "bg-orange-400",
+    1: "bg-red-500",
+  };
+  return (
+    <div className="space-y-2 rounded-2xl border border-white/[0.06] bg-white/[0.06] p-3.5 backdrop-blur-sm">
+      {[5, 4, 3, 2, 1].map((star) => {
+        const cnt = starBreakdown[star] ?? 0;
+        const pct = total > 0 ? Math.round((cnt / total) * 100) : 0;
+        return (
+          <div key={star} className="flex items-center gap-2 text-[11px]">
+            <span className="w-3 flex-shrink-0 text-right font-bold text-white/60">{star}</span>
+            <Star size={8} className="flex-shrink-0 fill-amber-400 text-amber-400" />
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.12]">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${barColors[star]}`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <span className="w-14 flex-shrink-0 text-right tabular-nums text-white/40">
+              {cnt} ({pct}%)
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function StarRow({ rating, size = 14 }: { rating: number; size?: number }) {
@@ -101,29 +141,34 @@ export default function Reviews() {
         </div>
 
         {!isLoading && !isError && (
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.06] p-3 text-center backdrop-blur-sm">
-              <p className="text-lg font-extrabold text-white">
-                {avgRating > 0 ? `${avgRating.toFixed(1)} / 5.0` : "—"}
-              </p>
-              <p className="mt-0.5 text-[9px] font-semibold tracking-wider text-white/30 uppercase">
-                Avg Rating
-              </p>
+          <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.06] p-3 text-center backdrop-blur-sm">
+                <p className="text-lg font-extrabold text-white">
+                  {avgRating > 0 ? `${avgRating.toFixed(1)} / 5.0` : "—"}
+                </p>
+                <p className="mt-0.5 text-[9px] font-semibold tracking-wider text-white/30 uppercase">
+                  Avg Rating
+                </p>
+              </div>
+              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.06] p-3 text-center backdrop-blur-sm">
+                <p className="text-lg font-extrabold text-white">{totalReviews}</p>
+                <p className="mt-0.5 text-[9px] font-semibold tracking-wider text-white/30 uppercase">
+                  Total Reviews
+                </p>
+              </div>
+              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.06] p-3 text-center backdrop-blur-sm">
+                <p className="text-lg font-extrabold text-amber-400">
+                  {reviews.filter((r) => r.rating >= 4).length}
+                </p>
+                <p className="mt-0.5 text-[9px] font-semibold tracking-wider text-white/30 uppercase">
+                  Positive
+                </p>
+              </div>
             </div>
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.06] p-3 text-center backdrop-blur-sm">
-              <p className="text-lg font-extrabold text-white">{totalReviews}</p>
-              <p className="mt-0.5 text-[9px] font-semibold tracking-wider text-white/30 uppercase">
-                Total Reviews
-              </p>
-            </div>
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.06] p-3 text-center backdrop-blur-sm">
-              <p className="text-lg font-extrabold text-amber-400">
-                {reviews.filter((r) => r.rating >= 4).length}
-              </p>
-              <p className="mt-0.5 text-[9px] font-semibold tracking-wider text-white/30 uppercase">
-                Positive
-              </p>
-            </div>
+            {data?.starBreakdown && totalReviews > 0 && (
+              <StarDistributionBar starBreakdown={data.starBreakdown} total={totalReviews} />
+            )}
           </div>
         )}
       </div>
