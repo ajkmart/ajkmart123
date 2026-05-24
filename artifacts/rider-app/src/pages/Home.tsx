@@ -73,6 +73,7 @@ export default function Home() {
     }
   });
   const [lastSeenOnlineAt, setLastSeenOnlineAt] = useState<string | null>(null);
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
 
   const [audioLocked, setAudioLocked] = useState(false);
 
@@ -1091,7 +1092,12 @@ export default function Home() {
                 config={config}
                 onAcceptOrder={(id) => acceptOrderMut.mutate(id)}
                 onRejectOrder={(id) => rejectOrderMut.mutate(id)}
-                onAcceptRide={(id) => acceptRideMut.mutate(id)}
+                onAcceptRide={(id) => {
+                  setAcceptingId(id);
+                  acceptRideMut.mutate(id, {
+                    onSettled: () => setAcceptingId(null),
+                  });
+                }}
                 onCounterRide={(id, fare) => counterRideMut.mutate({ id, counterFare: fare })}
                 onRejectOffer={(id) => rejectOfferMut.mutate(id)}
                 onIgnoreRide={(id) => ignoreRideMut.mutate(id)}
@@ -1099,6 +1105,7 @@ export default function Home() {
                 acceptOrderPending={acceptOrderMut.isPending}
                 rejectOrderPending={rejectOrderMut.isPending}
                 acceptRidePending={acceptRideMut.isPending}
+                acceptingRideId={acceptingId}
                 counterRidePending={counterRideMut.isPending}
                 rejectOfferPending={rejectOfferMut.isPending}
                 ignoreRidePending={ignoreRideMut.isPending}

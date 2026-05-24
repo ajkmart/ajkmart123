@@ -1,6 +1,6 @@
 import { db, pool } from "@workspace/db";
 import { platformSettingsTable } from "@workspace/db/schema";
-import { eq, _sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { Router, type Request, type Response } from "express";
 import { logger } from "../lib/logger.js";
 import { getDiskStats, getMemoryPct, getP95Ms } from "../lib/metrics/responseTime.js";

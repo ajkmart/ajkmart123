@@ -36,6 +36,7 @@ interface HomeRequestListProps {
   acceptOrderPending: boolean;
   rejectOrderPending: boolean;
   acceptRidePending: boolean;
+  acceptingRideId?: string | null;
   counterRidePending: boolean;
   rejectOfferPending: boolean;
   ignoreRidePending: boolean;
@@ -66,6 +67,7 @@ export function HomeRequestList({
   acceptOrderPending,
   rejectOrderPending,
   acceptRidePending,
+  acceptingRideId,
   counterRidePending,
   rejectOfferPending,
   ignoreRidePending,
@@ -148,11 +150,11 @@ export function HomeRequestList({
           onRejectOffer={onRejectOffer}
           onIgnore={onIgnoreRide}
           onDismiss={onDismiss}
-          acceptPending={acceptRidePending}
+          acceptPending={acceptingRideId === r.id || acceptRidePending}
           counterPending={counterRidePending}
           rejectOfferPending={rejectOfferPending}
           ignorePending={ignoreRidePending}
-          anyAcceptPending={acceptOrderPending}
+          anyAcceptPending={acceptOrderPending || (acceptRidePending && acceptingRideId !== r.id)}
           serverTime={requestsServerTime}
           T={T}
         />

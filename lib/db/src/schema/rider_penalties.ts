@@ -19,6 +19,8 @@ export const riderPenaltiesTable = pgTable(
     index("rider_penalties_rider_id_idx").on(t.riderId),
     index("rider_penalties_type_idx").on(t.type),
     index("rider_penalties_created_at_idx").on(t.createdAt),
+    /* Composite index for the most common query: rider penalties ordered by date */
+    index("rider_penalties_rider_created_idx").on(t.riderId, t.createdAt),
   ]
 );
 

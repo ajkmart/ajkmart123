@@ -28,6 +28,8 @@ export const ridesTable = pgTable(
     dropLat: decimal("drop_lat", { precision: 10, scale: 6 }),
     dropLng: decimal("drop_lng", { precision: 10, scale: 6 }),
     fare: decimal("fare", { precision: 10, scale: 2 }).notNull(),
+    /** Platform booking fee charged to customer at ride creation (default 0). */
+    platformFee: decimal("platform_fee", { precision: 10, scale: 2 }).notNull().default("0"),
     distance: decimal("distance", { precision: 10, scale: 2 }).notNull(),
     riderId: text("rider_id").references(() => usersTable.id, { onDelete: "set null" }),
     riderName: text("rider_name"),

@@ -99,6 +99,26 @@ export const tokenStoreReady: Promise<void> = (async () => {
   _inMemoryRefreshToken = await preferencesGet(REFRESH_KEY);
 })();
 
+/* ── BroadcastChannel for cross-tab token sync ─────────────────────────────
+   When the access token is refreshed in one tab, other open tabs receive the
+   updated token so they don't fall back to an expired JWT and get 401s.     */
+const _tokenChannel: BroadcastChannel | null = (() => {
+  try {
+    return typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("ajkmart_rider_token_sync") : null;
+  } catch {
+    return null;
+  }
+})();
+
+if (_tokenChannel) {
+  _tokenChannel.onmessage = (ev: MessageEvent<unknown>) => {
+    const data = ev.data as { type?: string; token?: string };
+    if (data?.type === "token_updated" && typeof data.token === "string" && data.token) {
+      _inMemoryAccessToken = data.token;
+    }
+  };
+}
+
 /* Access token helpers — Preferences-backed, with in-memory cache */
 function sessionGet(): string {
   return _inMemoryAccessToken;
@@ -111,6 +131,12 @@ function sessionSet(value: string): void {
       "[api] sessionSet persistence failed"
     );
   });
+  /* Notify other open tabs that the token has been refreshed */
+  try {
+    _tokenChannel?.postMessage({ type: "token_updated", token: value });
+  } catch {
+    /* BroadcastChannel post can fail if the channel was closed — non-critical */
+  }
 }
 function sessionRemove(): void {
   _inMemoryAccessToken = "";

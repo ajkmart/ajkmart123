@@ -330,6 +330,26 @@ function AppRoutes() {
     syncQueue().catch((err) => {
       log.warn("Offline queue sync failed on mount:", err);
     });
+
+    /* PWA7: Sync the offline queue whenever the tab regains visibility
+       (e.g. user switches back to the app tab) or when the device comes
+       back online. This catches the gap where actions were queued while
+       the tab was hidden/offline and the socket reconnect event may not
+       have fired yet. */
+    const onVisible = () => {
+      if (!document.hidden && navigator.onLine) {
+        syncQueue().catch((err) => log.warn({ err }, "syncQueue on visibility change failed"));
+      }
+    };
+    const onOnline = () => {
+      syncQueue().catch((err) => log.warn({ err }, "syncQueue on window online failed"));
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onOnline);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", onOnline);
+    };
   }, []);
 
   useEffect(() => {

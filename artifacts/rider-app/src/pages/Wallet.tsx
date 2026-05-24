@@ -7,6 +7,7 @@ import { PullToRefresh } from "../components/PullToRefresh";
 import { ErrorState } from "../components/ui/ErrorState";
 import WithdrawModal from "../components/wallet/WithdrawModal";
 import { api } from "../lib/api";
+import { useSocket } from "../lib/socket";
 import { useAuth } from "../lib/rider-auth";
 import { formatDateTz, usePlatformConfig } from "../lib/useConfig";
 import { useLanguage } from "../lib/useLanguage";
@@ -414,6 +415,7 @@ export default function Wallet() {
   const minBalanceFallback = config.rider?.minBalance ?? 0;
   const procDays = config.wallet?.withdrawalProcessingDays ?? 2;
   const qc = useQueryClient();
+  const { socket: sharedSocket } = useSocket();
 
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showRemittance, setShowRemittance] = useState(false);
@@ -434,6 +436,22 @@ export default function Wallet() {
       if (toastTimer.current) clearTimeout(toastTimer.current);
     };
   }, []);
+
+  /* W5: Real-time wallet balance updates via socket.
+     Invalidates the wallet query cache when the server emits a wallet event
+     so the balance and transaction list refresh without a manual pull-to-refresh. */
+  useEffect(() => {
+    if (!sharedSocket) return;
+    const onWalletUpdate = () => {
+      void qc.invalidateQueries({ queryKey: ["rider-wallet"] });
+    };
+    sharedSocket.on("wallet:update", onWalletUpdate);
+    sharedSocket.on("wallet:transaction", onWalletUpdate);
+    return () => {
+      sharedSocket.off("wallet:update", onWalletUpdate);
+      sharedSocket.off("wallet:transaction", onWalletUpdate);
+    };
+  }, [sharedSocket, qc]);
 
   const showToast = (message: string, type: "success" | "error" = "success") => {
     if (toastTimer.current) clearTimeout(toastTimer.current);

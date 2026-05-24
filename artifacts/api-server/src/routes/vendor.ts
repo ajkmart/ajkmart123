@@ -116,6 +116,31 @@ const patchStoreSchema = z.object({
   storeLng: z.union([z.string(), z.number()]).optional().nullable(),
 });
 
+/* ── Idempotency cache for vendor withdrawal (prevents double-submit) ─────────
+   Same pattern as rider/index.ts — keyed by vendorId + method + path + header. */
+interface VendorIdempotencyEntry { status: number; body: unknown; ts: number }
+const vendorIdempotencyCache = new Map<string, VendorIdempotencyEntry>();
+const VENDOR_IDEM_TTL_MS = 5 * 60_000;
+
+function checkVendorIdempotency(req: Request, res: Response): boolean {
+  const key = req.headers["x-idempotency-key"];
+  if (!key || typeof key !== "string") return false;
+  const vendorId = req.vendorId ?? "anon";
+  const cacheKey = `${vendorId}:${req.method}:${req.path}:${key}`;
+  const now = Date.now();
+  vendorIdempotencyCache.forEach((v, k) => { if (now - v.ts > VENDOR_IDEM_TTL_MS) vendorIdempotencyCache.delete(k); });
+  const existing = vendorIdempotencyCache.get(cacheKey);
+  if (existing) { res.status(existing.status).json(existing.body); return true; }
+  return false;
+}
+function storeVendorIdempotency(req: Request, status: number, body: unknown): void {
+  const key = req.headers["x-idempotency-key"];
+  if (!key || typeof key !== "string") return;
+  const vendorId = req.vendorId ?? "anon";
+  const cacheKey = `${vendorId}:${req.method}:${req.path}:${key}`;
+  vendorIdempotencyCache.set(cacheKey, { status, body, ts: Date.now() });
+}
+
 function safeNum(v: unknown, def = 0) {
   return parseFloat(String(v ?? def)) || def;
 }
@@ -1660,6 +1685,7 @@ router.get("/wallet/transactions", async (req, res, next) => {
 /* ── POST /vendors/wallet/withdraw ── request a withdrawal ── */
 router.post("/wallet/withdraw", async (req, res, next) => {
   try {
+    if (checkVendorIdempotency(req, res)) return;
     const vendorId = req.vendorId!;
     const _user = req.vendorUser!;
     const {
@@ -1695,6 +1721,10 @@ router.post("/wallet/withdraw", async (req, res, next) => {
         .update(usersTable)
         .set({ walletBalance: sql`wallet_balance - ${amt}`, updatedAt: new Date() })
         .where(eq(usersTable.id, vendorId));
+      const idemKey = (() => {
+        const k = req.headers["x-idempotency-key"];
+        return k && typeof k === "string" ? `${vendorId}:withdraw:${k}` : undefined;
+      })();
       await tx.insert(walletTransactionsTable).values({
         id,
         userId: vendorId,
@@ -1703,15 +1733,26 @@ router.post("/wallet/withdraw", async (req, res, next) => {
         description: `Withdrawal request — ${method ?? bankName ?? "bank transfer"}`,
         reference: `WD-${id.slice(-8).toUpperCase()}`,
         paymentMethod: method ? String(method) : "bank_transfer",
+        ...(idemKey ? { idempotencyKey: idemKey } : {}),
       });
     });
-    sendCreated(res, {
+    const responseBody = {
       success: true,
       transactionId: id,
       amount: amt,
       reference: `WD-${id.slice(-8).toUpperCase()}`,
-    });
+    };
+    storeVendorIdempotency(req, 201, responseBody);
+    sendCreated(res, responseBody);
   } catch (err) {
+    /* Unique constraint violation on idempotency_key — concurrent duplicate request */
+    const pgErr = err as { code?: string; constraint?: string };
+    if (pgErr?.code === "23505" && pgErr?.constraint?.includes("idempotency")) {
+      /* Return cached response from in-memory store for the duplicate */
+      if (checkVendorIdempotency(req, res)) return;
+      sendError(res, "Duplicate withdrawal request — please retry in a moment.", 409);
+      return;
+    }
     if (
       err instanceof Error &&
       (err as NodeJS.ErrnoException & { code?: string }).code === "INSUFFICIENT"

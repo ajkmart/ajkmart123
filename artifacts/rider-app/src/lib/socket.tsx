@@ -94,8 +94,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionDelay: 2000,
-      reconnectionDelayMax: 30000,
-      reconnectionAttempts: 20,
+      reconnectionDelayMax: 20000,
+      /* Adaptive retry count: fewer attempts when offline to save battery.
+         Full count (5) when online, minimal (2) when offline so we don't churn
+         for 5+ minutes against a down network. A new socket lifecycle starts
+         when the device comes back online (window online listener in App.tsx). */
+      reconnectionAttempts: typeof navigator !== "undefined" && !navigator.onLine ? 2 : 5,
       /* withCredentials lets the browser attach the HttpOnly refresh cookie
          to the polling-transport handshake. The websocket transport does
          not require it but enabling here is harmless and keeps both
@@ -114,9 +118,20 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     s.on("disconnect", (reason) => {
       log.warn({ reason }, "Socket disconnected");
       setConnected(false);
+      /* "io server disconnect" means the server explicitly kicked this client
+         (e.g. auth revoked / token invalidated). Fully disconnect so the
+         socket does not attempt automatic reconnection with stale credentials.
+         The token refresh + new socket lifecycle will reconnect when ready. */
+      if (reason === "io server disconnect") {
+        s.disconnect();
+      }
     });
     s.on("connect_error", (err) => {
       log.warn({ message: err.message }, "Socket connection error");
+      setConnected(false);
+    });
+    s.on("error", (err: Error) => {
+      log.warn({ message: err?.message }, "Socket transport error");
       setConnected(false);
     });
 

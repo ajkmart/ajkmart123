@@ -23,6 +23,8 @@ export const walletTransactionsTable = pgTable(
     receiverName: text("receiver_name"),
     /** P2P transfer: optional note attached by the sender. */
     p2pNote: text("p2p_note"),
+    /** Idempotency key to prevent duplicate transactions from replayed requests. */
+    idempotencyKey: text("idempotency_key").unique(),
   },
   (t) => [
     index("wallet_txn_user_id_idx").on(t.userId),

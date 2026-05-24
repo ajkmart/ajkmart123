@@ -13,7 +13,9 @@
  *   6. success        — Done
  */
 import { TwoFactorVerify, executeCaptcha, formatPhoneForApi } from "@workspace/auth-utils";
+import { createLogger } from "@/lib/logger";
 import { useRateLimitCountdown } from "@workspace/auth-react";
+
 import { tDual, type TranslationKey } from "@workspace/i18n";
 import { ArrowLeft, CheckCircle, Eye, EyeOff, KeyRound, Mail, Phone } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -22,6 +24,8 @@ import { api } from "../lib/api";
 import { useTheme } from "../lib/auth/ThemeContext";
 import { getRiderAuthConfig, usePlatformConfig } from "../lib/useConfig";
 import { useLanguage } from "../lib/useLanguage";
+
+const log = createLogger("ForgotPassword");
 
 type ForgotStep =
   | "choose-method"
@@ -208,7 +212,7 @@ export default function ForgotPassword() {
         return new RegExp(config.regional.phoneFormat).test(p);
       }
     } catch (_e) {
-      /* fall through */
+      log.debug({ err: _e }, "[ForgotPassword] phone-format regex invalid — using default pattern");
     }
     return /^0?3\d{9}$/.test(p.replace(/[\s\-()+]/g, ""));
   };
@@ -232,7 +236,7 @@ export default function ForgotPassword() {
         try {
           captchaToken = await executeCaptcha("forgot_password", captchaSiteKey);
         } catch (_e) {
-          /* captcha optional */
+          log.debug({ err: _e }, "[ForgotPassword] captcha failed (send-otp) — proceeding without token");
         }
         if (!captchaToken) {
           setError(String(T("captchaRequired")));
@@ -288,7 +292,7 @@ export default function ForgotPassword() {
         try {
           captchaToken = await executeCaptcha("reset_password", captchaSiteKey);
         } catch (_e) {
-          /* captcha optional */
+          log.debug({ err: _e }, "[ForgotPassword] captcha failed (reset-password) — proceeding without token");
         }
         if (!captchaToken) {
           setError(String(T("captchaRequired")));
@@ -327,7 +331,7 @@ export default function ForgotPassword() {
           try {
             captchaToken = await executeCaptcha("reset_password_2fa", captchaSiteKey);
           } catch (_e) {
-            /* captcha optional */
+            log.debug({ err: _e }, "[ForgotPassword] captcha failed (reset-2fa) — proceeding without token");
           }
         }
         await api.resetPassword({

@@ -63,6 +63,7 @@ import {
 import { emitWebhookEvent } from "../../lib/webhook-emitter.js";
 import { sendPushToUser } from "../../lib/webpush.js";
 import { gpsAntiSpoofMiddleware } from "../../middleware/gpsSpoof.js";
+import { validateRiderLocationSecurity } from "../rides/dispatch.js";
 import {
   addSecurityEvent,
   detectGPSSpoof,
@@ -70,6 +71,22 @@ import {
   getClientIp,
   verifyUserJwt,
 } from "../../middleware/security.js";
+
+/* ── CSRF double-submit cookie protection ────────────────────────────────────
+   State-change POST endpoints (accept, cancel, status update) validate that the
+   X-CSRF-Token header matches the csrf_token cookie value set by the frontend.
+   This prevents cross-site request forgery on authenticated rider endpoints.   */
+function csrfDoubleSubmit(req: Request, res: Response, next: NextFunction): void {
+  const headerToken = req.headers["x-csrf-token"];
+  const cookieToken = (req.cookies as Record<string, string> | undefined)?.["csrf_token"];
+  /* Strictly enforce double-submit: both the cookie and the matching header
+     must be present. Missing either (or a mismatch) is a rejected request. */
+  if (!headerToken || !cookieToken || headerToken !== cookieToken) {
+    sendForbidden(res, "CSRF token mismatch — request rejected.");
+    return;
+  }
+  next();
+}
 
 /* ── Ride-action rate limiters (defined early so they can be referenced anywhere in the file) ── */
 
@@ -125,6 +142,28 @@ const otpLimiter = rateLimit({
   },
 });
 
+/** Ride-cancel rate limiter: 10 cancellations per rider per minute (spec requirement) */
+const rideCancelLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 10,
+  keyGenerator: (req) => req.riderId ?? getClientIp(req) ?? "unknown",
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
+  handler: (_req, res) => {
+    sendTooManyRequests(res, "Too many cancellation requests. Please wait before cancelling again.");
+  },
+});
+
+/** Middleware that applies rideCancelLimiter only when the request body has status=cancelled */
+const conditionalCancelLimiter = (req: Request, res: Response, next: NextFunction) => {
+  const body = req.body as { status?: string };
+  if (body?.status === "cancelled") {
+    return rideCancelLimiter(req, res, next);
+  }
+  return next();
+};
+
 const MAX_OTP_ATTEMPTS = 5;
 const OTP_ATTEMPT_TTL_MS = 30 * 60_000;
 
@@ -177,6 +216,74 @@ function storeIdempotency(req: Request, status: number, body: unknown): void {
   idempotencyCache.set(cacheKey, { status, body, ts: Date.now() });
 }
 
+/** Middleware: blocks ride acceptance when the rider's vehicle profile is incomplete,
+    the account is suspended/restricted, or there are active penalties in the last 30 days. */
+async function validateRiderProfileComplete(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const riderId = req.riderId;
+  if (!riderId) { next(); return; }
+  try {
+    /* 1. Check user account status */
+    const [user] = await db
+      .select({ isRestricted: usersTable.isRestricted, approvalStatus: usersTable.approvalStatus })
+      .from(usersTable)
+      .where(eq(usersTable.id, riderId))
+      .limit(1);
+    if (user?.isRestricted) {
+      sendForbidden(res, "Your account is suspended. Contact support before accepting rides.");
+      return;
+    }
+    if ((user?.approvalStatus ?? "pending") !== "approved") {
+      sendForbidden(res, "Your account is pending approval. You cannot accept rides until verified.");
+      return;
+    }
+
+    /* 2. Check vehicle profile completeness */
+    const [profile] = await db
+      .select({
+        vehicleType: riderProfilesTable.vehicleType,
+        vehiclePhoto: riderProfilesTable.vehiclePhoto,
+        vehiclePlate: riderProfilesTable.vehiclePlate,
+        drivingLicense: riderProfilesTable.drivingLicense,
+      })
+      .from(riderProfilesTable)
+      .where(eq(riderProfilesTable.userId, riderId))
+      .limit(1);
+    const missing: string[] = [];
+    if (!profile?.vehicleType) missing.push("vehicle type");
+    if (!profile?.vehiclePhoto) missing.push("vehicle photo");
+    if (!profile?.vehiclePlate) missing.push("vehicle plate/number");
+    if (!profile?.drivingLicense) missing.push("driving license");
+    if (missing.length > 0) {
+      sendForbidden(
+        res,
+        `Profile incomplete — please add your ${missing.join(", ")} in Settings before accepting rides.`
+      );
+      return;
+    }
+
+    /* 3. Check for active penalties in the last 30 days */
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const [activePenalty] = await db
+      .select({ riderId: riderPenaltiesTable.riderId })
+      .from(riderPenaltiesTable)
+      .where(
+        and(
+          eq(riderPenaltiesTable.riderId, riderId),
+          sql`${riderPenaltiesTable.createdAt} >= ${thirtyDaysAgo.toISOString()}`
+        )
+      )
+      .limit(1);
+    if (activePenalty) {
+      sendForbidden(res, "You have active penalties on your account. Resolve them before accepting rides.");
+      return;
+    }
+
+    next();
+  } catch (e: unknown) {
+    next(e);
+  }
+}
+
 const onlineSchema = z.object({ isOnline: z.boolean() });
 
 const profileSchema = z
@@ -201,6 +308,22 @@ const profileSchema = z
     regDocUrl: z.string().optional(),
     vehiclePhoto: z.string().optional(),
     dailyGoal: z.number().positive().nullable().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.vehicleType && !data.vehiclePhoto) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "vehiclePhoto is required when setting vehicleType",
+        path: ["vehiclePhoto"],
+      });
+    }
+    if (data.vehicleType && !data.vehiclePlate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "vehiclePlate is required when setting vehicleType",
+        path: ["vehiclePlate"],
+      });
+    }
   })
   .transform((data) => {
     if (data.vehicleRegistration && !data.vehicleRegNo) {
@@ -396,7 +519,9 @@ async function riderAuth(req: Request, res: Response, next: NextFunction) {
       .where(eq(riderProfilesTable.userId, user.id))
       .limit(1);
     req.riderId = user.id;
-    req.riderUser = profile ? { ...user, ...profile } : user;
+    req.riderUser = profile
+      ? { ...user, ...profile, kycStatus: profile.kycStatus ?? user.kycStatus }
+      : user;
     next();
   } catch (err) {
     logger.error("[riderAuth] DB error:", err instanceof Error ? err.message : err);
@@ -953,7 +1078,9 @@ router.patch("/profile", async (req, res) => {
           .limit(1);
         profile = existing;
       }
-      user = profile ? { ...updated, ...profile } : updated;
+      user = profile
+        ? { ...updated, ...profile, kycStatus: profile.kycStatus ?? updated.kycStatus }
+        : updated;
     } catch (dbErr: unknown) {
       const msg = (dbErr as Error)?.message || "";
       if (msg.includes("unique") || msg.includes("duplicate")) {
@@ -2252,7 +2379,7 @@ router.patch("/orders/:id/status", async (req, res) => {
 
 /* ── POST /rider/rides/:id/accept — Accept a ride ──
    Uses WHERE riderId IS NULL to prevent two riders accepting same ride (race condition) */
-router.post("/rides/:id/accept", rideAcceptLimiter, async (req, res) => {
+router.post("/rides/:id/accept", csrfDoubleSubmit, validateRiderProfileComplete, rideAcceptLimiter, async (req, res) => {
   try {
     if (checkIdempotency(req, res)) return;
     const paramParsed = idParamSchema.safeParse(req.params);
@@ -2277,6 +2404,31 @@ router.post("/rides/:id/accept", rideAcceptLimiter, async (req, res) => {
         "Your account is pending re-verification. You cannot accept rides until an admin approves your profile."
       );
       return;
+    }
+
+    /* GPS spoof guard — validate the rider's current position before processing accept */
+    {
+      const [livePos] = await db
+        .select({ latitude: liveLocationsTable.latitude, longitude: liveLocationsTable.longitude })
+        .from(liveLocationsTable)
+        .where(eq(liveLocationsTable.userId, riderId))
+        .limit(1);
+      if (livePos) {
+        try {
+          await validateRiderLocationSecurity(
+            riderId,
+            parseFloat(String(livePos.latitude)),
+            parseFloat(String(livePos.longitude))
+          );
+        } catch (spoofErr) {
+          const se = spoofErr as { code?: string; httpStatus?: number; message?: string };
+          if (se.code === "GPS_SPOOF") {
+            sendForbidden(res, se.message ?? "GPS validation failed");
+            return;
+          }
+          throw spoofErr;
+        }
+      }
     }
 
     const s = await getCachedSettings();
@@ -2659,8 +2811,53 @@ router.post("/rides/:id/verify-otp", otpLimiter, async (req, res) => {
   }
 });
 
+/* ── POST /rider/rides/cancel — Cancel an active ride ──
+   Dedicated cancel endpoint with per-rider rate limiting (10/min).
+   Accepts { rideId, reason? } in the request body.                           */
+const rideCancelBodySchema = z.object({
+  rideId: z.string().min(1),
+  reason: z.string().max(500).optional(),
+});
+router.post("/rides/cancel", csrfDoubleSubmit, rideCancelLimiter, async (req, res) => {
+  try {
+    if (checkIdempotency(req, res)) return;
+    const parsed = rideCancelBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      sendValidationError(res, parsed.error.issues[0]?.message || "Invalid request body");
+      return;
+    }
+    const riderId = req.riderId!;
+    const { rideId, reason } = parsed.data;
+    const [ride] = await db
+      .select()
+      .from(ridesTable)
+      .where(and(eq(ridesTable.id, rideId), eq(ridesTable.riderId, riderId)))
+      .limit(1);
+    if (!ride) {
+      sendNotFound(res, "Ride not found or not yours");
+      return;
+    }
+    const allowed = RIDE_STATUS_TRANSITIONS[ride.status];
+    if (!allowed?.includes("cancelled")) {
+      sendValidationError(res, `Cannot cancel a ride in "${ride.status}" status.`);
+      return;
+    }
+    await db
+      .update(ridesTable)
+      .set({ status: "cancelled", cancellationReason: reason ?? "Rider cancelled", cancelledAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(ridesTable.id, rideId), eq(ridesTable.riderId, riderId)));
+    emitRideUpdate(rideId);
+    const body = { success: true, message: "Ride cancelled" };
+    storeIdempotency(req, 200, body);
+    sendSuccess(res, body);
+  } catch (err) {
+    logger.error({ error: err instanceof Error ? err.message : String(err) }, "[route] POST /rides/cancel error");
+    sendError(res, "Internal server error", 500);
+  }
+});
+
 /* ── PATCH /rider/rides/:id/status — Update ride status (completed/cancelled) ── */
-router.patch("/rides/:id/status", rideStatusLimiter, async (req, res) => {
+router.patch("/rides/:id/status", csrfDoubleSubmit, rideStatusLimiter, conditionalCancelLimiter, async (req, res) => {
   try {
     if (checkIdempotency(req, res)) return;
     const parsed = rideStatusSchema.safeParse(req.body);
@@ -3761,6 +3958,41 @@ router.get("/earnings", async (req, res) => {
       };
     }
 
+    /* ── Net breakdown summary (audit requirement: gross/platformFees/cancellationFees/bonus/net) ── */
+    const monthGrossRides = safeNum(monthRides[0]?.s);
+    const monthGrossOrders = safeNum(monthOrders[0]?.s);
+    const monthGross = parseFloat((monthGrossRides + monthGrossOrders).toFixed(2));
+    /* platform_fee is stored per ride at booking time (default 0 until set by admin) */
+    const [monthPlatformFeesRow] = await db
+      .select({ s: sum(ridesTable.platformFee) })
+      .from(ridesTable)
+      .where(
+        and(
+          eq(ridesTable.riderId, riderId),
+          eq(ridesTable.status, "completed"),
+          gte(ridesTable.updatedAt, monthAgo)
+        )
+      );
+    /* Cancellation fees are recorded as wallet debit transactions with reference 'cancel_penalty:*' */
+    const [monthCancelFeesRow] = await db
+      .select({ s: sum(walletTransactionsTable.amount) })
+      .from(walletTransactionsTable)
+      .where(
+        and(
+          eq(walletTransactionsTable.userId, riderId),
+          eq(walletTransactionsTable.type, "debit"),
+          sql`${walletTransactionsTable.reference} LIKE 'cancel_penalty:%'`,
+          gte(walletTransactionsTable.createdAt, monthAgo)
+        )
+      );
+    const monthPlatformFees = parseFloat((safeNum(monthPlatformFeesRow?.s)).toFixed(2));
+    const monthCancellationFees = parseFloat((safeNum(monthCancelFeesRow?.s)).toFixed(2));
+    const monthBonusAmt = parseFloat((safeNum(monthBonus[0]?.s)).toFixed(2));
+    const monthNet = parseFloat(
+      (monthGrossRides * riderKeepPct + monthGrossOrders * riderKeepPct + monthBonusAmt - monthCancellationFees).toFixed(2)
+    );
+    const monthTotalRides = Number(monthRides[0]?.c ?? 0);
+
     sendSuccess(res, {
       today: {
         earnings: parseFloat(todayTotal.toFixed(2)),
@@ -3776,6 +4008,15 @@ router.get("/earnings", async (req, res) => {
         earnings: parseFloat(monthTotal.toFixed(2)),
         deliveries: (monthOrders[0]?.c ?? 0) + (monthRides[0]?.c ?? 0),
         breakdown: mkBreakdown(monthOrders, monthFoodOrders, monthRides),
+      },
+      /** Audit-required net breakdown (30-day rolling window) */
+      summary: {
+        gross: monthGross,
+        platformFees: monthPlatformFees,
+        cancellationFees: monthCancellationFees,
+        bonus: monthBonusAmt,
+        net: monthNet,
+        totalRides: monthTotalRides,
       },
       dailyGoal: personalDailyGoal,
     });

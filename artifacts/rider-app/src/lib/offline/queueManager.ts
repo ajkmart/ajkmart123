@@ -207,6 +207,22 @@ async function pushDeadLetter(action: QueuedAction, err: PermanentQueueError): P
   } // eslint-disable-line no-console
 }
 
+/** Clear all pending actions from the queue (e.g. on 401 — stale auth). */
+export async function clearQueue(): Promise<void> {
+  try {
+    const db = await openDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    notifyListeners();
+  } catch (err) {
+    console.warn("[queueManager] clearQueue failed:", err); // eslint-disable-line no-console
+  }
+}
+
 export async function getDeadLetterQueue(): Promise<DeadLetterEntry[]> {
   try {
     const db = await openDB();
@@ -327,7 +343,13 @@ export async function syncQueue(): Promise<void> {
         notifyActionSuccess(action);
       } catch (err) {
         if (err instanceof PermanentQueueError) {
-          /* Permanent server-side rejection (e.g. 4xx): move to dead-letter
+          /* 401 Unauthorized — auth is gone; clear entire queue and abort sync
+             to avoid replaying stale actions under an invalid session. */
+          if (err.httpStatus === 401) {
+            await clearQueue();
+            throw new PermanentQueueError("Session expired — queue cleared", 401);
+          }
+          /* Other permanent server-side rejection (e.g. 4xx): move to dead-letter
              immediately and continue draining subsequent actions. */
           await pushDeadLetter(action, err);
           await removeAction(action.id).catch((removeErr) => {

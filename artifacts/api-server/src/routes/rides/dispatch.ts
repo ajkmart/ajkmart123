@@ -1,7 +1,13 @@
 import { randomBytes } from "crypto";
-import { rideNotifiedRidersTable } from "@workspace/db/schema";
+import {
+  liveLocationsTable,
+  locationHistoryTable,
+  rideNotifiedRidersTable,
+} from "@workspace/db/schema";
 import { Router } from "express";
 import { redisClient } from "../../lib/redis.js";
+import { addSecurityEvent } from "../../middleware/security.js";
+import { desc } from "drizzle-orm";
 import {
   and,
   asc,
@@ -28,14 +34,97 @@ import {
 
 const router = Router();
 
+/* ── GPS spoof validator — called before ride acceptance ─────────────────────
+   Compares the rider's current position (from live_locations) against their
+   most-recent location_history entry using haversine distance. If the implied
+   travel speed exceeds MAX_SPEED_MS * SPEED_BUFFER the position is physically
+   impossible: log a security event, suspend the rider, and throw a 403.       */
+const MAX_SPEED_MS = 28; // m/s (≈ 100 km/h — generous upper bound for road vehicles)
+const SPEED_BUFFER = 1.5; // safety multiplier to absorb GPS drift / clock skew
+
+function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6_371_000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+export async function validateRiderLocationSecurity(
+  riderId: string,
+  lat: number,
+  lng: number
+): Promise<void> {
+  /* Get the rider's last history entry — the previous GPS ping */
+  const [prev] = await db
+    .select({
+      coords: locationHistoryTable.coords,
+      createdAt: locationHistoryTable.createdAt,
+    })
+    .from(locationHistoryTable)
+    .where(eq(locationHistoryTable.userId, riderId))
+    .orderBy(desc(locationHistoryTable.createdAt))
+    .limit(1);
+
+  if (!prev) return; // no history — cannot validate, allow through
+
+  const elapsed = (Date.now() - new Date(prev.createdAt).getTime()) / 1000; // seconds
+  if (elapsed <= 0 || elapsed > 300) return; // stale data > 5 min — skip check
+
+  const prevCoords = prev.coords as { lat: number; lng: number };
+  if (!prevCoords?.lat || !prevCoords?.lng) return;
+
+  const dist = haversineMeters(prevCoords.lat, prevCoords.lng, lat, lng);
+  const maxAllowed = MAX_SPEED_MS * SPEED_BUFFER * elapsed;
+
+  if (dist > maxAllowed) {
+    addSecurityEvent({
+      type: "gps_spoof_ride_accept",
+      ip: "server-side",
+      userId: riderId,
+      details: `Impossible movement at ride accept: ${dist.toFixed(0)}m in ${elapsed.toFixed(1)}s (max ${maxAllowed.toFixed(0)}m at ${MAX_SPEED_MS * SPEED_BUFFER} m/s)`,
+      severity: "high",
+    });
+
+    /* Suspend the rider immediately */
+    await db
+      .update(usersTable)
+      .set({
+        isRestricted: true,
+        autoSuspendedAt: new Date(),
+        autoSuspendReason: "GPS spoofing detected",
+        updatedAt: new Date(),
+      })
+      .where(eq(usersTable.id, riderId));
+
+    logger.warn(
+      { riderId, dist, elapsed, maxAllowed },
+      "[gps-spoof] rider suspended — impossible GPS movement detected at ride accept"
+    );
+
+    const err = Object.assign(
+      new Error("GPS position rejected — suspicious movement detected"),
+      { httpStatus: 403, code: "GPS_SPOOF" }
+    );
+    throw err;
+  }
+}
+
 /* In-memory attempt counter keyed by ride ID.
    Incremented each time broadcastRide is called for a ride.
    Entries are deleted when the ride leaves the searching state. */
 const _dispatchAttemptCounts = new Map<string, number>();
 
 let dispatchCycleRunning = false;
+let lastDispatchCycleEndMs = 0;
+const MIN_CYCLE_BACKOFF_MS = 5_000;
+
 async function runDispatchCycle() {
   if (dispatchCycleRunning) return;
+  if (Date.now() - lastDispatchCycleEndMs < MIN_CYCLE_BACKOFF_MS) return;
   dispatchCycleRunning = true;
   try {
     const s = await getCachedSettings();
@@ -95,29 +184,13 @@ async function runDispatchCycle() {
 
             if (ride.paymentMethod === "wallet") {
               const rideRef = `ride:${ride.id}`;
-              const txns = await tx
-                .select({
-                  type: walletTransactionsTable.type,
-                  amount: walletTransactionsTable.amount,
-                })
-                .from(walletTransactionsTable)
-                .where(
-                  and(
-                    eq(walletTransactionsTable.userId, ride.userId),
-                    eq(walletTransactionsTable.reference, rideRef)
-                  )
-                );
-              let netDebit = 0;
-              for (const t of txns) {
-                const a = parseFloat(t.amount);
-                if (t.type === "debit") netDebit += a;
-                else if (t.type === "credit") netDebit -= a;
-              }
-              if (netDebit > 0) {
+              const refundAmount =
+                parseFloat(ride.fare) + parseFloat((ride.platformFee as string | null) ?? "0");
+              if (refundAmount > 0) {
                 await tx
                   .update(usersTable)
                   .set({
-                    walletBalance: sql`wallet_balance + ${netDebit.toFixed(2)}`,
+                    walletBalance: sql`wallet_balance + ${refundAmount.toFixed(2)}`,
                     updatedAt: new Date(),
                   })
                   .where(eq(usersTable.id, ride.userId));
@@ -125,7 +198,7 @@ async function runDispatchCycle() {
                   id: generateId(),
                   userId: ride.userId,
                   type: "credit",
-                  amount: netDebit.toFixed(2),
+                  amount: refundAmount.toFixed(2),
                   description: `Ride expired — auto-refund #${ride.id.slice(-6).toUpperCase()}`,
                   reference: rideRef,
                 });
@@ -177,29 +250,13 @@ async function runDispatchCycle() {
 
             if (ride.paymentMethod === "wallet") {
               const rideRef = `ride:${ride.id}`;
-              const txns = await tx
-                .select({
-                  type: walletTransactionsTable.type,
-                  amount: walletTransactionsTable.amount,
-                })
-                .from(walletTransactionsTable)
-                .where(
-                  and(
-                    eq(walletTransactionsTable.userId, ride.userId),
-                    eq(walletTransactionsTable.reference, rideRef)
-                  )
-                );
-              let netDebit = 0;
-              for (const t of txns) {
-                const a = parseFloat(t.amount);
-                if (t.type === "debit") netDebit += a;
-                else if (t.type === "credit") netDebit -= a;
-              }
-              if (netDebit > 0) {
+              const refundAmount =
+                parseFloat(ride.fare) + parseFloat((ride.platformFee as string | null) ?? "0");
+              if (refundAmount > 0) {
                 await tx
                   .update(usersTable)
                   .set({
-                    walletBalance: sql`wallet_balance + ${netDebit.toFixed(2)}`,
+                    walletBalance: sql`wallet_balance + ${refundAmount.toFixed(2)}`,
                     updatedAt: new Date(),
                   })
                   .where(eq(usersTable.id, ride.userId));
@@ -207,7 +264,7 @@ async function runDispatchCycle() {
                   id: generateId(),
                   userId: ride.userId,
                   type: "credit",
-                  amount: netDebit.toFixed(2),
+                  amount: refundAmount.toFixed(2),
                   description: `No riders found — auto-refund #${ride.id.slice(-6).toUpperCase()}`,
                   reference: rideRef,
                 });
@@ -256,29 +313,13 @@ async function runDispatchCycle() {
 
             if (ride.paymentMethod === "wallet") {
               const rideRef = `ride:${ride.id}`;
-              const txns = await tx
-                .select({
-                  type: walletTransactionsTable.type,
-                  amount: walletTransactionsTable.amount,
-                })
-                .from(walletTransactionsTable)
-                .where(
-                  and(
-                    eq(walletTransactionsTable.userId, ride.userId),
-                    eq(walletTransactionsTable.reference, rideRef)
-                  )
-                );
-              let netDebit = 0;
-              for (const t of txns) {
-                const a = parseFloat(t.amount);
-                if (t.type === "debit") netDebit += a;
-                else if (t.type === "credit") netDebit -= a;
-              }
-              if (netDebit > 0) {
+              const refundAmount =
+                parseFloat(ride.fare) + parseFloat((ride.platformFee as string | null) ?? "0");
+              if (refundAmount > 0) {
                 await tx
                   .update(usersTable)
                   .set({
-                    walletBalance: sql`wallet_balance + ${netDebit.toFixed(2)}`,
+                    walletBalance: sql`wallet_balance + ${refundAmount.toFixed(2)}`,
                     updatedAt: new Date(),
                   })
                   .where(eq(usersTable.id, ride.userId));
@@ -286,7 +327,7 @@ async function runDispatchCycle() {
                   id: generateId(),
                   userId: ride.userId,
                   type: "credit",
-                  amount: netDebit.toFixed(2),
+                  amount: refundAmount.toFixed(2),
                   description: `No riders found — auto-refund #${ride.id.slice(-6).toUpperCase()}`,
                   reference: rideRef,
                 });
@@ -335,6 +376,7 @@ async function runDispatchCycle() {
   } catch (err) {
     logger.error("[dispatch-engine] cycle error:", err);
   } finally {
+    lastDispatchCycleEndMs = Date.now();
     dispatchCycleRunning = false;
   }
 }

@@ -85,6 +85,28 @@ export default function Active() {
     };
   }, [sharedSocket]);
 
+  /* S3: Surface socket transport errors as a dismissible toast so the rider
+     knows updates may be delayed without a hard UI block. */
+  useEffect(() => {
+    if (!sharedSocket) return;
+    const onSocketError = (err: Error) => {
+      if (!isMountedRef.current) return;
+      log.warn({ err: err?.message }, "[Active] Socket transport error");
+      showToast("Connection error — status updates may be delayed", true);
+      /* Attempt reconnect after a brief back-off so the rider regains live
+         status updates without needing to reload the page. */
+      if (sharedSocket && !sharedSocket.connected) {
+        setTimeout(() => {
+          if (isMountedRef.current) sharedSocket.connect();
+        }, 3000);
+      }
+    };
+    sharedSocket.on("error", onSocketError);
+    return () => {
+      sharedSocket.off("error", onSocketError);
+    };
+  }, [sharedSocket]);
+
   useEffect(() => {
     if (!sharedSocket) return;
     const onOrderUpdate = () => {
