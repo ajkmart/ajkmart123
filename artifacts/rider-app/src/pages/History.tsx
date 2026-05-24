@@ -55,7 +55,7 @@ function formatCurrency(n: string | number | null | undefined) {
 }
 
 type FilterPeriod = "today" | "week" | "all";
-type FilterKind = "all" | "order" | "ride";
+type FilterKind = "all" | "order" | "ride" | "parcel";
 
 type HistoryItem = {
   id: string;
@@ -101,30 +101,23 @@ export default function History() {
        from a different filter combination. */
     queryKey: ["rider-history", kind, period],
     queryFn: ({ pageParam }: { pageParam: number }) =>
-      api.getHistory({ limit: PAGE_SIZE, offset: pageParam }),
+      api.getHistory({ limit: PAGE_SIZE, offset: pageParam, kind, period }),
     initialPageParam: 0,
     getNextPageParam: (lastPage, _allPages, lastPageParam: number) =>
       lastPage.hasMore ? lastPageParam + PAGE_SIZE : undefined,
     refetchInterval: false,
   });
 
-  /* Accumulate all loaded pages into a flat list */
-  const raw: HistoryItem[] = data?.pages.flatMap((p) => p.history) ?? [];
+  /* Accumulate all loaded pages into a flat list — filters are applied server-side */
+  const filtered: HistoryItem[] = data?.pages.flatMap((p) => p.history) ?? [];
 
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const weekStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
-  const weekStart = weekStartDate;
-
-  /* Client-side filters applied to accumulated pages */
-  const filtered = raw.filter((item) => {
-    const d = new Date(item.createdAt);
-    if (period === "today" && d < todayStart) return false;
-    if (period === "week" && d < weekStart) return false;
-    if (kind === "order" && item.kind !== "order") return false;
-    if (kind === "ride" && item.kind !== "ride") return false;
-    return true;
-  });
+  /* Date boundaries for grouping headers (display only, not for data filtering) */
+  const PKT_OFFSET_MS = 5 * 60 * 60 * 1000;
+  const nowInPKT = Date.now() + PKT_OFFSET_MS;
+  const todayStart = new Date(
+    Math.floor(nowInPKT / (24 * 60 * 60 * 1000)) * (24 * 60 * 60 * 1000) - PKT_OFFSET_MS
+  );
+  const weekStart = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
 
   const totalEarnings = filtered.reduce((s, i) => s + (i.earnings || 0), 0);
   const completedItems = filtered.filter(
@@ -140,8 +133,9 @@ export default function History() {
   type KindTab = { key: FilterKind; label: string; icon: React.ReactElement };
   const KIND_TABS: KindTab[] = [
     { key: "all", label: T("all"), icon: <ClipboardList size={12} /> },
-    { key: "order", label: T("orders"), icon: <Package size={12} /> },
+    { key: "order", label: T("orders"), icon: <ShoppingCart size={12} /> },
     { key: "ride", label: T("rides"), icon: <Bike size={12} /> },
+    { key: "parcel", label: T("parcels") || "Parcels", icon: <Package size={12} /> },
   ];
 
   function ItemIcon({ kind, type }: { kind: string; type: string }) {
@@ -161,7 +155,7 @@ export default function History() {
     await qc.invalidateQueries({ queryKey: ["rider-history", kind, period] });
   }, [qc, kind, period]);
 
-  const totalLoaded = raw.length;
+  const totalLoaded = filtered.length;
 
   return (
     <PullToRefresh onRefresh={handlePullRefresh} className="min-h-screen bg-[#F5F6F8]">
@@ -230,17 +224,20 @@ export default function History() {
             </button>
           ))}
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-0.5">
           {KIND_TABS.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setKind(tab.key)}
-              className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition-all ${kind === tab.key ? "bg-gray-900 text-white shadow-sm" : "border border-gray-200 bg-white text-gray-500"}`}
+              className={`flex flex-shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition-all ${kind === tab.key ? "bg-gray-900 text-white shadow-sm" : "border border-gray-200 bg-white text-gray-500"}`}
             >
               {tab.icon} {tab.label}
             </button>
           ))}
         </div>
+        <p className="px-1 text-[10px] text-gray-400">
+          Filters applied server-side across your full history. Search is limited to loaded items.
+        </p>
       </div>
 
       <div className="space-y-3 px-4 py-3">

@@ -29,6 +29,7 @@ import {
   eq,
   gte,
   isNull,
+  ne,
   or,
   sql,
   sum,
@@ -3627,67 +3628,286 @@ router.get("/history", async (req, res) => {
     const rawOffset = parseInt(String(req.query["offset"] || "0"), 10);
     const limitParam = Math.min(isNaN(rawLimit) || rawLimit < 1 ? 50 : rawLimit, 200);
     const offsetParam = isNaN(rawOffset) || rawOffset < 0 ? 0 : rawOffset;
-    /* Each table is queried with its own OFFSET/LIMIT so only the rows needed for
-     the current page are transferred — no full-table scans for large offsets. */
-    const [orders, rides] = await Promise.all([
-      db
-        .select()
-        .from(ordersTable)
-        .where(and(eq(ordersTable.riderId, riderId), eq(ordersTable.status, "delivered")))
-        .orderBy(desc(ordersTable.updatedAt))
-        .limit(limitParam + 1)
-        .offset(offsetParam),
-      db
-        .select()
-        .from(ridesTable)
-        .where(
-          and(
-            eq(ridesTable.riderId, riderId),
-            or(eq(ridesTable.status, "completed"), eq(ridesTable.status, "cancelled"))
-          )
-        )
-        .orderBy(desc(ridesTable.updatedAt))
-        .limit(limitParam + 1)
-        .offset(offsetParam),
-    ]);
 
-    const sorted = [
-      ...orders.map((o) => ({
-        kind: "order" as const,
-        id: o.id,
-        status: o.status,
-        amount: safeNum(o.total),
-        earnings: Math.round(safeNum(o.total) * 100 * riderKeepPct) / 100,
-        address: o.deliveryAddress,
-        type: o.type,
-        createdAt: o.createdAt,
-        updatedAt: o.updatedAt,
-      })),
-      /* Cancelled rides have no earnings — the rider was never paid. Returning a
-       non-zero earnings value for cancelled rides caused totalEarnings on the
-       frontend to be inflated by fare×keepPct for every cancelled ride. */
-      ...rides.map((r) => ({
-        kind: "ride" as const,
-        id: r.id,
-        status: r.status,
-        amount: safeNum(r.fare),
-        earnings:
-          r.status === "cancelled" ? 0 : Math.round(safeNum(r.fare) * 100 * riderKeepPct) / 100,
-        address: r.dropAddress,
-        type: r.type,
-        createdAt: r.createdAt,
-        updatedAt: r.updatedAt,
-        origin: r.pickupAddress,
-        destination: r.dropAddress,
-        fare: safeNum(r.fare),
-        distance: r.distance,
-      })),
-    ].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    /* ── Server-side kind + period filters (C-01 / M-01 / M-08) ─────────────
+       kind   = "all" | "order" | "ride"
+       period = "all" | "today" | "week" | "month"
+       Date boundaries are computed in PKT (UTC+5) so "today" means
+       midnight-to-now in Pakistan Standard Time, not UTC midnight.           */
+    const kindParam = String(req.query["kind"] || "all").toLowerCase();
+    const periodParam = String(req.query["period"] || "all").toLowerCase();
 
-    const hasMore = sorted.length > limitParam;
-    const combined = sorted.slice(0, limitParam);
+    const PKT_OFFSET_MS = 5 * 60 * 60 * 1000; // UTC+5
+    const nowMs = Date.now();
+    const nowInPKT = nowMs + PKT_OFFSET_MS;
+    const todayStartPKT = new Date(
+      Math.floor(nowInPKT / (24 * 60 * 60 * 1000)) * (24 * 60 * 60 * 1000) - PKT_OFFSET_MS
+    );
 
-    sendSuccess(res, { history: combined, hasMore, limit: limitParam, offset: offsetParam });
+    let periodStart: Date | null = null;
+    if (periodParam === "today") {
+      periodStart = todayStartPKT;
+    } else if (periodParam === "week") {
+      periodStart = new Date(todayStartPKT.getTime() - 6 * 24 * 60 * 60 * 1000);
+    } else if (periodParam === "month") {
+      periodStart = new Date(todayStartPKT.getTime() - 29 * 24 * 60 * 60 * 1000);
+    }
+
+    /* ── Build per-table filter fragments ──────────────────────────────────────
+       kind=parcel → delivered orders with type='parcel'
+       kind=order  → delivered orders that are NOT parcel (food/mart)
+       kind=ride   → completed/cancelled rides only
+       kind=all    → union of all the above (global pagination via UNION ALL)   */
+    const parcelTypeFilter =
+      kindParam === "parcel"
+        ? sql`o.type = 'parcel'`
+        : kindParam === "order"
+          ? sql`o.type <> 'parcel'`
+          : sql`TRUE`;
+
+    const periodConditionOrders = periodStart
+      ? sql`AND o.updated_at >= ${periodStart.toISOString()}`
+      : sql``;
+    const periodConditionRides = periodStart
+      ? sql`AND r.updated_at >= ${periodStart.toISOString()}`
+      : sql``;
+
+    /* ── kind=all: UNION ALL with global ORDER BY + LIMIT/OFFSET ────────────
+       Per-table pagination is broken for mixed histories — items get skipped
+       or repeated when both tables have records in the same time window.
+       A UNION ALL with global ordering is the only correct approach.           */
+    let combined: Array<{
+      kind: "order" | "ride";
+      id: string;
+      status: string;
+      amount: number;
+      earnings: number;
+      address: string | null;
+      type: string;
+      createdAt: Date;
+      updatedAt: Date;
+      origin: string | null;
+      destination: string | null;
+      fare: number;
+      distance: string | number | null;
+      proofPhoto: string | null;
+    }>;
+    let filteredTotal: number;
+
+    if (kindParam === "all") {
+      /* UNION ALL data query — single ordered stream, global LIMIT/OFFSET */
+      const unionRows = await db.execute(sql`
+        SELECT 'order' AS kind,
+               o.id, o.status,
+               o.total::numeric          AS amount,
+               o.delivery_address        AS address,
+               o.type,
+               o.created_at,
+               o.updated_at,
+               NULL::text                AS origin,
+               o.delivery_address        AS destination,
+               NULL::numeric             AS fare,
+               NULL::numeric             AS distance,
+               o.proof_photo_url         AS proof_photo
+        FROM   orders o
+        WHERE  o.rider_id = ${riderId}
+          AND  o.status   = 'delivered'
+          ${periodConditionOrders}
+
+        UNION ALL
+
+        SELECT 'ride' AS kind,
+               r.id, r.status,
+               r.fare::numeric           AS amount,
+               r.drop_address            AS address,
+               r.type,
+               r.created_at,
+               r.updated_at,
+               r.pickup_address          AS origin,
+               r.drop_address            AS destination,
+               r.fare::numeric           AS fare,
+               r.distance::numeric       AS distance,
+               NULL::text                AS proof_photo
+        FROM   rides r
+        WHERE  r.rider_id = ${riderId}
+          AND  r.status   IN ('completed','cancelled')
+          ${periodConditionRides}
+
+        ORDER BY updated_at DESC
+        LIMIT  ${limitParam}
+        OFFSET ${offsetParam}
+      `);
+
+      /* COUNT query for filtered total (separate so the data query stays lean) */
+      const countRow = await db.execute(sql`
+        SELECT COUNT(*) AS total FROM (
+          SELECT o.id FROM orders o
+          WHERE  o.rider_id = ${riderId} AND o.status = 'delivered'
+          ${periodConditionOrders}
+
+          UNION ALL
+
+          SELECT r.id FROM rides r
+          WHERE  r.rider_id = ${riderId} AND r.status IN ('completed','cancelled')
+          ${periodConditionRides}
+        ) t
+      `);
+
+      filteredTotal = Number((countRow.rows[0] as Record<string, unknown>)?.["total"] ?? 0);
+
+      combined = (unionRows.rows as Record<string, unknown>[]).map((row) => {
+        const isRide = row["kind"] === "ride";
+        const rawAmount = safeNum(row["amount"]);
+        return {
+          kind: (row["kind"] as "order" | "ride"),
+          id: String(row["id"]),
+          status: String(row["status"]),
+          amount: rawAmount,
+          earnings: isRide && row["status"] === "cancelled"
+            ? 0
+            : Math.round(rawAmount * 100 * riderKeepPct) / 100,
+          address: row["address"] != null ? String(row["address"]) : null,
+          type: String(row["type"]),
+          createdAt: new Date(String(row["created_at"])),
+          updatedAt: new Date(String(row["updated_at"])),
+          origin: row["origin"] != null ? String(row["origin"]) : null,
+          destination: row["destination"] != null ? String(row["destination"]) : null,
+          fare: safeNum(row["fare"]),
+          distance: row["distance"] != null ? String(row["distance"]) : null,
+          proofPhoto: row["proof_photo"] != null ? String(row["proof_photo"]) : null,
+        };
+      });
+    } else {
+      /* Single-table path — pagination is correct because only one table is involved */
+      const includeOrders = kindParam === "order" || kindParam === "parcel";
+      const includeRides = kindParam === "ride";
+
+      const drizzleParcelFilter =
+        kindParam === "parcel"
+          ? eq(ordersTable.type, "parcel")
+          : kindParam === "order"
+            ? ne(ordersTable.type, "parcel")
+            : undefined;
+
+      const [orderRows, rideRows, orderCountRows, rideCountRows] = await Promise.all([
+        includeOrders
+          ? db
+              .select()
+              .from(ordersTable)
+              .where(
+                and(
+                  eq(ordersTable.riderId, riderId),
+                  eq(ordersTable.status, "delivered"),
+                  drizzleParcelFilter,
+                  periodStart
+                    ? sql`${ordersTable.updatedAt} >= ${periodStart.toISOString()}`
+                    : undefined
+                )
+              )
+              .orderBy(desc(ordersTable.updatedAt))
+              .limit(limitParam)
+              .offset(offsetParam)
+          : Promise.resolve([] as (typeof ordersTable.$inferSelect)[]),
+        includeRides
+          ? db
+              .select()
+              .from(ridesTable)
+              .where(
+                and(
+                  eq(ridesTable.riderId, riderId),
+                  or(eq(ridesTable.status, "completed"), eq(ridesTable.status, "cancelled")),
+                  periodStart
+                    ? sql`${ridesTable.updatedAt} >= ${periodStart.toISOString()}`
+                    : undefined
+                )
+              )
+              .orderBy(desc(ridesTable.updatedAt))
+              .limit(limitParam)
+              .offset(offsetParam)
+          : Promise.resolve([] as (typeof ridesTable.$inferSelect)[]),
+        includeOrders
+          ? db
+              .select({ total: count() })
+              .from(ordersTable)
+              .where(
+                and(
+                  eq(ordersTable.riderId, riderId),
+                  eq(ordersTable.status, "delivered"),
+                  drizzleParcelFilter,
+                  periodStart
+                    ? sql`${ordersTable.updatedAt} >= ${periodStart.toISOString()}`
+                    : undefined
+                )
+              )
+          : Promise.resolve([{ total: 0 }]),
+        includeRides
+          ? db
+              .select({ total: count() })
+              .from(ridesTable)
+              .where(
+                and(
+                  eq(ridesTable.riderId, riderId),
+                  or(eq(ridesTable.status, "completed"), eq(ridesTable.status, "cancelled")),
+                  periodStart
+                    ? sql`${ridesTable.updatedAt} >= ${periodStart.toISOString()}`
+                    : undefined
+                )
+              )
+          : Promise.resolve([{ total: 0 }]),
+      ]);
+
+      filteredTotal =
+        (orderCountRows[0]?.total ?? 0) + (rideCountRows[0]?.total ?? 0);
+
+      combined = [
+        ...orderRows.map((o) => ({
+          kind: "order" as const,
+          id: o.id,
+          status: o.status,
+          amount: safeNum(o.total),
+          earnings: Math.round(safeNum(o.total) * 100 * riderKeepPct) / 100,
+          address: o.deliveryAddress,
+          type: o.type,
+          createdAt: o.createdAt,
+          updatedAt: o.updatedAt,
+          origin: null as string | null,
+          destination: o.deliveryAddress,
+          fare: 0,
+          distance: null as string | null,
+          proofPhoto: o.proofPhotoUrl ?? null,
+        })),
+        /* Cancelled rides have no earnings — the rider was never paid. */
+        ...rideRows.map((r) => ({
+          kind: "ride" as const,
+          id: r.id,
+          status: r.status,
+          amount: safeNum(r.fare),
+          earnings:
+            r.status === "cancelled" ? 0 : Math.round(safeNum(r.fare) * 100 * riderKeepPct) / 100,
+          address: r.dropAddress,
+          type: r.type,
+          createdAt: r.createdAt,
+          updatedAt: r.updatedAt,
+          origin: r.pickupAddress,
+          destination: r.dropAddress,
+          fare: safeNum(r.fare),
+          distance: r.distance,
+          proofPhoto: null as string | null,
+        })),
+      ].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    }
+
+    /* hasMore is derived from the authoritative server-side count so infinite
+       scroll reflects the true filtered total regardless of page size. */
+    const hasMore = offsetParam + combined.length < filteredTotal;
+
+    sendSuccess(res, {
+      history: combined,
+      hasMore,
+      total: filteredTotal,
+      limit: limitParam,
+      offset: offsetParam,
+    });
   } catch (err) {
     logger.error(
       {

@@ -917,7 +917,12 @@ export const api = {
   getIgnoreStats: () => apiFetch("/riders/ignore-stats"),
   getPenaltyHistory: () => apiFetch("/riders/penalty-history"),
   getHistory: (
-    opts: { limit?: number; offset?: number } = {}
+    opts: {
+      limit?: number;
+      offset?: number;
+      kind?: "all" | "order" | "ride" | "parcel";
+      period?: "all" | "today" | "week" | "month";
+    } = {}
   ): Promise<{
     history: Array<{
       id: string;
@@ -936,12 +941,15 @@ export const api = {
       duration?: number;
     }>;
     hasMore: boolean;
+    total: number;
     limit: number;
     offset: number;
   }> => {
     const params = new URLSearchParams();
     if (opts.limit !== undefined) params.set("limit", String(opts.limit));
     if (opts.offset !== undefined) params.set("offset", String(opts.offset));
+    if (opts.kind && opts.kind !== "all") params.set("kind", opts.kind);
+    if (opts.period && opts.period !== "all") params.set("period", opts.period);
     const qs = params.toString();
     return apiFetch(`/riders/history${qs ? `?${qs}` : ""}`);
   },
