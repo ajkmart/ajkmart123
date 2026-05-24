@@ -18,6 +18,7 @@ import {
 import { t } from "@workspace/i18n";
 import {
   and,
+  asc,
   avg,
   count,
   desc,
@@ -2166,7 +2167,7 @@ router.post("/orders/:id/auto-assign", async (req, res, next) => {
 router.get("/reviews", async (req, res, next) => {
   try {
     const vendorId = req.vendorId!;
-    const { page = "1", limit = "20", rating } = req.query as Record<string, string>;
+    const { page = "1", limit = "20", rating, stars, sort = "newest" } = req.query as Record<string, string>;
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(100, parseInt(limit, 10) || 20);
     const offset = (pageNum - 1) * limitNum;
@@ -2175,7 +2176,8 @@ router.get("/reviews", async (req, res, next) => {
       eq(reviewsTable.hidden, false),
       isNull(reviewsTable.deletedAt),
     ];
-    if (rating) conditions.push(eq(reviewsTable.rating, parseInt(rating, 10)));
+    const starFilter = stars || rating;
+    if (starFilter) conditions.push(eq(reviewsTable.rating, parseInt(starFilter, 10)));
     const [reviews, totalResult, avgResult, breakdownRows] = await Promise.all([
       db
         .select({
@@ -2186,7 +2188,7 @@ router.get("/reviews", async (req, res, next) => {
         .from(reviewsTable)
         .leftJoin(usersTable, eq(reviewsTable.userId, usersTable.id))
         .where(and(...conditions))
-        .orderBy(desc(reviewsTable.createdAt))
+        .orderBy(sort === "oldest" ? asc(reviewsTable.createdAt) : desc(reviewsTable.createdAt))
         .limit(limitNum)
         .offset(offset),
       db

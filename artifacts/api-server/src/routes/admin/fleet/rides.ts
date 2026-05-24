@@ -23,7 +23,7 @@ import {
   vendorProfilesTable,
 } from "@workspace/db/schema";
 import { RIDE_VALID_STATUSES } from "@workspace/service-constants";
-import { and, asc, avg, count, desc, eq, gte, ilike, isNotNull, isNull, lte, or, sql, sum } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, or, sql, sum } from "drizzle-orm";
 import { Request, Response, Router } from "express";
 import {
   sendCreated,
@@ -1927,7 +1927,7 @@ router.get("/reviews", async (req: Request, res: Response) => {
         ? await db
             .select({ id: usersTable.id, name: usersTable.name, phone: usersTable.phone })
             .from(usersTable)
-            .where(sql`${usersTable.id} = ANY(${sql.raw(`ARRAY[${subjectIds.map((id) => `'${id.replace(/'/g, "''")}'`).join(",")}]`)})`)
+            .where(inArray(usersTable.id, subjectIds))
         : [];
     const subjectMap = new Map(subjectUsers.map((u) => [u.id, u]));
 
