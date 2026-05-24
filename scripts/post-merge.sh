@@ -1,9 +1,7 @@
 #!/bin/bash
 set -e
-pnpm install --no-frozen-lockfile
 
-# Re-create .bin symlinks that pnpm's virtual store doesn't hoist automatically.
-# This is needed so workflow commands can find vite, drizzle-kit, expo, etc.
+HUSKY=0 pnpm install --no-frozen-lockfile
 
 WORKSPACE="/home/runner/workspace"
 
