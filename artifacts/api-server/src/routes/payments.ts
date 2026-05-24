@@ -31,7 +31,8 @@ import {
 } from "../lib/response.js";
 import { idempotency } from "../middleware/idempotency.js";
 import { paymentLimiter } from "../middleware/rate-limit.js";
-import { customerAuth } from "../middleware/security.js";
+import { customerAuth, getClientIp } from "../middleware/security.js";
+import { AuditService } from "../services/admin-audit.service.js";
 import { adminAuth, getCachedSettings } from "./admin.js";
 
 const router: IRouter = Router();
@@ -362,9 +363,9 @@ router.post("/initiate", customerAuth, idempotency("payment:initiate"), async (r
       return;
     }
 
-    /* Verify the order belongs to the authenticated user */
+    /* Verify the order belongs to the authenticated user and check amount */
     const [order] = await db
-      .select({ userId: ordersTable.userId })
+      .select({ userId: ordersTable.userId, total: ordersTable.total })
       .from(ordersTable)
       .where(eq(ordersTable.id, orderId))
       .limit(1);
@@ -374,6 +375,19 @@ router.post("/initiate", customerAuth, idempotency("payment:initiate"), async (r
     }
     if (order.userId !== callerId) {
       sendForbidden(res, "Access denied — order does not belong to you");
+      return;
+    }
+
+    /* Critical: validate that the submitted amount matches the order's authoritative total.
+       Without this check, an attacker could initiate a Rs. 1 payment for a Rs. 5000 order,
+       receive a successful gateway callback, and have their full order confirmed for Rs. 1. */
+    const orderTotal = parseFloat(String(order.total));
+    const tolerance = 0.01; // 1 paisa rounding tolerance
+    if (Math.abs(amount - orderTotal) > tolerance) {
+      sendForbidden(
+        res,
+        "Payment amount does not match order total — please use the correct amount"
+      );
       return;
     }
 
@@ -824,6 +838,13 @@ router.post("/verify-manual", adminAuth, async (req, res) => {
     }
 
     await confirmOrder(orderId);
+    AuditService.log({
+      action: "payment:manual_verified",
+      ip: getClientIp(req),
+      result: "success",
+      affectedUserId: (req as import("express").Request & { adminId?: string }).adminId,
+      details: `Manual payment verified — orderId: ${orderId}, gateway: ${gateway ?? "unknown"}, txnId: ${transactionId ?? "N/A"}`,
+    });
     sendSuccess(
       res,
       { orderId, gateway, transactionId },
@@ -896,6 +917,13 @@ router.post("/reconcile", adminAuth, async (req, res) => {
       })
       .where(eq(ordersTable.id, order.id));
 
+    AuditService.log({
+      action: "payment:reconciled",
+      ip: getClientIp(req),
+      result: "success",
+      affectedUserId: (req as import("express").Request & { adminId?: string }).adminId,
+      details: `Payment reconciled → ${newPaymentStatus} — orderId: ${order.id}, txnRef: ${order.txnRef ?? "N/A"}, notes: ${notes ?? "none"}`,
+    });
     sendSuccess(
       res,
       {
