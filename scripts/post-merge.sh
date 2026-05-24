@@ -35,3 +35,8 @@ if [ -n "$EXPO_PKG" ]; then
 fi
 
 echo "post-merge: binary symlinks created"
+
+# ── DB schema sync ────────────────────────────────────────────────────────────
+echo "post-merge: running drizzle-kit push to sync schema..."
+pnpm --filter @workspace/db run push-force
+echo "post-merge: schema sync complete"
