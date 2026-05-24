@@ -145,7 +145,7 @@ router.post(
    Body: { identifier, otp }
 ───────────────────────────────────────────────────────────── */
 
-router.post("/merge-account", sharedValidateBody(MergeAccountSchema), async (req, res) => {
+router.post("/merge-account", otpLimiter, sharedValidateBody(MergeAccountSchema), async (req, res) => {
   try {
     const auth = extractAuthUser(req);
     if (!auth) {

@@ -319,9 +319,11 @@ export async function doRefresh(refreshToken: string, ip: string, req: Request, 
     setRiderRefreshCookie(req, res, rotation.refreshToken, user);
     setVendorRefreshCookie(req, res, rotation.refreshToken, user);
 
+    /* Refresh token is delivered via HttpOnly cookie only — never in the body.
+       Returning it in the body would let JS code (and request logs) capture it,
+       defeating the entire cookie-only security model declared above. */
     sendSuccess(res, {
       token: rotation.accessToken,
-      refreshToken: rotation.refreshToken,
       expiresAt: rotation.expiresAt,
     });
   } finally {

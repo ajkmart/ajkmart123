@@ -18,6 +18,7 @@ import {
   sendUnauthorized,
 } from "../../lib/response.js";
 import {
+  blacklistSessionHash,
   getClientIp,
   revokeAllUserRefreshTokens,
   writeAuthAuditLog,
@@ -56,9 +57,14 @@ router.delete("/sessions/:id", async (req, res) => {
     if (session.refreshTokenId) {
       await db
         .update(refreshTokensTable)
-        .set({ revokedAt: new Date() })
+        .set({ revokedAt: new Date(), revokedReason: "SESSION_REVOKED_BY_USER" })
         .where(eq(refreshTokensTable.id, session.refreshTokenId));
     }
+
+    /* Blacklist the session token hash in Redis so the JWT is rejected
+       immediately — without this the access token stays valid until expiry
+       even though the session row is already marked as revoked in the DB. */
+    await blacklistSessionHash(session.tokenHash).catch(() => undefined);
 
     void writeAuthAuditLog("session_revoked", {
       userId: auth.userId,
