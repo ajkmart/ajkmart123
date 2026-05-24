@@ -1,4 +1,6 @@
 import { createLogger } from "@/lib/logger";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { InfiniteData } from "@tanstack/react-query";
 import { Bot, Flag, MoreVertical, Paperclip, Send, Sparkles, Trash2, UserX, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearch } from "wouter";
@@ -61,19 +63,40 @@ interface AiMessage {
   content: string;
 }
 
+function ConversationSkeleton() {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl p-3">
+      <div className="h-12 w-12 animate-pulse rounded-full bg-gray-200" />
+      <div className="flex-1 space-y-2">
+        <div className="h-3.5 w-32 animate-pulse rounded bg-gray-200" />
+        <div className="h-3 w-48 animate-pulse rounded bg-gray-100" />
+      </div>
+    </div>
+  );
+}
+
+function MessageSkeleton({ align }: { align: "left" | "right" }) {
+  return (
+    <div className={`flex ${align === "right" ? "justify-end" : "justify-start"}`}>
+      <div
+        className={`h-9 animate-pulse rounded-2xl bg-gray-200 ${align === "right" ? "w-40 rounded-br-md" : "w-52 rounded-bl-md"}`}
+      />
+    </div>
+  );
+}
+
 export default function Chat() {
   const { user } = useAuth();
   const { socket } = useSocket();
   const search = useSearch();
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const queryClient = useQueryClient();
+
   const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [searchId, setSearchId] = useState("");
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
   const [sending, setSending] = useState(false);
   const [ajkId, setAjkId] = useState("");
-  const [requests, setRequests] = useState<CommRequest[]>([]);
 
   /* Pre-select the AI tab when the page is opened with ?tab=ai (notification tap) */
   const [tab, setTab] = useState<"chats" | "requests" | "search" | "ai">(() => {
@@ -152,32 +175,52 @@ export default function Chat() {
     }
   }, []);
 
-  const loadConversations = useCallback(() => {
-    api
-      .apiFetch("/communication/conversations")
-      .then(setConversations)
-      .catch((err) => {
-        log.error(
-          { err: err instanceof Error ? err.message : String(err) },
-          "[Chat] loadConversations failed"
-        );
-      });
-  }, []);
+  /* ── React Query: conversations ── */
+  const { data: conversationsData, isLoading: convsLoading } = useQuery<Conversation[]>({
+    queryKey: ["conversations"],
+    queryFn: () => api.apiFetch("/communication/conversations"),
+    enabled: !!user?.id,
+  });
+  const conversations = conversationsData ?? [];
 
-  const loadRequests = useCallback(() => {
-    api
-      .apiFetch("/communication/requests?type=received")
-      .then(setRequests)
-      .catch((err) => {
-        log.error(
-          { err: err instanceof Error ? err.message : String(err) },
-          "[Chat] loadRequests failed"
-        );
-      });
-  }, []);
+  /* ── React Query: comm requests ── */
+  const { data: requestsData, isLoading: requestsLoading } = useQuery<CommRequest[]>({
+    queryKey: ["comm-requests"],
+    queryFn: () => api.apiFetch("/communication/requests?type=received"),
+    enabled: !!user?.id,
+  });
+  const requests = requestsData ?? [];
+
+  /* ── React Query: messages (infinite, pageSize=30) ──
+     Page 1 = most recent 30 messages; page 2 = 30 before those, etc.
+     Display: reverse page order so oldest appears first at the top. */
+  const {
+    data: messagesData,
+    isLoading: messagesLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery<Message[]>({
+    queryKey: ["messages", selectedConv?.id],
+    queryFn: ({ pageParam }) =>
+      api.apiFetch(
+        `/communication/conversations/${selectedConv!.id}/messages?limit=30&page=${pageParam as number}`
+      ),
+    getNextPageParam: (lastPage, allPages) =>
+      Array.isArray(lastPage) && lastPage.length === 30 ? allPages.length + 1 : undefined,
+    initialPageParam: 1,
+    enabled: !!selectedConv?.id,
+  });
+
+  /* Flatten pages: reverse so older pages come first, newest page at bottom */
+  const messages: Message[] = messagesData
+    ? [...messagesData.pages].reverse().flat()
+    : [];
 
   const endCall = useCallback(() => {
     stopSound();
+    /* Idempotent: only call the API if a callId is set — avoids double-end on
+       both explicit "End" button press and unmount cleanup. */
     if (callId) {
       api
         .apiFetch(`/communication/calls/${callId}/end`, {
@@ -193,7 +236,9 @@ export default function Chat() {
       const otherId = selectedConv?.otherUser?.id;
       if (otherId && socket) socket.emit("comm:call:end", { callId, targetUserId: otherId });
     }
-    /* Clean up peer connection, media streams, and timer */
+    /* Clean up peer connection, media streams, and timer.
+       Each guard (pcRef.current, localStreamRef.current, timerRef.current) ensures
+       double-calls are safe — refs are nulled after the first cleanup. */
     if (pcRef.current) {
       pcRef.current.close();
       pcRef.current = null;
@@ -222,6 +267,15 @@ export default function Chat() {
   useEffect(() => {
     endCallRef.current = endCall;
   }, [endCall]);
+
+  /* H-02: Release mic on navigation away / component unmount.
+     Calls endCallRef.current() which is idempotent — safe even if no call is
+     active (callId will be null so the API call is skipped, cleanup is no-op). */
+  useEffect(() => {
+    return () => {
+      endCallRef.current();
+    };
+  }, []);
 
   /* Stable handler refs — updated every render so closures are always current
      without needing to re-register listeners (which would remove ALL listeners
@@ -259,21 +313,47 @@ export default function Chat() {
           "[Chat] fetchAjkId failed"
         );
       });
-    loadConversations();
-    loadRequests();
+
+    /* Initial data load via React Query — just invalidate to trigger fetches */
+    void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+    void queryClient.invalidateQueries({ queryKey: ["comm-requests"] });
 
     const onMessageNew = (msg: Message) => {
-      setMessages((prev) => [...prev, msg]);
-      loadConversations();
+      /* Append the new message to the first (most-recent) page of the active
+         conversation's message cache for instant UI update without a refetch. */
+      queryClient.setQueryData(
+        ["messages", selectedConvRef.current?.id],
+        (old: InfiniteData<Message[]> | undefined) => {
+          if (!old) return old;
+          const pages = old.pages.map((page, i) =>
+            i === 0 ? [...page, msg] : page
+          );
+          return { ...old, pages };
+        }
+      );
+      void queryClient.invalidateQueries({ queryKey: ["conversations"] });
     };
     const onTypingStart = () => setTyping(true);
     const onTypingStop = () => setTyping(false);
     const onMessageRead = () =>
-      setMessages((prev) => prev.map((m) => ({ ...m, deliveryStatus: "read" })));
-    const onRequestNew = () => loadRequests();
+      queryClient.setQueryData(
+        ["messages", selectedConvRef.current?.id],
+        (old: InfiniteData<Message[]> | undefined) => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page) =>
+              page.map((m) => ({ ...m, deliveryStatus: "read" }))
+            ),
+          };
+        }
+      );
+    const onRequestNew = () => {
+      void queryClient.invalidateQueries({ queryKey: ["comm-requests"] });
+    };
     const onRequestAccepted = () => {
-      loadConversations();
-      loadRequests();
+      void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      void queryClient.invalidateQueries({ queryKey: ["comm-requests"] });
     };
     const onCallIncoming = async (data: IncomingCallData) => {
       setIncomingCall(data);
@@ -326,15 +406,39 @@ export default function Chat() {
       if (timerRef.current) clearInterval(timerRef.current);
       timerRef.current = setInterval(() => setCallTimer((t) => t + 1), 1000);
     };
-    const onRequestCancelled = () => loadRequests();
-    const onRequestRejected = () => loadRequests();
+    const onRequestCancelled = () => {
+      void queryClient.invalidateQueries({ queryKey: ["comm-requests"] });
+    };
+    const onRequestRejected = () => {
+      void queryClient.invalidateQueries({ queryKey: ["comm-requests"] });
+    };
     const onMessageSent = (data: { id: string; conversationId: string }) => {
-      setMessages((prev) =>
-        prev.map((m) => (m.id === data.id ? { ...m, deliveryStatus: "sent" } : m))
+      queryClient.setQueryData(
+        ["messages", selectedConvRef.current?.id],
+        (old: InfiniteData<Message[]> | undefined) => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page) =>
+              page.map((m) => (m.id === data.id ? { ...m, deliveryStatus: "sent" } : m))
+            ),
+          };
+        }
       );
     };
     const onMessagesReadAll = (_data: { conversationId: string }) => {
-      setMessages((prev) => prev.map((m) => ({ ...m, deliveryStatus: "read" })));
+      queryClient.setQueryData(
+        ["messages", selectedConvRef.current?.id],
+        (old: InfiniteData<Message[]> | undefined) => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page) =>
+              page.map((m) => ({ ...m, deliveryStatus: "read" }))
+            ),
+          };
+        }
+      );
     };
 
     handlersRef.current = {
@@ -424,19 +528,26 @@ export default function Chat() {
       socket.off("call:signal", onCallSignal);
       handlersRef.current = null;
     };
-  }, [socket, user?.id, loadConversations, loadRequests]);
+  }, [socket, user?.id, queryClient]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Stable ref to selectedConv for use inside socket event handlers that
+     were registered once on mount but need the current selected conversation. */
+  const selectedConvRef = useRef(selectedConv);
+  useEffect(() => {
+    selectedConvRef.current = selectedConv;
+  }, [selectedConv]);
 
   const selectConversation = async (conv: Conversation) => {
     setSelectedConv(conv);
     setShowConvMenu(false);
     if (socket) socket.emit("join", `conversation:${conv.id}`);
     try {
-      const msgs = await api.apiFetch(`/communication/conversations/${conv.id}/messages`);
-      setMessages(msgs);
+      /* Messages are loaded via useInfiniteQuery keyed on conv.id — just
+         mark the conversation read and reset any previous send error. */
       await api.apiFetch(`/communication/conversations/${conv.id}/read-all`, { method: "PATCH" });
       setSendError(null);
     } catch (e) {
-      setSendError((e as Error)?.message || "Failed to load messages");
+      setSendError((e as Error)?.message || "Failed to open conversation");
     }
     setTimeout(() => {
       const el = scrollRef.current;
@@ -453,9 +564,19 @@ export default function Chat() {
         method: "POST",
         body: JSON.stringify({ content: input, messageType: "text" }),
       });
-      setMessages((prev) => [...prev, msg]);
+      /* Append the sent message optimistically to the messages cache */
+      queryClient.setQueryData(
+        ["messages", selectedConv.id],
+        (old: InfiniteData<Message[]> | undefined) => {
+          if (!old) return old;
+          const pages = old.pages.map((page, i) =>
+            i === 0 ? [...page, msg] : page
+          );
+          return { ...old, pages };
+        }
+      );
       setInput("");
-      loadConversations();
+      void queryClient.invalidateQueries({ queryKey: ["conversations"] });
     } catch (e) {
       setSendError((e as Error)?.message || "Failed to send message");
     }
@@ -491,8 +612,17 @@ export default function Chat() {
             : { fileUrl: uploaded.url, fileName: file.name }),
         }),
       });
-      setMessages((prev) => [...prev, msg]);
-      loadConversations();
+      queryClient.setQueryData(
+        ["messages", selectedConv.id],
+        (old: InfiniteData<Message[]> | undefined) => {
+          if (!old) return old;
+          const pages = old.pages.map((page, i) =>
+            i === 0 ? [...page, msg] : page
+          );
+          return { ...old, pages };
+        }
+      );
+      void queryClient.invalidateQueries({ queryKey: ["conversations"] });
       setTimeout(() => {
         const el = scrollRef.current;
         if (el) el.scrollTo(0, el.scrollHeight);
@@ -514,7 +644,7 @@ export default function Chat() {
         body: JSON.stringify({ blockedUserId: selectedConv.otherUser.id }),
       });
       setSelectedConv(null);
-      loadConversations();
+      void queryClient.invalidateQueries({ queryKey: ["conversations"] });
     } catch (e) {
       setSendError((e as Error)?.message || "Failed to block user");
     }
@@ -565,8 +695,8 @@ export default function Chat() {
   const acceptRequest = async (id: string) => {
     try {
       await api.apiFetch(`/communication/requests/${id}/accept`, { method: "PATCH" });
-      loadRequests();
-      loadConversations();
+      void queryClient.invalidateQueries({ queryKey: ["comm-requests"] });
+      void queryClient.invalidateQueries({ queryKey: ["conversations"] });
     } catch (e) {
       setSendError((e as Error)?.message || "Failed to accept request");
     }
@@ -575,7 +705,7 @@ export default function Chat() {
   const rejectRequest = async (id: string) => {
     try {
       await api.apiFetch(`/communication/requests/${id}/reject`, { method: "PATCH" });
-      loadRequests();
+      void queryClient.invalidateQueries({ queryKey: ["comm-requests"] });
     } catch (e) {
       setSendError((e as Error)?.message || "Failed to reject request");
     }
@@ -905,6 +1035,34 @@ export default function Chat() {
 
             {/* Message list */}
             <div className="flex-1 space-y-2 overflow-y-auto pb-2">
+              {/* Load earlier messages button */}
+              {hasNextPage && (
+                <div className="flex justify-center py-2">
+                  <button
+                    onClick={() => void fetchNextPage()}
+                    disabled={isFetchingNextPage}
+                    className="rounded-full bg-gray-100 px-4 py-2 text-xs font-semibold text-gray-500 transition-colors hover:bg-gray-200 disabled:opacity-50"
+                  >
+                    {isFetchingNextPage ? (
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-3 w-3 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+                        Loading…
+                      </span>
+                    ) : (
+                      "Load earlier messages"
+                    )}
+                  </button>
+                </div>
+              )}
+              {/* Message loading skeletons */}
+              {messagesLoading && (
+                <div className="space-y-3 py-2">
+                  <MessageSkeleton align="left" />
+                  <MessageSkeleton align="right" />
+                  <MessageSkeleton align="left" />
+                  <MessageSkeleton align="right" />
+                </div>
+              )}
               {messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -948,70 +1106,102 @@ export default function Chat() {
           </div>
         ) : tab === "chats" ? (
           <div className="space-y-2">
-            {conversations.map((conv) => (
-              <button
-                key={conv.id}
-                onClick={() => selectConversation(conv)}
-                className="flex w-full items-center gap-3 rounded-2xl p-3 text-left hover:bg-gray-50"
-              >
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-lg font-bold text-white">
-                  {(conv.otherUser?.name || "?").charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex justify-between">
-                    <p className="truncate font-bold">{conv.otherUser?.name || "User"}</p>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <p className="truncate text-sm text-gray-500">
-                      {conv.lastMessage?.content || "No messages"}
-                    </p>
-                    {conv.unreadCount > 0 && (
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white">
-                        {conv.unreadCount}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </button>
-            ))}
-            {conversations.length === 0 && (
+            {convsLoading ? (
+              <>
+                <ConversationSkeleton />
+                <ConversationSkeleton />
+                <ConversationSkeleton />
+                <ConversationSkeleton />
+              </>
+            ) : conversations.length === 0 ? (
               <div className="py-12 text-center">
                 <p className="mb-4 text-5xl">💬</p>
                 <p className="font-bold text-gray-600">No conversations yet</p>
               </div>
+            ) : (
+              conversations.map((conv) => (
+                <button
+                  key={conv.id}
+                  onClick={() => selectConversation(conv)}
+                  className="flex w-full items-center gap-3 rounded-2xl p-3 text-left hover:bg-gray-50"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-lg font-bold text-white">
+                    {(conv.otherUser?.name || "?").charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex justify-between">
+                      <p className="truncate font-bold">{conv.otherUser?.name || "User"}</p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="truncate text-sm text-gray-500">
+                        {conv.lastMessage?.content || "No messages"}
+                      </p>
+                      {conv.unreadCount > 0 && (
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white">
+                          {conv.unreadCount}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))
             )}
           </div>
         ) : tab === "requests" ? (
           <div className="space-y-2">
-            {requests.map((req) => (
-              <div
-                key={req.id}
-                className="flex items-center justify-between rounded-2xl bg-gray-50 p-4"
-              >
-                <div>
-                  <p className="font-bold">{req.sender?.name || "Unknown"}</p>
-                  <p className="text-xs text-gray-400">{req.sender?.ajkId}</p>
-                </div>
-                {req.status === "pending" && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => acceptRequest(req.id)}
-                      className="rounded-xl bg-green-500 px-4 py-2 text-sm font-bold text-white"
-                    >
-                      Accept
-                    </button>
-                    <button
-                      onClick={() => rejectRequest(req.id)}
-                      className="rounded-xl bg-red-100 px-4 py-2 text-sm font-bold text-red-600"
-                    >
-                      Reject
-                    </button>
+            {requestsLoading ? (
+              <>
+                <div className="flex animate-pulse items-center justify-between rounded-2xl bg-gray-50 p-4">
+                  <div className="space-y-2">
+                    <div className="h-3.5 w-28 rounded bg-gray-200" />
+                    <div className="h-3 w-20 rounded bg-gray-100" />
                   </div>
-                )}
-              </div>
-            ))}
-            {requests.length === 0 && (
+                  <div className="flex gap-2">
+                    <div className="h-9 w-16 rounded-xl bg-gray-200" />
+                    <div className="h-9 w-16 rounded-xl bg-gray-100" />
+                  </div>
+                </div>
+                <div className="flex animate-pulse items-center justify-between rounded-2xl bg-gray-50 p-4">
+                  <div className="space-y-2">
+                    <div className="h-3.5 w-24 rounded bg-gray-200" />
+                    <div className="h-3 w-16 rounded bg-gray-100" />
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="h-9 w-16 rounded-xl bg-gray-200" />
+                    <div className="h-9 w-16 rounded-xl bg-gray-100" />
+                  </div>
+                </div>
+              </>
+            ) : requests.length === 0 ? (
               <p className="py-12 text-center text-gray-400">No pending requests</p>
+            ) : (
+              requests.map((req) => (
+                <div
+                  key={req.id}
+                  className="flex items-center justify-between rounded-2xl bg-gray-50 p-4"
+                >
+                  <div>
+                    <p className="font-bold">{req.sender?.name || "Unknown"}</p>
+                    <p className="text-xs text-gray-400">{req.sender?.ajkId}</p>
+                  </div>
+                  {req.status === "pending" && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => acceptRequest(req.id)}
+                        className="rounded-xl bg-green-500 px-4 py-2 text-sm font-bold text-white"
+                      >
+                        Accept
+                      </button>
+                      <button
+                        onClick={() => rejectRequest(req.id)}
+                        className="rounded-xl bg-red-100 px-4 py-2 text-sm font-bold text-red-600"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))
             )}
           </div>
         ) : tab === "search" ? (
@@ -1095,7 +1285,7 @@ export default function Chat() {
                 aiMessages.map((msg, i) => (
                   <div
                     key={i}
-                    className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                    className={`flex items-end gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                   >
                     {msg.role === "assistant" && (
                       <div className="mt-0.5 mr-2 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100">
