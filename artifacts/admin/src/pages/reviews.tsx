@@ -307,7 +307,7 @@ function ModerationModal({
   const approveM = useApproveReview();
   const rejectM = useRejectReview();
   const { toast } = useToast();
-  const reviews: any[] = data?.reviews || [];
+  const reviews: Review[] = data?.reviews || [];
 
   const approve = (id: string) => {
     approveM.mutate(id, {

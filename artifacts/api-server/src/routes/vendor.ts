@@ -2171,13 +2171,19 @@ router.get("/reviews", async (req, res, next) => {
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(100, parseInt(limit, 10) || 20);
     const offset = (pageNum - 1) * limitNum;
-    const conditions: SQL[] = [
+    /* baseConditions: vendor scope only (no star filter) — used for avg + breakdown */
+    const baseConditions: SQL[] = [
       eq(reviewsTable.vendorId, vendorId),
       eq(reviewsTable.hidden, false),
       isNull(reviewsTable.deletedAt),
     ];
+    /* listConditions: adds optional star filter — used for reviews list + pagination count */
+    const listConditions: SQL[] = [...baseConditions];
     const starFilter = stars || rating;
-    if (starFilter) conditions.push(eq(reviewsTable.rating, parseInt(starFilter, 10)));
+    const starNum = starFilter ? parseInt(starFilter, 10) : NaN;
+    if (!isNaN(starNum) && starNum >= 1 && starNum <= 5) {
+      listConditions.push(eq(reviewsTable.rating, starNum));
+    }
     const [reviews, totalResult, avgResult, breakdownRows] = await Promise.all([
       db
         .select({
@@ -2187,22 +2193,24 @@ router.get("/reviews", async (req, res, next) => {
         })
         .from(reviewsTable)
         .leftJoin(usersTable, eq(reviewsTable.userId, usersTable.id))
-        .where(and(...conditions))
+        .where(and(...listConditions))
         .orderBy(sort === "oldest" ? asc(reviewsTable.createdAt) : desc(reviewsTable.createdAt))
         .limit(limitNum)
         .offset(offset),
+      /* total for pagination → filtered count */
       db
         .select({ c: count() })
         .from(reviewsTable)
-        .where(and(...conditions)),
+        .where(and(...listConditions)),
+      /* avg + breakdown → always over ALL reviews for this vendor (no star filter) */
       db
         .select({ avg: avg(reviewsTable.rating) })
         .from(reviewsTable)
-        .where(and(...conditions)),
+        .where(and(...baseConditions)),
       db
         .select({ rating: reviewsTable.rating, cnt: count() })
         .from(reviewsTable)
-        .where(and(...conditions))
+        .where(and(...baseConditions))
         .groupBy(reviewsTable.rating),
     ]);
     const starBreakdown: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };

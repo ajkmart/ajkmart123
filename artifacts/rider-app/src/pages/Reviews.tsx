@@ -111,7 +111,7 @@ export default function Reviews() {
 
   const reviews: Review[] = data?.reviews ?? [];
   const avgRating: number = data?.avgRating ?? 0;
-  const totalReviews: number = data?.total ?? reviews.length;
+  const totalReviews: number = data?.total ?? 0;
 
   function formatDate(d: string) {
     return formatDateTz(d, { day: "numeric", month: "short", year: "numeric" }, tz);

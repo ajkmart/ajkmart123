@@ -1799,7 +1799,10 @@ router.get("/reviews", async (req: Request, res: Response) => {
     } else if (type === "order") {
       reviewConditions.push(sql`${reviewsTable.orderType} != 'ride'`);
     }
-    if (stars) reviewConditions.push(eq(reviewsTable.rating, parseInt(stars, 10)));
+    const starsNum = parseInt(stars, 10);
+    if (stars && !isNaN(starsNum) && starsNum >= 1 && starsNum <= 5) {
+      reviewConditions.push(eq(reviewsTable.rating, starsNum));
+    }
     if (status === "visible")
       reviewConditions.push(eq(reviewsTable.status, "visible"), isNull(reviewsTable.deletedAt));
     else if (status === "pending_moderation")
@@ -1810,11 +1813,14 @@ router.get("/reviews", async (req: Request, res: Response) => {
     else if (status === "deleted") reviewConditions.push(isNotNull(reviewsTable.deletedAt));
     if (subject === "vendor") reviewConditions.push(isNotNull(reviewsTable.vendorId));
     else if (subject === "rider") reviewConditions.push(isNotNull(reviewsTable.riderId));
-    if (dateFrom) reviewConditions.push(gte(reviewsTable.createdAt, new Date(dateFrom)));
-    if (dateTo) {
-      const dt = new Date(dateTo);
-      dt.setHours(23, 59, 59, 999);
-      reviewConditions.push(lte(reviewsTable.createdAt, dt));
+    const dateFromParsed = dateFrom ? new Date(dateFrom) : null;
+    const dateToParsed = dateTo ? new Date(dateTo) : null;
+    if (dateFromParsed && !isNaN(dateFromParsed.getTime())) {
+      reviewConditions.push(gte(reviewsTable.createdAt, dateFromParsed));
+    }
+    if (dateToParsed && !isNaN(dateToParsed.getTime())) {
+      dateToParsed.setHours(23, 59, 59, 999);
+      reviewConditions.push(lte(reviewsTable.createdAt, dateToParsed));
     }
 
     const baseCondition = reviewConditions.length > 0 ? and(...reviewConditions) : undefined;
@@ -1837,7 +1843,9 @@ router.get("/reviews", async (req: Request, res: Response) => {
       /* no ride ratings for order-only filter */
       ratingConditions.push(sql`1=0`);
     }
-    if (stars) ratingConditions.push(eq(rideRatingsTable.stars, parseInt(stars, 10)));
+    if (!isNaN(starsNum) && starsNum >= 1 && starsNum <= 5) {
+      ratingConditions.push(eq(rideRatingsTable.stars, starsNum));
+    }
     if (status === "visible" || !status)
       ratingConditions.push(isNull(rideRatingsTable.deletedAt));
     else if (status === "hidden")
@@ -1848,9 +1856,11 @@ router.get("/reviews", async (req: Request, res: Response) => {
       ratingConditions.push(sql`1=0`);
     }
     if (subject === "vendor") ratingConditions.push(sql`1=0`);
-    if (dateFrom) ratingConditions.push(gte(rideRatingsTable.createdAt, new Date(dateFrom)));
-    if (dateTo) {
-      const dt2 = new Date(dateTo);
+    if (dateFromParsed && !isNaN(dateFromParsed.getTime())) {
+      ratingConditions.push(gte(rideRatingsTable.createdAt, dateFromParsed));
+    }
+    if (dateToParsed && !isNaN(dateToParsed.getTime())) {
+      const dt2 = new Date(dateToParsed);
       dt2.setHours(23, 59, 59, 999);
       ratingConditions.push(lte(rideRatingsTable.createdAt, dt2));
     }
@@ -1993,7 +2003,7 @@ router.get("/reviews/moderation-queue", async (_req: Request, res: Response) => 
 /* ── PATCH /admin/reviews/:id/hide ── */
 router.patch("/reviews/:id/hide", async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const [row] = await db.select({ hidden: reviewsTable.hidden }).from(reviewsTable).where(eq(reviewsTable.id, id)).limit(1);
     if (!row) return sendNotFound(res, "Review not found");
     await db.update(reviewsTable).set({ hidden: !row.hidden }).where(eq(reviewsTable.id, id));
@@ -2007,7 +2017,7 @@ router.patch("/reviews/:id/hide", async (req: Request, res: Response) => {
 /* ── PATCH /admin/reviews/:id/approve ── */
 router.patch("/reviews/:id/approve", async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     await db.update(reviewsTable).set({ status: "visible", hidden: false }).where(eq(reviewsTable.id, id));
     sendSuccess(res, { status: "visible" });
   } catch (err) {
@@ -2019,7 +2029,7 @@ router.patch("/reviews/:id/approve", async (req: Request, res: Response) => {
 /* ── PATCH /admin/reviews/:id/reject ── */
 router.patch("/reviews/:id/reject", async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     await db.update(reviewsTable).set({ status: "rejected", hidden: true }).where(eq(reviewsTable.id, id));
     sendSuccess(res, { status: "rejected" });
   } catch (err) {
@@ -2031,7 +2041,7 @@ router.patch("/reviews/:id/reject", async (req: Request, res: Response) => {
 /* ── DELETE /admin/reviews/:id ── */
 router.delete("/reviews/:id", async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     await db.update(reviewsTable).set({ deletedAt: new Date() }).where(eq(reviewsTable.id, id));
     sendSuccess(res, { deleted: true });
   } catch (err) {
@@ -2043,7 +2053,7 @@ router.delete("/reviews/:id", async (req: Request, res: Response) => {
 /* ── PATCH /admin/ride-ratings/:id/hide ── */
 router.patch("/ride-ratings/:id/hide", async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const [row] = await db.select({ hidden: rideRatingsTable.hidden }).from(rideRatingsTable).where(eq(rideRatingsTable.id, id)).limit(1);
     if (!row) return sendNotFound(res, "Ride rating not found");
     await db.update(rideRatingsTable).set({ hidden: !row.hidden }).where(eq(rideRatingsTable.id, id));
@@ -2057,7 +2067,7 @@ router.patch("/ride-ratings/:id/hide", async (req: Request, res: Response) => {
 /* ── DELETE /admin/ride-ratings/:id ── */
 router.delete("/ride-ratings/:id", async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     await db.update(rideRatingsTable).set({ deletedAt: new Date() }).where(eq(rideRatingsTable.id, id));
     sendSuccess(res, { deleted: true });
   } catch (err) {
@@ -2137,7 +2147,7 @@ router.post("/reviews/import", async (req: Request, res: Response) => {
         header.forEach((h, idx) => { row[h] = (cols[idx] ?? "").trim().replace(/^"|"$/g, ""); });
         const stars = parseInt(row.stars ?? row.rating ?? "", 10);
         if (!row.orderType || !row.orderId || isNaN(stars)) { skipped++; continue; }
-        const id = `imp_${Date.now()}_${i}`;
+        const id = generateId();
         await db.insert(reviewsTable).values({
           id,
           orderId: row.orderId,
