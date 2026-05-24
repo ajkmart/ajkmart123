@@ -28,6 +28,7 @@ import {
 } from "../lib/response.js";
 import { emitRiderNewRequest, getIO } from "../lib/socketio.js";
 import { sendPushToUser } from "../lib/webpush.js";
+import { orderPlacementLimiter } from "../middleware/rate-limit.js";
 import { customerAuth, getClientIp } from "../middleware/security.js";
 import { validateBody } from "../middleware/validate.js";
 import { AuditService } from "../services/admin-audit.service.js";
@@ -729,6 +730,7 @@ const customerStatusUpdateSchema = z.object({
 router.post(
   "/",
   customerAuth,
+  orderPlacementLimiter,
   validateBody(orderCreateSchema, { status: 422 }),
   async (req, res) => {
     const customerId = req.customerId!;
@@ -1201,6 +1203,36 @@ router.patch(
       let updated!: typeof ordersTable.$inferSelect;
       let newWalletBalance = 0;
 
+      /* ── Stock restoration helper — only for mart/food physical goods ── */
+      const restoreStock = async (
+        tx: Parameters<Parameters<(typeof db)["transaction"]>[0]>[0]
+      ): Promise<void> => {
+        if (!["mart", "food"].includes(order.type)) return;
+        const cancelledItems = (
+          Array.isArray(order.items) ? order.items : JSON.parse(String(order.items ?? "[]"))
+        ) as Array<{ productId?: string; variantId?: string; quantity: number }>;
+        for (const item of cancelledItems) {
+          const qty = Math.max(1, Number(item.quantity ?? 1));
+          if (item.variantId) {
+            await tx.execute(sql`
+              UPDATE product_variants
+              SET stock = COALESCE(stock, 0) + ${qty},
+                  in_stock = true
+              WHERE id = ${item.variantId}
+            `);
+          }
+          if (item.productId) {
+            await tx.execute(sql`
+              UPDATE products
+              SET stock = COALESCE(stock, 0) + ${qty},
+                  in_stock = true,
+                  updated_at = NOW()
+              WHERE id = ${item.productId}
+            `);
+          }
+        }
+      };
+
       if (order.paymentMethod === "wallet" && !order.refundedAt) {
         const refundAmt = parseFloat(String(order.total));
         await db.transaction(async (tx) => {
@@ -1238,23 +1270,42 @@ router.patch(
             reference: orderId,
             paymentMethod: "wallet",
           });
+          /* Restore stock inside the same transaction so refund + stock are atomic */
+          await restoreStock(tx);
         });
         broadcastWalletUpdate(customerId, newWalletBalance);
       } else {
-        const [result] = await db
-          .update(ordersTable)
-          .set({ status: "cancelled", updatedAt: now })
-          .where(and(eq(ordersTable.id, orderId), eq(ordersTable.userId, customerId)))
-          .returning();
-        if (!result) {
-          sendNotFound(res, "Order not found");
-          return;
-        }
-        updated = result;
+        await db.transaction(async (tx) => {
+          const [result] = await tx
+            .update(ordersTable)
+            .set({ status: "cancelled", updatedAt: now })
+            .where(and(eq(ordersTable.id, orderId), eq(ordersTable.userId, customerId)))
+            .returning();
+          if (!result) throw new Error("Order not found or already cancelled");
+          updated = result;
+          /* Restore stock atomically with the status update */
+          await restoreStock(tx);
+        });
       }
+
+      AuditService.log({
+        action: "order:cancelled",
+        ip: getClientIp(req),
+        affectedUserId: customerId,
+        details: `Order ${orderId} cancelled (${order.type}, Rs.${order.total}, ${order.paymentMethod})`,
+        result: "success",
+      });
 
       const mapped = mapOrder(updated);
       broadcastOrderUpdate(mapped, order.vendorId);
+      /* Broadcast restored stock levels to vendor/admin rooms */
+      broadcastStockUpdates(
+        (Array.isArray(order.items) ? order.items : JSON.parse(String(order.items ?? "[]"))) as Array<{
+          productId?: string;
+          variantId?: string;
+          quantity: number;
+        }>
+      ).catch(() => undefined);
       sendSuccess(res, { order: mapped });
     } catch (e: unknown) {
       logger.error({ err: e }, "[orders/:id/status] cancel failed");

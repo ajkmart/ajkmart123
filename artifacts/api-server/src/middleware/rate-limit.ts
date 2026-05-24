@@ -544,6 +544,20 @@ export const uploadLimiter = createRateLimiter({
 });
 
 /**
+ * orderPlacementLimiter — 15 orders / 15 min / authenticated user ID (fallback to IP).
+ * Apply to POST /api/orders to prevent COD spam, fake order flooding, and
+ * stock-depletion attacks where an attacker places many orders then cancels.
+ */
+export const orderPlacementLimiter = createRateLimiter({
+  prefix: "order-place",
+  max: 15,
+  windowMs: WINDOW_15_MIN,
+  tier: "standard",
+  keyGenerator: (req) => userOrIpKey(req),
+  message: { success: false, error: "Too many orders placed. Please wait a few minutes and try again." },
+});
+
+/**
  * adminActionLimiter — 100 requests / 10 min / admin ID (fallback to IP).
  * Apply to sensitive admin mutation endpoints (bulk deletes, payouts, config
  * changes) to prevent runaway scripts or compromised tokens from causing damage.
