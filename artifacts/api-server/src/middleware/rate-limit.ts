@@ -544,6 +544,21 @@ export const uploadLimiter = createRateLimiter({
 });
 
 /**
+ * kycSubmitLimiter — 3 KYC submissions / 60 min / authenticated user ID (fallback to IP).
+ * Apply to POST /api/kyc/submit and POST /api/kyc/submit-base64.
+ * KYC requires 3 document photos each up to 5 MB — strict throttle prevents
+ * storage exhaustion and CNIC-scanning abuse.
+ */
+export const kycSubmitLimiter = createRateLimiter({
+  prefix: "kyc-submit",
+  max: 3,
+  windowMs: WINDOW_60_MIN,
+  tier: "strict",
+  keyGenerator: (req) => userOrIpKey(req),
+  message: { success: false, error: "Too many KYC submissions. Please wait 1 hour before trying again." },
+});
+
+/**
  * orderPlacementLimiter — 15 orders / 15 min / authenticated user ID (fallback to IP).
  * Apply to POST /api/orders to prevent COD spam, fake order flooding, and
  * stock-depletion attacks where an attacker places many orders then cancels.

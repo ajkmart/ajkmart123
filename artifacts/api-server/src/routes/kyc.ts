@@ -21,6 +21,7 @@ import {
 } from "../lib/validation/schemas.js";
 import { sendPushToUser } from "../lib/webpush.js";
 import { getClientIp, logAdminAudit } from "../middleware/admin-audit.js";
+import { kycSubmitLimiter } from "../middleware/rate-limit.js";
 import { customerAuth, requireRole } from "../middleware/security.js";
 import { validateBody } from "../middleware/validate.js";
 import {
@@ -186,6 +187,7 @@ router.get("/status", customerAuth, async (req, res) => {
 router.post(
   "/submit",
   customerAuth,
+  kycSubmitLimiter,
   kycUpload.fields([
     { name: "frontIdPhoto", maxCount: 1 },
     { name: "backIdPhoto", maxCount: 1 },
@@ -237,6 +239,27 @@ router.post(
           res.status(400).json({
             success: false,
             error: `File type ${f.mimetype} is not allowed`,
+          });
+          return;
+        }
+        /* Magic byte verification — Content-Type header can be spoofed by clients,
+           so we verify the actual file bytes regardless of what the client declared. */
+        const actualMime = detectMime(f.buffer);
+        if (!actualMime) {
+          res.status(400).json({
+            success: false,
+            error: `File ${f.originalname} appears corrupted or is not a valid image`,
+          });
+          return;
+        }
+        const mimeOk =
+          actualMime === f.mimetype ||
+          (actualMime === "image/webp" && f.mimetype === "image/jpeg") ||
+          (actualMime === "image/jpeg" && f.mimetype === "image/jpg");
+        if (!mimeOk) {
+          res.status(400).json({
+            success: false,
+            error: `File ${f.originalname}: content does not match its declared type`,
           });
           return;
         }
@@ -382,6 +405,7 @@ router.post(
 router.post(
   "/submit-base64",
   customerAuth,
+  kycSubmitLimiter,
   validateBody(KycSubmitBase64Schema),
   async (req, res) => {
     try {
@@ -648,6 +672,7 @@ router.get("/vendor/status", requireRole("vendor"), async (req, res) => {
 router.post(
   "/vendor/submit-base64",
   requireRole("vendor"),
+  kycSubmitLimiter,
   validateBody(KycSubmitBase64Schema),
   async (req, res) => {
     try {
