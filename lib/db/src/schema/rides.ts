@@ -76,6 +76,10 @@ export const ridesTable = pgTable(
     index("rides_rider_id_idx").on(t.riderId),
     index("rides_status_idx").on(t.status),
     index("rides_created_at_idx").on(t.createdAt),
+    // NOTE: a partial unique index `rides_one_active_per_user` on (user_id) WHERE status IN
+    // ('searching','bargaining','accepted','arrived','in_transit') is enforced via migration
+    // 0052_rides_one_active_per_user.sql. Drizzle's index() helper does not support WHERE
+    // clauses, so this constraint is managed in raw SQL and is not reflected here.
   ]
 );
 
