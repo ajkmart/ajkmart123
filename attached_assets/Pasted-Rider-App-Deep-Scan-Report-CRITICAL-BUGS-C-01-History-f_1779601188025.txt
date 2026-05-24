@@ -1,0 +1,202 @@
+Rider App — Deep Scan Report
+CRITICAL BUGS
+[C-01] History filters silently break pagination
+Files: pages/History.tsx, lib/api.ts, api-server/routes/rider/index.ts
+
+kind and period are included in the React Query queryKey (so switching filters triggers a fresh fetch), but api.getHistory() only accepts { limit, offset } — it never sends kind or period to the server. The backend endpoint likewise accepts no such query params. All filtering is done client-side on whatever 50 items the current page returned.
+
+Real consequence: If a rider selects "Today" filter but today's rides fall beyond position 50 in their history (e.g. they've done 60+ total deliveries), those rides are invisibly absent from the "Today" view. The rider sees an empty or incomplete list with no error. The "load more" button is driven by the server's hasMore flag which is based on unfiltered total count — so infinite scroll continues loading stale pages while the filter silently misses real data.
+
+[C-02] Earnings aggregates (Today / Week / Total) are incomplete
+File: pages/Wallet.tsx lines 549–556
+
+todayEarned, weekEarned, totalEarned, and totalWithdrawn are computed by iterating over transactions — which is the local accumulation of loaded pages. Until the rider has scrolled all the way to the bottom of their full transaction history, these summary cards show wrong (lower) numbers. The comment in the code even acknowledges this: "sum the loaded pages — same behaviour as before, but now extends as the rider scrolls". These should be server-aggregated fields returned by the API, not client-side sums.
+
+[C-03] Stale balance indicator is permanently disabled
+File: pages/Wallet.tsx line 542
+
+const isBalanceStale = false;
+
+The UI has a stale-balance warning panel (line 737) that is rendered conditionally on isBalanceStale. Because this is hardcoded to false, the warning never appears. If the balance from the server is outdated (e.g. after a failed sync or a network error mid-session), the rider has no way to know.
+
+HIGH SEVERITY BUGS
+[H-01] Chat page has no React Query — no caching, no error recovery
+File: pages/Chat.tsx
+
+Conversations and messages are loaded via raw apiFetch calls inside useEffect blocks. This means:
+
+No loading skeletons — the list is blank until the fetch completes
+No retry on failure — a single network hiccup leaves the chat permanently blank
+No cache — navigating away and back re-fetches everything from scratch
+No stale-while-revalidate — new messages from other tabs or socket events don't reconcile with the fetch state
+Every other page in the app uses TanStack Query. Chat is the sole exception and the most latency-sensitive screen.
+
+[H-02] Chat WebRTC cleanup on unmount — memory/resource leak
+File: pages/Chat.tsx
+
+pcRef (RTCPeerConnection), localStreamRef (MediaStream), and remoteAudioRef are only cleaned up inside endCall(). If the user navigates away from Chat mid-call (back button, BottomNav, incoming notification redirect), the component unmounts without calling endCall(). The peer connection stays open, the microphone stays captured (browser lock indicator stays on), and the media tracks are never stopped.
+
+[H-03] Active ride — no "resend OTP" option for rider
+File: pages/Active.tsx, components/active/ActiveHelpers.tsx
+
+The OTP verification modal shows a 4-digit input and a "Verify" button. If the customer never received their OTP SMS, or the rider enters it wrong 3 times and needs a fresh code, there is no UI to trigger a new OTP. The rider is stuck — they cannot start the trip. The backend has no resend-OTP endpoint for rides either. This is a complete flow blocker in the field.
+
+[H-04] GPS watcher is re-created mid-trip without cleanup window
+File: pages/Active.tsx — the useEffect that starts watchPosition
+
+The effect's dependency array includes [!!data?.order, !!data?.ride, user?.id]. When order status changes (e.g. from assigned to picked_up), the data object updates, the boolean flips, and React runs both the cleanup and a new watchPosition setup. If the cleanup's clearWatch() and the new watchPosition() both execute synchronously, there is a brief window where two watchers may be active, sending duplicate GPS pings.
+
+[H-05] BottomNav polls getActive() at 8s but staleTime is 60s
+File: components/BottomNav.tsx lines 61–67
+
+refetchInterval: 8000,
+staleTime: 60_000,
+
+refetchInterval fires every 8 seconds but staleTime is 60 seconds. This means each re-fetch at 8s will use a cached response (not actually hitting the network) for the first 60 seconds. The "LIVE" pulsing badge on the Active tab can be up to 60 seconds stale. For a real-time indicator, staleTime should be 0 or at most equal to refetchInterval.
+
+[H-06] COD remittance / wallet aggregates don't match server totals
+File: pages/Wallet.tsx + api.ts lines 1059
+
+getCodSummary() is called on /riders/cod-summary. If this endpoint is not yet implemented in the backend rider routes (the grep returned no hit in the rider index), the Remittance modal will silently fail with no fallback, leaving the COD summary card empty or crashed.
+
+MEDIUM SEVERITY BUGS
+[M-01] History search is purely client-side on one page
+File: pages/History.tsx
+
+The search bar filters the currently-loaded 50 items. There is no server-side search and no message informing the rider that results only cover loaded items. A rider searching for a specific delivery from last month will not find it until they've scrolled to load that page.
+
+[M-02] Wallet earnings stats use currency from platform config but ignore decimal places
+File: pages/Wallet.tsx
+
+The fc() formatter receives currency (e.g. "PKR") from config, but the formatting logic always displays 0 decimal places (maximumFractionDigits: 0). If the platform is ever configured for a currency that requires decimal display, all amounts will be truncated.
+
+[M-03] Profile — avatar upload sends base64 JSON body, not multipart
+File: pages/Profile.tsx
+
+The avatar is converted to a DataURL string (readAsDataURL) and POSTed as a JSON field. Base64 encoding inflates the payload by ~33%. A 2 MB photo becomes ~2.7 MB of JSON body. This risks hitting Express's default body-size limit and is significantly slower than multipart upload. All other document uploads in the app use proper FormData.
+
+[M-04] console.warn / console.error used directly instead of pino logger
+Files: pages/Earnings.tsx line 144, pages/VanDriver.tsx multiple locations
+
+The backend and the rest of the codebase uses structured pino logging. These unstructured console calls won't appear in server log aggregation, won't carry request context, and can't be filtered by log level in production monitoring.
+
+[M-05] VanDriver page has zero i18n coverage
+File: pages/VanDriver.tsx
+
+All user-facing strings are English string literals: "Van Service", "Today's route assignments", "No schedules today", "School runs", etc. The rest of the app uses tDual() / T() translation keys. If the platform serves Urdu/Roman Urdu users, the Van Driver screen displays entirely in English.
+
+[M-06] Battery level stored as fraction (0–1) in Active vs. percentage (0–100) in Home
+Files: pages/Active.tsx vs. pages/Home.tsx
+
+In Home.tsx, batteryRef.current is set as Math.round(level * 100) (percentage). In Active.tsx, batteryRef.current is set directly as the raw level value (0.0–1.0). Both values flow into the same socket heartbeat payload. The server receives inconsistent battery values depending on which page the rider is on when the heartbeat fires.
+
+[M-07] Chat messages have no pagination
+File: pages/Chat.tsx
+
+The messages endpoint is called with no limit or offset. A conversation with 500+ messages loads all of them in one request, potentially causing long wait times and memory pressure on low-end devices that are the primary rider hardware.
+
+[M-08] History date filtering uses local midnight — no timezone handling
+File: pages/History.tsx lines 117–119
+
+todayStart and weekStart are computed using new Date() with local system time. If the rider's device clock is off, or if the server stores timestamps in UTC and the rider is in a UTC+5 zone, deliveries made after 7 PM local time (midnight UTC) will either be missing from "Today" or double-counted.
+
+LOW SEVERITY / UX ISSUES
+[L-01] BottomNav missing History and Chat links
+File: components/BottomNav.tsx
+
+The nav has 6 items: Home, Active, Wallet, Earnings, Alerts, Profile. There is no nav entry for History (/history) or Chat (/chat). These are full-featured pages that riders can only reach from within Profile or by knowing the URL. Ride history and support chat are high-frequency actions that deserve a direct entry point.
+
+[L-02] BottomNav pending-sync banner text is not translated
+File: components/BottomNav.tsx lines 82–86
+
+The offline sync banner uses hardcoded English strings ("Syncing X pending actions…", "Sync error — X actions pending (will retry)", "X actions queued — will sync when online"). These will display in English regardless of the rider's language setting.
+
+[L-03] Profile — delivery proof photo not reset between trips
+File: pages/Active.tsx
+
+proofPhoto and proofFile state are set when the rider attaches a delivery photo, but are not cleared after the order is marked complete. If a new order comes in immediately, the completion modal pre-populates the old photo. The rider may accidentally submit proof-of-delivery for a new order using a photo from a previous one.
+
+[L-04] Active OTP input has no auto-submit on 4th digit
+File: components/active/ (OTP modal)
+
+The OTP input requires a manual tap of "Verify" after entering all 4 digits. Every other OTP flow in the app (login, email verify) auto-submits. The inconsistency adds friction for a time-sensitive moment when the customer is waiting at pickup.
+
+[L-05] Home — GPS mock detection may false-positive on some real devices
+File: pages/Home.tsx
+
+The heuristic accuracy === 0 && speed === 0 && heading == null can match genuine GPS readings on low-end Android devices that return 0 accuracy when the signal is acquired but the first fix is locked. This could flag a real rider as using a mock GPS app and prevent them from going online.
+
+[L-06] Notification badge count counts all notifications, not just unread
+File: components/BottomNav.tsx lines 53–59
+
+notifData?.unread is used for the badge. However api.getNotifications() returns a { notifications, unread } object. If the API ever returns undefined for unread (e.g. on an older backend version), the badge disappears entirely rather than falling back to counting notifications.filter(n => !n.read).length.
+
+BACKEND / API GAPS
+[B-01] /riders/history has no server-side kind or period filter
+File: api-server/routes/rider/index.ts line 3620
+
+The endpoint accepts limit and offset only. The frontend's client-side filtering (see C-01) is a workaround for this gap. Proper fix requires adding kind and period query params to the backend and propagating them to the SQL query.
+
+[B-02] No server-side earnings aggregation endpoint
+File: api-server/routes/rider/index.ts
+
+There is no GET /riders/earnings/summary endpoint that returns pre-aggregated { todayEarned, weekEarned, monthEarned, totalEarned }. The Earnings page and Wallet page both compute these by iterating client-side over paginated transaction data (see C-02). A single SQL SUM ... WHERE createdAt > ? call would be orders of magnitude more reliable.
+
+[B-03] No OTP resend endpoint for ride trips
+File: api-server/routes/rider/index.ts
+
+There is POST /rider/rides/:id/verify-otp but no POST /rider/rides/:id/resend-otp. The trip OTP is generated at accept time (via emitRideOtp). If the customer misses it, the only recovery path is admin intervention. A resend endpoint with a rate limit (max 3 resends, 60s cooldown) would unblock this.
+
+[B-04] /riders/cod-summary endpoint — no grep hit in rider route file
+File: api.ts line 1059 calls /riders/cod-summary
+
+The rider backend index file has no matching route for this path. If confirmed absent, the COD remittance feature in the Wallet page will silently fail for riders who handle cash-on-delivery orders.
+
+DATABASE CONCERNS
+[DB-01] No server-side indexes confirmed for common rider queries
+Schema files: rides.ts, orders.ts, wallet_transactions.ts
+
+The three most frequent rider queries are:
+
+WHERE riderId = ? AND status IN (...) — active ride/order check (runs every 8 seconds per rider via BottomNav)
+WHERE riderId = ? ORDER BY createdAt DESC LIMIT 50 — history
+WHERE userId = ? ORDER BY createdAt DESC LIMIT 20 — wallet transactions
+Without composite indexes on (riderId, status), (riderId, createdAt), and (userId, createdAt), these queries become full table scans as row count grows. Worth verifying these exist in the schema files.
+
+[DB-02] rider_profiles table created but rider app still reads from users directly
+Schema: rider_profiles.ts / users.ts (deprecated fields), App: pages/Profile.tsx
+
+Phase 2 created the rider_profiles table and marked vehicleType, vehiclePlate, vehicleRegNo, drivingLicense, vehiclePhoto on users as deprecated. However, Profile.tsx still reads user.vehicleType, user.vehiclePlate, etc. — the fields from the old users table. If Phase 3 removes the deprecated columns, the Profile vehicle tab will break entirely.
+
+Summary Table
+ID	Severity	Area	One-line description
+C-01	Critical	Frontend/API	History filters never sent to server — pagination silently skips filtered items
+C-02	Critical	Frontend	Earnings totals only sum loaded pages — always incomplete
+C-03	Critical	Frontend	Stale balance warning hardcoded off — riders never warned of outdated balance
+H-01	High	Frontend	Chat page bypasses React Query — no caching, retries, or loading states
+H-02	High	Frontend	WebRTC resources not cleaned up on unmount — mic stays open
+H-03	High	UX/Backend	No OTP resend in ride flow — rider can be permanently blocked from starting a trip
+H-04	High	Frontend	GPS watcher briefly duplicated when active order status changes
+H-05	High	Frontend	BottomNav staleTime (60s) negates 8s refetchInterval — LIVE badge is stale
+H-06	High	Backend	cod-summary endpoint may be missing — COD remittance silently broken
+M-01	Medium	UX	History search only covers loaded page, no server-side search
+M-02	Medium	Frontend	Wallet earnings formatter ignores decimal place config
+M-03	Medium	Frontend	Avatar upload sends base64 JSON instead of multipart
+M-04	Medium	Code Quality	console.warn used in Earnings and VanDriver instead of pino logger
+M-05	Medium	i18n	VanDriver page has zero translation coverage
+M-06	Medium	Bug	Battery level reported as fraction in Active, percentage in Home
+M-07	Medium	UX/Performance	Chat messages load with no pagination — unbounded response
+M-08	Medium	Bug	History date filter uses local clock with no UTC/timezone normalization
+L-01	Low	UX	History and Chat not linked in BottomNav
+L-02	Low	i18n	Offline sync banner text not translated
+L-03	Low	UX	Proof-of-delivery photo not cleared between consecutive orders
+L-04	Low	UX	OTP input needs manual confirm tap — no auto-submit on 4th digit
+L-05	Low	Bug	GPS mock detection heuristic can false-positive on real devices
+L-06	Low	Reliability	Notification badge silently disappears if unread field is undefined
+B-01	Backend	API	History endpoint has no kind/period filter params
+B-02	Backend	API	No server-side earnings aggregation — client must sum all pages
+B-03	Backend	API	No OTP resend endpoint for ride trips
+B-04	Backend	API	/riders/cod-summary route likely missing
+DB-01	DB	Performance	Composite indexes on riderId/userId+createdAt need verification
+DB-02	DB	Schema	Rider app still reads deprecated users columns instead of rider_profiles
+That's the complete picture — 28 findings across all layers. Let me know which ones you'd like to tackle first and I'll get straight to
