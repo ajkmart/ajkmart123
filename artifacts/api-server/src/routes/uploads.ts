@@ -463,8 +463,8 @@ router.post("/", customerAuth, async (req, res) => {
       size: buffer.length,
     });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Upload failed";
-    sendError(res, msg);
+    logger.error({ error: e instanceof Error ? e.message : String(e) }, "[uploads] base64 upload error");
+    sendError(res, "Upload failed. Please try again.");
   }
 });
 
@@ -528,8 +528,8 @@ router.post(
         size: buffer.length,
       });
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Upload failed";
-      sendError(res, msg);
+      logger.error({ error: e instanceof Error ? e.message : String(e) }, "[uploads] proof upload error");
+      sendError(res, "Upload failed. Please try again.");
     }
   }
 );
@@ -548,7 +548,8 @@ router.post("/register-token", registerUploadLimiter, async (_req, res) => {
     const nonce = await issueNonce();
     res.status(200).json({ success: true, token: nonce, expiresIn: REG_TOKEN_TTL_MS / 1000 });
   } catch (e: unknown) {
-    sendError(res, e instanceof Error ? e.message : "Failed to generate token");
+    logger.error({ error: e instanceof Error ? e.message : String(e) }, "[uploads] register-token error");
+    sendError(res, "Failed to generate upload token. Please try again.");
   }
 });
 
@@ -645,8 +646,8 @@ router.post(
         size: buffer.length,
       });
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Upload failed";
-      sendError(res, msg);
+      logger.error({ error: e instanceof Error ? e.message : String(e) }, "[uploads] register upload error");
+      sendError(res, "Upload failed. Please try again.");
     }
   }
 );
@@ -709,8 +710,8 @@ router.get("/reg/:key", async (req, res) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.end(result.buffer);
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Fetch failed";
-    sendError(res, msg);
+    logger.error({ error: e instanceof Error ? e.message : String(e), key }, "[uploads] reg doc serve error");
+    sendError(res, "Could not retrieve document. Please try again.");
   }
 });
 
@@ -771,12 +772,14 @@ router.post("/prescription", customerAuth, async (req, res) => {
 
     sendCreated(res, { url, refId });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Upload failed";
-    sendError(res, msg);
+    logger.error({ error: e instanceof Error ? e.message : String(e) }, "[uploads] prescription upload error");
+    sendError(res, "Upload failed. Please try again.");
   }
 });
 
-router.get("/prescription/resolve/:refId", (req, res) => {
+/* Auth required — prescription URLs contain PII. Only the uploading customer
+   or an authenticated user should be able to resolve the reference. */
+router.get("/prescription/resolve/:refId", customerAuth, (req, res) => {
   const url = prescriptionRefMap.get(req.params.refId!);
   if (url) {
     sendSuccess(res, { url });
@@ -839,7 +842,7 @@ router.post(
           "-of",
           "default=noprint_wrappers=1:nokey=1",
           tmpPath,
-        ]);
+        ], { timeout: 15_000 }); /* 15s hard cap — prevents DoS via malformed video */
         const duration = parseFloat(stdout.trim());
         if (isNaN(duration)) {
           sendValidationError(
@@ -886,8 +889,8 @@ router.post(
         size: buffer.length,
       });
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Upload failed";
-      sendError(res, msg);
+      logger.error({ error: e instanceof Error ? e.message : String(e) }, "[uploads] video upload error");
+      sendError(res, "Upload failed. Please try again.");
     }
   }
 );
@@ -942,7 +945,8 @@ router.post(
       const url = await saveAudioBuffer(buffer, mimetype);
       sendCreated(res, { url, filename: originalname || path.basename(url), size: buffer.length });
     } catch (e: unknown) {
-      sendError(res, e instanceof Error ? e.message : "Audio upload failed");
+      logger.error({ error: e instanceof Error ? e.message : String(e) }, "[uploads] audio upload error");
+      sendError(res, "Upload failed. Please try again.");
     }
   }
 );
@@ -997,7 +1001,8 @@ router.post(
       const url = await saveBuffer(buffer, "vendor-doc", mimetype);
       sendCreated(res, { url, filename: originalname || path.basename(url), size: buffer.length });
     } catch (e: unknown) {
-      sendError(res, e instanceof Error ? e.message : "Document upload failed");
+      logger.error({ error: e instanceof Error ? e.message : String(e) }, "[uploads] doc upload error");
+      sendError(res, "Upload failed. Please try again.");
     }
   }
 );
