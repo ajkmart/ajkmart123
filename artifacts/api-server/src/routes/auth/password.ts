@@ -582,6 +582,7 @@ router.post(
 
 router.post(
   "/reset-password",
+  loginLimiter,
   verifyCaptcha,
   sharedValidateBody(ResetPasswordSchema),
   async (req, res) => {
@@ -759,6 +760,15 @@ router.post(
       });
 
       await resetAttempts(lockoutKey);
+
+      // Clear per-identifier OTP send counter so user can request resets again immediately
+      const userIdentifier = user.phone ?? user.email;
+      if (userIdentifier) {
+        const sendKey = user.phone
+          ? `reset_send:${canonicalizePhone(user.phone)}`
+          : `reset_send:${user.email!.toLowerCase().trim()}`;
+        await resetAttempts(sendKey).catch(() => undefined);
+      }
 
       void writeAuthAuditLog("password_reset", {
         userId: user.id,
