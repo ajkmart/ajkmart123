@@ -31,11 +31,14 @@ import { emitWebhookEvent } from "../../lib/webhook-emitter.js";
 import { otpLimiter } from "../../middleware/rate-limit.js";
 import {
   addSecurityEvent,
+  checkLockout,
   generateRefreshToken,
   getAccessTokenTtlSec,
   getCachedSettings,
   getClientIp,
   getRefreshTokenTtlDays,
+  recordFailedAttempt,
+  resetAttempts,
   sign2faChallengeToken,
   signAccessToken,
   verifyCaptcha,
@@ -132,11 +135,24 @@ router.post(
         (req.body.role === "rider" || req.body.role === "vendor" ? req.body.role : "customer");
 
       if (!isAuthMethodEnabled(settings, "auth_phone_otp_enabled", effectiveRole)) {
-        sendErrorWithData(
+        // Normalize to silent 200 — don't reveal that phone is registered with a specific role
+        sendSuccess(res, {
+          otpRequired: true,
+          channel: "sms",
+          message: "If an account exists for this number, an OTP has been sent.",
+        });
+        return;
+      }
+
+      // Per-phone send rate limit — prevents multi-IP SMS flooding of a known number
+      const phoneSendKey = `phone_otp_send:${phone}`;
+      const PHONE_SEND_MAX = 3;
+      const PHONE_SEND_WINDOW_MIN = 30;
+      const phoneSendLockout = await checkLockout(phoneSendKey, PHONE_SEND_MAX, PHONE_SEND_WINDOW_MIN);
+      if (phoneSendLockout.locked) {
+        sendTooManyRequests(
           res,
-          "Phone OTP is currently disabled for your account type.",
-          { code: "AUTH_METHOD_DISABLED" },
-          400
+          `Too many OTP requests for this number. Try again in ${phoneSendLockout.minutesLeft} minute(s).`
         );
         return;
       }
@@ -171,6 +187,9 @@ router.post(
         channel: req.body.preferredChannel,
         ipAddress: ip,
       });
+
+      // Record send against per-phone counter
+      await recordFailedAttempt(phoneSendKey, PHONE_SEND_MAX, PHONE_SEND_WINDOW_MIN);
 
       void writeAuthAuditLog("otp_sent", {
         userId: existingUser?.id,
@@ -570,6 +589,9 @@ router.post(
           severity: "low",
         });
       }
+
+      // Clear per-phone send counter on successful login
+      await resetAttempts(`phone_otp_send:${phone}`).catch(() => undefined);
 
       // Issue full session
       const tokens = await issueTokensForUser(
