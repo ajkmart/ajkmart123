@@ -323,31 +323,40 @@ router.post(
 
       const forgotRole = user.roles ?? "customer";
       if (phone && !isAuthMethodEnabled(settings, "auth_phone_otp_enabled", forgotRole)) {
-        sendForbidden(
-          res,
-          "Phone-based password reset is currently disabled for your account type."
-        );
+        // Fix 1: return same silent 200 instead of 403 — prevents user enumeration via status code
+        sendSuccess(res, { message: "If an account exists, a reset code has been sent." });
         return;
       }
       if (email && !phone && !isAuthMethodEnabled(settings, "auth_email_otp_enabled", forgotRole)) {
-        sendForbidden(
-          res,
-          "Email-based password reset is currently disabled for your account type."
-        );
+        // Fix 1: same — don't leak that account exists via 403
+        sendSuccess(res, { message: "If an account exists, a reset code has been sent." });
         return;
       }
 
-      if (user.isBanned) {
-        sendForbidden(res, "Account suspended.");
-        return;
-      }
-      if (!user.isActive && user.approvalStatus !== "pending") {
-        sendForbidden(res, "Account inactive.");
+      if (user.isBanned || (!user.isActive && user.approvalStatus !== "pending")) {
+        // Fix 1: banned/inactive used to return 403, revealing account existence
+        // Now returns silent 200 — attacker cannot distinguish "no account" from "banned"
+        sendSuccess(res, { message: "If an account exists, a reset code has been sent." });
         return;
       }
 
       const maxAttempts = parseInt(settings["security_login_max_attempts"] ?? "5", 10);
       const lockoutMinutes = parseInt(settings["security_lockout_minutes"] ?? "30", 10);
+
+      // Fix 2: per-identifier send rate limit — prevents multi-IP OTP flooding of a known phone/email
+      const normalizedIdentifier = phone ? canonicalizePhone(phone) : email!.toLowerCase().trim();
+      const sendLockoutKey = `reset_send:${normalizedIdentifier}`;
+      const OTP_SEND_MAX = 3;
+      const OTP_SEND_WINDOW_MIN = 30;
+      const sendLockout = await checkLockout(sendLockoutKey, OTP_SEND_MAX, OTP_SEND_WINDOW_MIN);
+      if (sendLockout.locked) {
+        sendTooManyRequests(
+          res,
+          `Too many reset requests. Try again in ${sendLockout.minutesLeft} minute(s).`
+        );
+        return;
+      }
+
       const lockoutKey = `reset:${user.id}`;
       const lockout = await checkLockout(lockoutKey, maxAttempts, lockoutMinutes);
       if (lockout.locked) {
@@ -397,6 +406,9 @@ router.post(
 
         await sendPasswordResetEmail(email!, otp, user.name ?? undefined, forgotLang);
       }
+
+      // Fix 2: record this send against the per-identifier counter
+      await recordFailedAttempt(sendLockoutKey, OTP_SEND_MAX, OTP_SEND_WINDOW_MIN);
 
       void writeAuthAuditLog("forgot_password", {
         userId: user.id,
@@ -539,8 +551,9 @@ router.post(
         })
         .catch(() => undefined);
 
-      // Fix A (part 2): clear failed-attempt counter on successful OTP verification
+      // Fix A (part 2): clear per-user and per-IP failed-attempt counters on success
       await resetAttempts(lockoutKey);
+      await resetAttempts(ipLockoutKey);
 
       void writeAuthAuditLog("verify_reset_otp", {
         userId: user.id,
