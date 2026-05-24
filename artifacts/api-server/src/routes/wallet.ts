@@ -597,6 +597,13 @@ router.post("/deposit", customerAuth, async (req, res) => {
         transactionId: txId,
       };
       await resolveWalletIdempotency(userId, "deposit", idempotencyKey, 200, body);
+      AuditService.log({
+        action: "wallet_deposit_request",
+        ip: getClientIp(req),
+        result: "success",
+        affectedUserId: userId,
+        details: `Deposit Rs. ${amount.toFixed(2)} via ${paymentMethod} — txnId: ${transactionId}`,
+      });
       sendSuccess(res, body);
     } catch (e: unknown) {
       await deleteWalletIdempotency(userId, "deposit", idempotencyKey);
@@ -719,6 +726,7 @@ router.post("/send", customerAuth, async (req, res) => {
       const [rowA] = await tx
         .select({
           id: usersTable.id,
+          name: usersTable.name,
           walletBalance: usersTable.walletBalance,
           blockedServices: usersTable.blockedServices,
         })
@@ -729,6 +737,7 @@ router.post("/send", customerAuth, async (req, res) => {
       const [rowB] = await tx
         .select({
           id: usersTable.id,
+          name: usersTable.name,
           walletBalance: usersTable.walletBalance,
           blockedServices: usersTable.blockedServices,
         })
@@ -777,18 +786,19 @@ router.post("/send", customerAuth, async (req, res) => {
         userId: senderId,
         type: "debit",
         amount: amount.toFixed(2),
-        description: `${description} → ${receiver.name ?? receiver.id}`,
+        description: `${description} → ${receiver.name ?? "recipient"}`,
         reference: txRef,
         paymentMethod: "wallet",
       });
 
-      /* Insert credit txn for receiver */
+      /* Insert credit txn for receiver — use sender's display name, never the internal UUID */
+      const senderDisplayName = sender?.name ?? "someone";
       await tx.insert(walletTransactionsTable).values({
         id: generateId(),
         userId: receiver.id,
         type: "credit",
         amount: amount.toFixed(2),
-        description: `${description} ← ${senderId}`,
+        description: `${description} ← ${senderDisplayName}`,
         reference: txRef,
         paymentMethod: "wallet",
       });
@@ -797,6 +807,13 @@ router.post("/send", customerAuth, async (req, res) => {
     });
 
     broadcastWalletUpdate(senderId, newSenderBalance);
+    AuditService.log({
+      action: "wallet_send",
+      ip: getClientIp(req),
+      result: "success",
+      affectedUserId: senderId,
+      details: `P2P transfer Rs. ${amount.toFixed(2)} → receiver ${receiver.id} ref: ${txRef}`,
+    });
 
     const body = {
       success: true,
@@ -954,6 +971,13 @@ router.post("/withdraw", customerAuth, async (req, res) => {
         reference: txRef,
       };
       await resolveWalletIdempotency(userId, "withdraw", rawIdemKey, 200, body);
+      AuditService.log({
+        action: "wallet_withdraw_request",
+        ip: getClientIp(req),
+        result: "success",
+        affectedUserId: userId,
+        details: `Withdraw Rs. ${amount.toFixed(2)} via ${paymentMethod} to ${accountNumber} ref: ${txRef}`,
+      });
       sendSuccess(res, body);
     } catch (e: unknown) {
       await deleteWalletIdempotency(userId, "withdraw", rawIdemKey);
