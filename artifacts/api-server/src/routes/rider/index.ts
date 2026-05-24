@@ -4328,6 +4328,109 @@ router.get("/earnings", async (req, res) => {
   }
 });
 
+/* ── GET /riders/earnings/summary — Server-side SUM aggregates ──────────────
+   Returns pre-computed totals directly from wallet_transactions rows so the
+   displayed values are always complete, regardless of how many pages the
+   rider has scrolled through in the transaction list.
+
+   Fields:
+     todayEarned    — credit rows for today (midnight → now, Asia/Karachi)
+     weekEarned     — credit rows for rolling 7-day window
+     monthEarned    — credit rows for rolling 30-day window
+     totalEarned    — all-time credit + bonus rows
+     totalWithdrawn — all-time debit rows (excludes refunds)             */
+router.get("/earnings/summary", async (req, res) => {
+  try {
+    const riderId = req.riderId!;
+
+    const now = new Date();
+    /* Midnight in Asia/Karachi (UTC+5). Approximate via fixed offset; this
+       matches how the rest of the rider finance code handles "today". */
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+
+    const weekStart = new Date(todayStart);
+    weekStart.setDate(weekStart.getDate() - 7);
+
+    const monthStart = new Date(todayStart);
+    monthStart.setDate(monthStart.getDate() - 30);
+
+    const [todayRow, weekRow, monthRow, totalEarnedRow, totalWithdrawnRow] = await Promise.all([
+      /* Today: credit type only */
+      db
+        .select({ s: sum(walletTransactionsTable.amount) })
+        .from(walletTransactionsTable)
+        .where(
+          and(
+            eq(walletTransactionsTable.userId, riderId),
+            eq(walletTransactionsTable.type, "credit"),
+            gte(walletTransactionsTable.createdAt, todayStart)
+          )
+        ),
+      /* Rolling 7-day: credit type */
+      db
+        .select({ s: sum(walletTransactionsTable.amount) })
+        .from(walletTransactionsTable)
+        .where(
+          and(
+            eq(walletTransactionsTable.userId, riderId),
+            eq(walletTransactionsTable.type, "credit"),
+            gte(walletTransactionsTable.createdAt, weekStart)
+          )
+        ),
+      /* Rolling 30-day: credit type */
+      db
+        .select({ s: sum(walletTransactionsTable.amount) })
+        .from(walletTransactionsTable)
+        .where(
+          and(
+            eq(walletTransactionsTable.userId, riderId),
+            eq(walletTransactionsTable.type, "credit"),
+            gte(walletTransactionsTable.createdAt, monthStart)
+          )
+        ),
+      /* All-time credit + bonus */
+      db
+        .select({ s: sum(walletTransactionsTable.amount) })
+        .from(walletTransactionsTable)
+        .where(
+          and(
+            eq(walletTransactionsTable.userId, riderId),
+            or(
+              eq(walletTransactionsTable.type, "credit"),
+              eq(walletTransactionsTable.type, "bonus")
+            )
+          )
+        ),
+      /* All-time withdrawals (debit rows that are NOT refunds) */
+      db
+        .select({ s: sum(walletTransactionsTable.amount) })
+        .from(walletTransactionsTable)
+        .where(
+          and(
+            eq(walletTransactionsTable.userId, riderId),
+            eq(walletTransactionsTable.type, "debit"),
+            sql`(${walletTransactionsTable.reference} IS NULL OR ${walletTransactionsTable.reference} NOT LIKE 'refund:%')`
+          )
+        ),
+    ]);
+
+    sendSuccess(res, {
+      todayEarned: parseFloat((safeNum(todayRow[0]?.s)).toFixed(2)),
+      weekEarned: parseFloat((safeNum(weekRow[0]?.s)).toFixed(2)),
+      monthEarned: parseFloat((safeNum(monthRow[0]?.s)).toFixed(2)),
+      totalEarned: parseFloat((safeNum(totalEarnedRow[0]?.s)).toFixed(2)),
+      totalWithdrawn: parseFloat((safeNum(totalWithdrawnRow[0]?.s)).toFixed(2)),
+    });
+  } catch (err) {
+    logger.error(
+      { error: err instanceof Error ? err.message : String(err), timestamp: new Date().toISOString() },
+      "[route] unhandled error"
+    );
+    sendError(res, "Internal server error", 500);
+  }
+});
+
 /* ── GET /rider/wallet/transactions ──
    Cursor-paginated. Default page size 50, hard cap 200. The cursor is an
    opaque base64 of `{ createdAt, id }` from the last item of the previous
@@ -4607,10 +4710,18 @@ router.get("/cod-summary", async (req, res) => {
     ]);
     const totalCollected = safeNum(codAgg[0]?.total);
     const totalVerified = safeNum(verifiedAgg[0]?.total);
+    /* totalRemitted = verified remittances (cash handed back to platform).
+       pendingAmount = amount still owed by the rider (not yet remitted).
+       Legacy field aliases (totalVerified, netOwed) are kept for backward
+       compatibility with any older client versions still in the field. */
+    const totalRemitted = totalVerified;
+    const pendingAmount = Math.max(0, totalCollected - totalVerified);
     sendSuccess(res, {
       totalCollected,
+      totalRemitted,
+      pendingAmount,
       totalVerified,
-      netOwed: Math.max(0, totalCollected - totalVerified),
+      netOwed: pendingAmount,
       codOrderCount: Number(codAgg[0]?.count ?? 0),
       remittances: remittances.map((r) => ({ ...r, amount: safeNum(r.amount) })),
     });

@@ -47,8 +47,40 @@ import {
 import DepositModal from "../components/wallet/DepositModal";
 import RemittanceModal from "../components/wallet/RemittanceModal";
 
-const fc = (n: string | number | null | undefined, currencySymbol = "Rs.") =>
-  _sharedFcW(n != null ? String(n) : (n as null | undefined), currencySymbol);
+/* C-03: Config-driven decimal formatting.
+   ISO 4217 currencies that have no sub-unit (0 decimal places).
+   All others default to 2 decimal places.
+   The active currency code comes from platform config (e.g. "PKR", "USD"),
+   ensuring this stays in sync with any currency the admin configures.       */
+const ZERO_DECIMAL_CURRENCIES = new Set([
+  "PKR", "JPY", "KRW", "VND", "IDR", "CLP", "ISK", "MGA", "PYG", "RWF", "UGX",
+  "BIF", "DJF", "GNF", "KMF", "LAK", "MNT", "XAF", "XOF", "XPF",
+]);
+
+function currencyFractionDigits(currencyCode?: string | null): number {
+  if (!currencyCode) return 2;
+  return ZERO_DECIMAL_CURRENCIES.has(currencyCode.toUpperCase()) ? 0 : 2;
+}
+
+function normalizeCurrencyAmount(
+  n: string | number | null | undefined,
+  currencyCode?: string | null
+): string | null | undefined {
+  if (n == null) return n as null | undefined;
+  const num = typeof n === "number" ? n : parseFloat(String(n));
+  if (isNaN(num)) return String(n);
+  return num.toFixed(currencyFractionDigits(currencyCode));
+}
+
+/* fc() — formats a monetary value using the platform-configured currency.
+   Pass currencySymbol for the display symbol and currencyCode (ISO 4217) to
+   determine decimal precision. The third param is optional for backward compat
+   with call sites inside sub-components that only have the symbol. */
+const fc = (
+  n: string | number | null | undefined,
+  currencySymbol = "Rs.",
+  currencyCode?: string | null
+) => _sharedFcW(normalizeCurrencyAmount(n, currencyCode), currencySymbol);
 const fd = (d: string | Date, tz?: string) =>
   formatDateTz(
     d,
@@ -165,6 +197,7 @@ function EarningsChart({ transactions }: { transactions: WalletTx[] }) {
   const T = (key: TranslationKey) => tDual(key, language);
   const { config: chartConfig } = usePlatformConfig();
   const chartCurrency = chartConfig.platform.currencySymbol ?? "Rs.";
+  const chartCurrencyCode = chartConfig.platform.currencyCode ?? null;
   const days = useMemo(() => {
     const result: { label: string; amount: number; date: string }[] = [];
     for (let i = 6; i >= 0; i--) {
@@ -198,7 +231,7 @@ function EarningsChart({ transactions }: { transactions: WalletTx[] }) {
           <BarChart3 size={15} className="text-gray-400" />
           <p className="text-sm font-bold text-gray-800">{T("sevenDayEarnings")}</p>
         </div>
-        <p className="text-base font-black text-green-600">{fc(weekTotal, chartCurrency)}</p>
+        <p className="text-base font-black text-green-600">{fc(weekTotal, chartCurrency, chartCurrencyCode)}</p>
       </div>
       <div className="flex h-20 items-end gap-3">
         {days.map((d, i) => (
@@ -209,7 +242,7 @@ function EarningsChart({ transactions }: { transactions: WalletTx[] }) {
                   i === bestIdx ? "bg-green-500" : "bg-gray-100"
                 }`}
                 style={{ height: Math.max((d.amount / maxVal) * 56, d.amount > 0 ? 4 : 2) }}
-                title={`${d.date}: ${fc(d.amount, chartCurrency)}`}
+                title={`${d.date}: ${fc(d.amount, chartCurrency, chartCurrencyCode)}`}
               />
             </div>
             <p
@@ -229,6 +262,7 @@ function PendingRequestCard({ tx }: { tx: WalletTx }) {
   const T = (key: TranslationKey) => tDual(key, language);
   const { config: cardConfig } = usePlatformConfig();
   const cardCurrency = cardConfig.platform.currencySymbol ?? "Rs.";
+  const cardCurrencyCode = cardConfig.platform.currencyCode ?? null;
   const parsed = (() => {
     const parts = (tx.description || "").replace("Withdrawal — ", "").split(" · ");
     return {
@@ -301,7 +335,7 @@ function PendingRequestCard({ tx }: { tx: WalletTx }) {
           </div>
         </div>
         <div className="flex-shrink-0 text-right">
-          <p className="text-lg font-black text-gray-900">{fc(Number(tx.amount), cardCurrency)}</p>
+          <p className="text-lg font-black text-gray-900">{fc(Number(tx.amount), cardCurrency, cardCurrencyCode)}</p>
           <span
             className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${statusConfig.badge} inline-flex items-center gap-1`}
           >
@@ -404,6 +438,8 @@ export default function Wallet() {
   const { user, refreshUser } = useAuth();
   const { config } = usePlatformConfig();
   const currency = config.platform.currencySymbol ?? "Rs.";
+  /* C-03: ISO 4217 currency code from platform config — drives decimal precision in fc(). */
+  const currencyCode = config.platform.currencyCode ?? null;
   const tz = config.regional?.timezone ?? "Asia/Karachi";
   const _fd = (d: string | Date) =>
     formatDateTz(d, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }, tz);
@@ -464,7 +500,7 @@ export default function Wallet() {
      visible list; the IntersectionObserver below auto-loads the next page
      when the sentinel scrolls into view. */
   const PAGE_SIZE = 50;
-  const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
+  const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage, dataUpdatedAt } =
     useInfiniteQuery({
       queryKey: ["rider-wallet"],
       queryFn: ({ pageParam }) =>
@@ -499,6 +535,16 @@ export default function Wallet() {
     queryFn: () => api.getCodSummary(),
     staleTime: 60_000,
     refetchInterval: 30000,
+    enabled: config.features.wallet,
+  });
+
+  /* C-02: Server-side earnings aggregates — replaces the scroll-dependent
+     client-side sums that were incomplete until the rider scrolled all pages. */
+  const { data: earningsSummary } = useQuery({
+    queryKey: ["rider-earnings-summary"],
+    queryFn: () => api.getEarningsSummary(),
+    staleTime: 60_000,
+    refetchInterval: 60_000,
     enabled: config.features.wallet,
   });
 
@@ -539,25 +585,20 @@ export default function Wallet() {
   const balanceFromServer = pages[0]?.balance;
   const balance = balanceFromServer ?? "0";
   const balanceNum = balanceFromServer != null ? Number(balanceFromServer) : 0;
-  const isBalanceStale = false;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const weekAgo = new Date();
-  weekAgo.setDate(weekAgo.getDate() - 7);
+  /* H-06: Real stale detection — compare wallet query's last successful fetch
+     timestamp against now. If data is older than 5 minutes, show the "cached"
+     badge to prompt the rider to pull-to-refresh. `dataUpdatedAt` is 0 when
+     the query has never loaded successfully (treated as not stale). */
+  const STALE_THRESHOLD_MS = 5 * 60 * 1000;
+  const isBalanceStale = dataUpdatedAt > 0 && (Date.now() - dataUpdatedAt) > STALE_THRESHOLD_MS;
 
-  const todayEarned = transactions
-    .filter((t) => t.type === "credit" && new Date(t.createdAt) >= today)
-    .reduce((s, t) => s + Number(t.amount), 0);
-  const weekEarned = transactions
-    .filter((t) => t.type === "credit" && new Date(t.createdAt) >= weekAgo)
-    .reduce((s, t) => s + Number(t.amount), 0);
-  const totalEarned = transactions
-    .filter((t) => t.type === "credit" || t.type === "bonus")
-    .reduce((s, t) => s + Number(t.amount), 0);
-  const totalWithdrawn = transactions
-    .filter((t) => t.type === "debit" && !t.reference?.startsWith("refund:"))
-    .reduce((s, t) => s + Number(t.amount), 0);
+  /* C-02: Use server-aggregated totals from the dedicated summary endpoint.
+     Fall back to 0 while the query is loading so the UI doesn't flicker. */
+  const todayEarned = earningsSummary?.todayEarned ?? 0;
+  const weekEarned = earningsSummary?.weekEarned ?? 0;
+  const totalEarned = earningsSummary?.totalEarned ?? 0;
+  const totalWithdrawn = earningsSummary?.totalWithdrawn ?? 0;
   const promoBalance = useMemo(
     () =>
       transactions
@@ -618,6 +659,7 @@ export default function Wallet() {
     await Promise.all([
       qc.invalidateQueries({ queryKey: ["rider-wallet"] }),
       qc.invalidateQueries({ queryKey: ["rider-cod"] }),
+      qc.invalidateQueries({ queryKey: ["rider-earnings-summary"] }),
     ]);
   }, [qc]);
 
@@ -731,7 +773,7 @@ export default function Wallet() {
               ) : isLoading ? (
                 <span className="animate-pulse text-[28px] text-white/40">loading...</span>
               ) : (
-                fc(balance, currency)
+                fc(balance, currency, currencyCode)
               )}
             </p>
             {isBalanceStale && !balanceHidden && (
@@ -755,7 +797,7 @@ export default function Wallet() {
               <div className="flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5">
                 <Clock size={9} className="text-amber-400" />
                 <span className="text-[9px] font-bold text-amber-400">
-                  {fc(pendingAmt, currency)} {T("pending")}
+                  {fc(pendingAmt, currency, currencyCode)} {T("pending")}
                 </span>
               </div>
             )}
@@ -767,7 +809,7 @@ export default function Wallet() {
                 {T("earnedToday")}
               </p>
               <p className="mt-0.5 text-sm font-black text-green-400">
-                {balanceHidden ? "••••" : fc(todayEarned, currency)}
+                {balanceHidden ? "••••" : fc(todayEarned, currency, currencyCode)}
               </p>
             </div>
             <div className="rounded-2xl border border-white/[0.06] bg-white/[0.06] px-3 py-2.5 backdrop-blur-sm">
@@ -781,7 +823,7 @@ export default function Wallet() {
                 {T("totalWithdrawn")}
               </p>
               <p className="mt-0.5 text-sm font-black text-red-400">
-                {fc(totalWithdrawn, currency)}
+                {fc(totalWithdrawn, currency, currencyCode)}
               </p>
             </div>
           </div>
@@ -793,7 +835,7 @@ export default function Wallet() {
                   <Sparkles size={9} /> Promo Balance
                 </p>
                 <p className="mt-0.5 text-xl font-black text-white">
-                  {balanceHidden ? "••••" : fc(promoBalance, currency)}
+                  {balanceHidden ? "••••" : fc(promoBalance, currency, currencyCode)}
                 </p>
                 <p className="mt-0.5 text-[9px] text-white/30">Bonuses · Cashback · Loyalty</p>
               </div>
@@ -808,7 +850,7 @@ export default function Wallet() {
               <AlertTriangle size={14} className="flex-shrink-0 text-amber-400" />
               <div>
                 <p className="text-xs font-bold text-amber-300">
-                  {T("cashMinBalance")}: {fc(minBalance, currency)}
+                  {T("cashMinBalance")}: {fc(minBalance, currency, currencyCode)}
                 </p>
                 <p className="text-[10px] text-amber-400/60">
                   {currency} {Math.round(minBalance - balanceNum)} {T("moreNeeded")}
@@ -921,19 +963,19 @@ export default function Wallet() {
             {[
               {
                 label: T("earnedToday"),
-                value: fc(todayEarned, currency),
+                value: fc(todayEarned, currency, currencyCode),
                 color: "text-emerald-600",
                 icon: <TrendingUp size={13} className="text-emerald-500" />,
               },
               {
                 label: T("earnedThisWeek"),
-                value: fc(weekEarned, currency),
+                value: fc(weekEarned, currency, currencyCode),
                 color: "text-blue-600",
                 icon: <BarChart3 size={13} className="text-blue-500" />,
               },
               {
                 label: T("totalEarned"),
-                value: fc(totalEarned, currency),
+                value: fc(totalEarned, currency, currencyCode),
                 color: "text-violet-600",
                 icon: <Wallet2 size={13} className="text-violet-500" />,
               },
@@ -977,7 +1019,7 @@ export default function Wallet() {
                 <p
                   className={`text-xl font-black ${codNetOwed > 0 ? "text-blue-600" : "text-green-600"}`}
                 >
-                  {fc(codNetOwed, currency)}
+                  {fc(codNetOwed, currency, currencyCode)}
                 </p>
                 <p className="flex items-center justify-end gap-1 text-[10px] text-gray-400">
                   {codNetOwed > 0 ? (
@@ -993,18 +1035,18 @@ export default function Wallet() {
 
             <div className="grid grid-cols-3 gap-2 border-t border-gray-50 px-5 pt-3 pb-3 text-center">
               <div className="rounded-xl bg-gray-50 py-2">
-                <p className="text-xs font-black text-gray-800">{fc(codCollected, currency)}</p>
+                <p className="text-xs font-black text-gray-800">{fc(codCollected, currency, currencyCode)}</p>
                 <p className="text-[9px] font-medium text-gray-400">{T("collected")}</p>
               </div>
               <div className="rounded-xl bg-gray-50 py-2">
-                <p className="text-xs font-black text-green-600">{fc(codVerified, currency)}</p>
+                <p className="text-xs font-black text-green-600">{fc(codVerified, currency, currencyCode)}</p>
                 <p className="text-[9px] font-medium text-gray-400">{T("verified")}</p>
               </div>
               <div className="rounded-xl bg-gray-50 py-2">
                 <p
                   className={`text-xs font-black ${codNetOwed > 0 ? "text-blue-600" : "text-gray-400"}`}
                 >
-                  {fc(codNetOwed, currency)}
+                  {fc(codNetOwed, currency, currencyCode)}
                 </p>
                 <p className="text-[9px] font-medium text-gray-400">{T("owed")}</p>
               </div>
@@ -1107,7 +1149,7 @@ export default function Wallet() {
                         </div>
                       </div>
                       <p className="flex-shrink-0 text-sm font-black text-blue-600">
-                        {fc(Number(r.amount), currency)}
+                        {fc(Number(r.amount), currency, currencyCode)}
                       </p>
                     </div>
                   );
@@ -1205,7 +1247,7 @@ export default function Wallet() {
                               )}
                             </div>
                             <p className="flex-shrink-0 text-sm font-black text-green-600">
-                              {fc(Number(dep.amount), currency)}
+                              {fc(Number(dep.amount), currency, currencyCode)}
                             </p>
                           </div>
                         );
@@ -1272,7 +1314,7 @@ export default function Wallet() {
                   step: "2",
                   icon: <Wallet2 size={14} className="text-green-600" />,
                   title: T("buildBalance"),
-                  desc: `${T("minToWithdraw")}: ${fc(minPayout, currency)}`,
+                  desc: `${T("minToWithdraw")}: ${fc(minPayout, currency, currencyCode)}`,
                 },
                 {
                   step: "3",
@@ -1417,7 +1459,7 @@ export default function Wallet() {
                             }`}
                           >
                             {isDebitType ? "−" : "+"}
-                            {fc(Number(t.amount), currency)}
+                            {fc(Number(t.amount), currency, currencyCode)}
                           </p>
                         </div>
                       );
@@ -1453,9 +1495,9 @@ export default function Wallet() {
           <div className="grid grid-cols-2 gap-2.5">
             {[
               { label: T("yourShare" as TranslationKey), value: `${riderKeepPct}%` },
-              { label: T("minWithdrawalLabel"), value: fc(minPayout, currency) },
+              { label: T("minWithdrawalLabel"), value: fc(minPayout, currency, currencyCode) },
               { label: T("processingTime"), value: `${procDays * 24}-${procDays * 24 + 24}h` },
-              { label: T("maxWithdrawalLabel"), value: fc(maxPayout, currency) },
+              { label: T("maxWithdrawalLabel"), value: fc(maxPayout, currency, currencyCode) },
             ].map((p) => (
               <div
                 key={p.label}

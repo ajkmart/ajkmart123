@@ -953,6 +953,13 @@ export const api = {
     const qs = params.toString();
     return apiFetch(`/riders/history${qs ? `?${qs}` : ""}`);
   },
+  getEarningsSummary: (): Promise<{
+    todayEarned: number;
+    weekEarned: number;
+    monthEarned: number;
+    totalEarned: number;
+    totalWithdrawn: number;
+  }> => apiFetch("/riders/earnings/summary"),
   getEarnings: (): Promise<{
     today: {
       earnings: number;
