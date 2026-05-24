@@ -483,24 +483,26 @@ router.post(
         return;
       }
 
-      const identifier = phone ? canonicalizePhone(phone) : (email as string).toLowerCase().trim();
-      const identifierType = phone ? "phone" : "email";
-      const activeToken = await getActiveOtpToken({ identifier, identifierType, otpType: "reset" });
-      if (!activeToken || !verifyOtpHash(otp, activeToken.otpHash)) {
-        sendError(res, "Invalid or expired verification code", 422);
-        return;
-      }
-
       const settings = await getCachedSettings();
       const maxAttempts = parseInt(settings["security_login_max_attempts"] ?? "5", 10);
       const lockoutMinutes = parseInt(settings["security_lockout_minutes"] ?? "30", 10);
       const lockoutKey = `reset:${user.id}`;
+
       const lockout = await checkLockout(lockoutKey, maxAttempts, lockoutMinutes);
       if (lockout.locked) {
         sendTooManyRequests(
           res,
           `Too many attempts. Try again in ${lockout.minutesLeft} minute(s).`
         );
+        return;
+      }
+
+      const identifier = phone ? canonicalizePhone(phone) : (email as string).toLowerCase().trim();
+      const identifierType = phone ? "phone" : "email";
+      const activeToken = await getActiveOtpToken({ identifier, identifierType, otpType: "reset" });
+      if (!activeToken || !verifyOtpHash(otp, activeToken.otpHash)) {
+        await recordFailedAttempt(lockoutKey, maxAttempts, lockoutMinutes);
+        sendError(res, "Invalid or expired verification code", 422);
         return;
       }
 
